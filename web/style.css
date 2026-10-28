@@ -1,4 +1,5 @@
 :root { font-family: system-ui, sans-serif; color: #172b3a; background: #f3f6f8; }
+html[data-mode="local"] .demo-only, html[data-mode="demo"] .local-only { display: none; }
 body { margin: 0; }
 main { max-width: 900px; margin: 2rem auto; padding: 0 1.25rem 2rem; }
 h1 { margin-bottom: 0; }

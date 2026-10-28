@@ -2,12 +2,14 @@ const ui = Object.fromEntries(
   ["source", "compile", "status", "errors", "count", "run", "pause", "step", "reset"]
     .map((id) => [id, document.getElementById(id)]),
 );
+const demo = document.documentElement.dataset.mode === "demo";
+ui.source.readOnly = demo;
 let simulator = null;
 let timer = null;
 let busy = false;
 
 function controls() {
-  ui.compile.disabled = busy;
+  ui.compile.disabled = demo || busy;
   ui.source.disabled = busy;
   ui.run.disabled = !simulator || timer !== null;
   ui.pause.disabled = timer === null;
@@ -35,7 +37,17 @@ function showError(error) {
   discard();
   ui.errors.textContent = error.message;
   ui.errors.hidden = false;
-  ui.status.textContent = "Failed. Fix the source or toolchain and compile again.";
+  ui.status.textContent = demo
+    ? "Demo failed to load or run. Reload the page to try again."
+    : "Failed. Fix the source or toolchain and compile again.";
+}
+
+async function loadSimulator(moduleUrl) {
+  const { default: createSimulator } = await import(moduleUrl);
+  simulator = await createSimulator();
+  simulator._sim_init();
+  ui.count.textContent = simulator._sim_count();
+  ui.status.textContent = "Ready. The compiled circuit is reset.";
 }
 
 function simulate(action) {
@@ -49,6 +61,7 @@ function simulate(action) {
 }
 
 ui.compile.addEventListener("click", async () => {
+  if (demo) return;
   discard();
   busy = true;
   controls();
@@ -62,11 +75,7 @@ ui.compile.addEventListener("click", async () => {
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || "Build failed.");
-    const { default: createSimulator } = await import(result.moduleUrl);
-    simulator = await createSimulator();
-    simulator._sim_init();
-    ui.count.textContent = simulator._sim_count();
-    ui.status.textContent = "Ready. The compiled circuit is reset.";
+    await loadSimulator(result.moduleUrl);
   } catch (error) {
     showError(error);
   } finally {
@@ -97,13 +106,16 @@ ui.source.addEventListener("input", () => {
 });
 
 try {
-  const response = await fetch("/example.v");
+  const response = await fetch("./example.v");
   if (!response.ok) throw new Error("Could not load the counter example. Reload the page.");
   ui.source.value = await response.text();
-  controls();
-  ui.status.textContent = "Edit the example or compile it as is.";
+  if (demo) {
+    ui.status.textContent = "Loading precompiled counter…";
+    await loadSimulator("./sim.mjs");
+  } else {
+    ui.status.textContent = "Edit the example or compile it as is.";
+  }
 } catch (error) {
-  ui.errors.textContent = error.message;
-  ui.errors.hidden = false;
-  ui.status.textContent = "Example unavailable. Reload to try again.";
+  showError(error);
 }
+controls();

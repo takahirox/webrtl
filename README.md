@@ -1,7 +1,66 @@
 # webrtl
 
-WebRTL's local MVP compiles an editable 8-bit Verilog counter with Verilator and
-Emscripten, then runs the resulting WebAssembly circuit in your browser.
+WebRTL runs an 8-bit Verilog counter as a WebAssembly circuit in your browser.
+The static demo uses a precompiled model; local development also supports editing
+and compiling trusted HDL with Verilator and Emscripten.
+
+## Public counter demo
+
+Demo URL: **https://takahirox.github.io/webrtl/** (published after the Pages workflow
+successfully deploys `main`). No installation or backend is needed. The page loads
+the precompiled counter automatically. Use **Run / Pause / Step / Reset** to inspect
+the circuit: Step advances one full clock cycle, count wraps modulo 256, and Reset
+pauses and returns to zero.
+
+The demo shows the compiled RTL as read-only and has no Compile action. Arbitrary
+RTL editing/recompilation and browser-side HDL compilation are not available on
+GitHub Pages yet. Use [local development](#local-setup) for edit-and-compile work.
+The demo reuses the existing RTL, C++ simulator, and Verilator/Emscripten pipeline;
+JavaScript displays the actual Wasm model output.
+
+### Build and preview the static site
+
+Install the same Python, Verilator, and Emscripten tools described below, then run:
+
+```sh
+python3 build_site.py
+python3 -m http.server 8000 --bind 127.0.0.1 --directory .build/pages
+```
+
+Open **http://127.0.0.1:8000/webrtl/**, including the trailing slash. This is a plain
+static file server; do not start `server.py` for this preview. Relative asset URLs
+keep the UI, example RTL, ES module, and sibling Wasm file under `/webrtl/`.
+
+The build replaces `.build/pages/webrtl/` with the six runtime files: `index.html`,
+`app.js`, `style.css`, `example.v`, `sim.mjs`, and `sim.wasm`. Native compilation runs
+only at build time through [build.py](build.py). Compiler intermediates are not
+published, and generated files are ignored by Git. Rebuild after changing the RTL,
+simulator, or UI. Node.js is needed only for automated browser tests, not this build.
+Use the Ubuntu 24.04 packages as the deployment reference toolchain. The newer
+Verilator 5.052 / Emscripten 6.0.13 combination currently fails to link CPU-affinity
+symbols in the existing pipeline; use the Ubuntu packages for static builds if
+you encounter that error.
+
+### GitHub Pages deployment
+
+One time, in the repository's **Settings → Pages → Build and deployment**, select
+**GitHub Actions** as the source. If the `github-pages` environment has deployment
+branch restrictions, allow `main`.
+
+[The Pages workflow](.github/workflows/pages.yml) runs on pull requests to `main`,
+pushes to `main`, and manual dispatch. It installs the toolchain on Ubuntu 24.04,
+runs the Python and real-circuit browser checks for both modes, then uploads the
+tested `.build/pages/webrtl/` contents as a Pages artifact. Only runs on `main`
+deploy, using the `github-pages` environment and scoped `pages: write` and
+`id-token: write` permissions. Manual dispatch on `main` can retry a deployment.
+The artifact's contents become the project site's root; do not upload the parent
+`.build/pages/` directory or the URL would have an extra `webrtl/` segment.
+
+Required post-merge verification for #6 remains separate from pre-merge checks:
+after the workflow deploys, open **https://takahirox.github.io/webrtl/** publicly,
+confirm the Wasm initializes at zero, Step to one, Run then Pause and confirm the
+value stops changing, and Reset to zero. Record any deployment/settings problems
+separately. Local checks do not establish that the live deployment succeeded.
 
 ## Local setup
 
@@ -126,7 +185,7 @@ that isolation. Do not accept untrusted HDL on this service.
 
 ## Validation
 
-The browser integration test compiles real HDL with the installed native tools
+The local browser integration test compiles real HDL with the installed native tools
 and loads the resulting Wasm in Chromium. It checks reset, individual cycles,
 255 → 0 wraparound, Run/Pause, Reset during Run, and recompilation after errors.
 It also compiles a counter that increments by three and checks 3 then 6, proving
@@ -141,7 +200,18 @@ npx playwright install --with-deps chromium
 npm test
 ```
 
-The browser test starts and stops its own trusted local service on port 8765.
+The local browser test starts and stops its own trusted local service on port 8765.
+The static tests build the demo, serve only `.build/pages/` on port 8766, and load
+`/webrtl/` in Chromium. They check real Wasm bytes and output, wraparound,
+Run/Pause/Step/Reset, reload, read-only demo mode, missing-asset errors, and that
+requests stay under the project subpath without calling a build API. These checks
+run before merge without a live Pages deployment. To run either mode separately:
+
+```sh
+npm run test:local
+npm run test:demo
+```
+
 Python checks can also run alone without the compiler or Node:
 
 ```sh
