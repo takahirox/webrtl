@@ -35,8 +35,8 @@ requirements or necessary validation.
 Verify mandatory pre-merge acceptance using evidence appropriate to the changed
 files and the actual repository tooling. Check that validation claims accurately
 describe checks performed, results, failures, skipped checks, and unperformed
-checks. Follow the [repository validation guidance](development-flow.md#repository-validation):
-there are currently no configured build/test commands. For documentation-only
+checks. Follow the [repository validation guidance](development-flow.md#repository-validation)
+and the [application validation commands](../README.md#validation). For documentation-only
 changes, check template/Markdown syntax, links, whitespace, and consistency; do not
 require unrelated runtime suites, new tooling, physical-device tests, or deployment.
 
