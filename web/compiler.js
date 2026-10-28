@@ -1,18 +1,11 @@
 // Project source -> Yosys CXXRTL -> Clang/LLD -> a new standalone Wasm module.
 // The compiler owns virtual filesystems; editor and board behavior live elsewhere.
+import { validateProject } from "./project.js";
+
 export async function compileProject(project, progress) {
+  validateProject(project);
   const { files, top } = project;
-  if (!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(top)) throw new Error("Invalid top-module name.");
   const names = Object.keys(files);
-  if (!names.length || names.some((name) => !/^[a-zA-Z0-9_-]+\.v$/.test(name))) {
-    throw new Error("Provide Verilog files with simple .v filenames.");
-  }
-  if (Object.values(files).some((source) => typeof source !== "string" || !source.trim())) {
-    throw new Error("Provide nonempty Verilog source.");
-  }
-  if (Object.values(files).reduce((size, source) => size + new TextEncoder().encode(source).length, 0) > 65536) {
-    throw new Error("Verilog source exceeds the 64 KiB limit.");
-  }
   let diagnostics = "";
   let stage = "Loading browser toolchain";
   const decoder = new TextDecoder();

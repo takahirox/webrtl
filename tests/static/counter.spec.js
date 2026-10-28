@@ -31,7 +31,7 @@ test("compiles edited RTL and runs fresh Wasm under /webrtl/ with only static GE
   expect(existsSync(".build/pages/webrtl/sim.wasm")).toBe(false);
   await observeCompilations(page);
   await page.goto("./");
-  const source = page.getByLabel("8-bit counter · counter.v");
+  const source = page.locator("#source");
   const compile = page.getByRole("button", { name: "Compile", exact: true });
   const step = page.getByRole("button", { name: "Step", exact: true });
   const run = page.getByRole("button", { name: "Run", exact: true });
@@ -169,4 +169,179 @@ test("reports missing tooling, permits retry, and diagnoses an incompatible inte
   await compile.click();
   await expect(page.locator("#step")).toBeEnabled({ timeout: 120000 });
   await expect(page.locator("#count")).toHaveText("0");
+});
+
+test("runs the two-file example, retains edits across files, and compiles a selected top and edited helper", async ({ page, context }) => {
+  const requests = [];
+  const errors = [];
+  context.on("request", (request) => requests.push(request));
+  page.on("pageerror", (error) => errors.push(error.message));
+  await observeCompilations(page);
+  await page.goto("./");
+  const source = page.locator("#source");
+  const files = page.getByLabel("Source file", { exact: true });
+  const top = page.getByLabel("Top module", { exact: true });
+  const compile = page.getByRole("button", { name: "Compile", exact: true });
+  const step = page.getByRole("button", { name: "Step", exact: true });
+  const count = page.locator("#count");
+  await page.getByLabel("Example", { exact: true }).selectOption("split");
+  await page.getByRole("button", { name: "Load example (replaces project)", exact: true }).click();
+  const main = readFileSync("examples/split-counter/split-counter.v", "utf8");
+  const helper = readFileSync("examples/split-counter/counter-next.v", "utf8");
+  await expect(source).toHaveValue(main);
+  await expect(top).toHaveValue("split_counter");
+  await expect(files.locator("option")).toHaveText(["split-counter.v", "counter-next.v"]);
+  await compile.click();
+  await expect(top).toBeDisabled();
+  await expect(files).toBeDisabled();
+  await expect(page.getByLabel("Import local .v files (adds to project)")).toBeDisabled();
+  await expect(step).toBeEnabled({ timeout: 120000 });
+  await expect(count).toHaveText("0");
+  await step.click();
+  await expect(count).toHaveText("1");
+  // Switching the editor file alone preserves the circuit as well as all edits.
+  await files.selectOption("counter-next.v");
+  await expect(source).toHaveValue(helper);
+  await expect(count).toHaveText("1");
+  await source.fill(helper.replace("8'd1", "8'd3"));
+  await expect(step).toBeDisabled();
+  await files.selectOption("split-counter.v");
+  await expect(source).toHaveValue(main);
+  await source.fill(main.replace("module split_counter", "module selected_top"));
+  await files.selectOption("counter-next.v");
+  await expect(source).toHaveValue(helper.replace("8'd1", "8'd3"));
+  await top.fill("selected_top");
+  await compile.click();
+  await expect(step).toBeEnabled({ timeout: 120000 });
+  await step.click();
+  await expect(count).toHaveText("3");
+  await step.click();
+  await expect(count).toHaveText("6");
+  await page.getByRole("button", { name: "Run", exact: true }).click();
+  await expect.poll(async () => Number(await count.textContent())).toBeGreaterThan(6);
+  await page.getByRole("button", { name: "Pause", exact: true }).click();
+  await expect(step).toBeEnabled();
+  const paused = await count.textContent();
+  await page.waitForTimeout(350);
+  await expect(count).toHaveText(paused);
+  await page.getByRole("button", { name: "Reset", exact: true }).click();
+  await expect(count).toHaveText("0");
+  const artifacts = await page.evaluate(() => window.compilations);
+  expect(artifacts).toHaveLength(2);
+  expect(artifacts.every(({ valid, size }) => valid && size > 100)).toBe(true);
+  expect(artifacts[0].hash).not.toBe(artifacts[1].hash);
+  expect(errors).toEqual([]);
+  for (const request of requests) {
+    expect(request.method()).toBe("GET");
+    expect(new URL(request.url()).origin).toBe("http://127.0.0.1:8766");
+    expect(new URL(request.url()).pathname).toMatch(/^\/webrtl\//);
+    expect(request.url()).not.toContain("/api/");
+  }
+  // The original example remains available after working on a multi-file project.
+  await page.getByLabel("Example", { exact: true }).selectOption("single");
+  await page.getByRole("button", { name: "Load example (replaces project)", exact: true }).click();
+  await expect(source).toHaveValue(readFileSync("examples/counter.v", "utf8"));
+  await expect(files.locator("option")).toHaveText(["counter.v"]);
+  await expect(top).toHaveValue("counter");
+});
+
+test("imports multiple files atomically, manages files, and recovers from project and compiler errors", async ({ page }) => {
+  await page.goto("./");
+  const source = page.locator("#source");
+  const files = page.getByLabel("Source file", { exact: true });
+  const filename = page.getByLabel("Filename to add or rename");
+  const top = page.getByLabel("Top module", { exact: true });
+  const input = page.getByLabel("Import local .v files (adds to project)");
+  const alert = page.getByRole("alert");
+  const compile = page.getByRole("button", { name: "Compile", exact: true });
+  const step = page.getByRole("button", { name: "Step", exact: true });
+  const original = readFileSync("examples/counter.v", "utf8");
+  const upload = (name, content) => ({ name, mimeType: "text/plain", buffer: Buffer.from(content) });
+  await expect(source).toHaveValue(original);
+
+  for (const name of ["bad name.v", "not-verilog.txt", "-option.v", "bad.v;"]) {
+    await filename.fill(name);
+    await page.getByRole("button", { name: "Add file", exact: true }).click();
+    await expect(alert).toContainText("Invalid source name");
+    await expect(source).toHaveValue(original);
+  }
+  await filename.fill("counter.v");
+  await page.getByRole("button", { name: "Add file", exact: true }).click();
+  await expect(alert).toContainText("already exists");
+
+  await filename.fill("scratch.v");
+  await page.getByRole("button", { name: "Add file", exact: true }).click();
+  await source.fill("// scratch edits");
+  await files.selectOption("counter.v");
+  await expect(source).toHaveValue(original);
+  await files.selectOption("scratch.v");
+  await expect(source).toHaveValue("// scratch edits");
+  await filename.fill("counter.v");
+  await page.getByRole("button", { name: "Rename file", exact: true }).click();
+  await expect(alert).toContainText("already exists");
+  await filename.fill("../scratch.v");
+  await page.getByRole("button", { name: "Rename file", exact: true }).click();
+  await expect(alert).toContainText("Invalid source name");
+  await filename.fill("renamed.v");
+  await page.getByRole("button", { name: "Rename file", exact: true }).click();
+  await expect(files).toHaveValue("renamed.v");
+  await expect(source).toHaveValue("// scratch edits");
+  await page.getByRole("button", { name: "Remove file", exact: true }).click();
+  await expect(source).toHaveValue(original);
+
+  // Both an existing-name collision and a duplicate inside one batch are atomic.
+  await input.setInputFiles([upload("good.v", "// keep out"), upload("counter.v", "// collision")]);
+  await expect(alert).toContainText("already exists");
+  await expect(files.locator("option")).toHaveText(["counter.v"]);
+  await input.setInputFiles([upload("same.v", "// one"), upload("same.v", "// two")]);
+  await expect(alert).toContainText("already exists");
+  await expect(files.locator("option")).toHaveText(["counter.v"]);
+  await input.setInputFiles(upload("bad name.v", "// invalid"));
+  await expect(alert).toContainText("Invalid source name");
+  await input.setInputFiles(upload("large.v", "x".repeat(65536)));
+  await expect(alert).toContainText("64 KiB");
+  await expect(source).toHaveValue(original);
+  await expect(files.locator("option")).toHaveText(["counter.v"]);
+
+  // Real local files form a hierarchy with a non-default top-module name.
+  const main = readFileSync("examples/split-counter/split-counter.v", "utf8");
+  const helper = readFileSync("examples/split-counter/counter-next.v", "utf8");
+  await input.setInputFiles(["examples/split-counter/split-counter.v", "examples/split-counter/counter-next.v"]);
+  await expect(files.locator("option")).toHaveText(["counter.v", "split-counter.v", "counter-next.v"]);
+  await expect(source).toHaveValue(main);
+  await top.fill("missing_top");
+  await compile.click();
+  await expect(alert).toContainText(/missing_top.*not found/is, { timeout: 120000 });
+  await expect(source).toHaveValue(main);
+  await expect(step).toBeDisabled();
+  await top.fill("invalid top");
+  await compile.click();
+  await expect(alert).toContainText("Invalid top-module name");
+  await top.fill("split_counter");
+  await files.selectOption("counter-next.v");
+  await source.fill("//" + "é".repeat(32768));
+  await compile.click();
+  await expect(alert).toContainText("64 KiB");
+  await expect(source).toHaveValue("//" + "é".repeat(32768));
+  await source.fill("module counter_next ( broken syntax");
+  await compile.click();
+  await expect(alert).toContainText(/counter-next.v.*(syntax error|ERROR)/s, { timeout: 120000 });
+  await expect(source).toHaveValue("module counter_next ( broken syntax");
+  await source.fill(helper.replace("8'd1", "8'd5"));
+  await compile.click();
+  await expect(step).toBeEnabled({ timeout: 120000 });
+  await expect(alert).toBeHidden();
+  await step.click();
+  await expect(page.locator("#count")).toHaveText("5");
+
+  // Empty projects and empty new files give fixable errors rather than losing data.
+  for (let i = 0; i < 3; i++) await page.getByRole("button", { name: "Remove file", exact: true }).click();
+  await expect(source).toBeDisabled();
+  await compile.click();
+  await expect(alert).toContainText("at least one .v source file");
+  await filename.fill("new.v");
+  await page.getByRole("button", { name: "Add file", exact: true }).click();
+  await compile.click();
+  await expect(alert).toContainText('"new.v" is empty');
+  await expect(source).toBeEnabled();
 });
