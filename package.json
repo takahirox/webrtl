@@ -1,0 +1,10 @@
+{
+  "name": "webrtl",
+  "private": true,
+  "scripts": {
+    "test": "python3 -m unittest discover -s tests -v && playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1"
+  }
+}

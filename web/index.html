@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>WebRTL · Counter</title>
+    <link rel="stylesheet" href="/style.css">
+    <script type="module" src="/app.js"></script>
+  </head>
+  <body>
+    <main>
+      <h1>WebRTL</h1>
+      <p>Edit Verilog. Compile to WebAssembly. Step the circuit in your browser.</p>
+      <p class="notice">Trusted local development only. Compile only HDL you trust.</p>
+      <label for="source">8-bit counter · counter.v</label>
+      <textarea id="source" spellcheck="false" disabled></textarea>
+      <button id="compile" disabled>Compile</button>
+      <p id="status" role="status">Loading example…</p>
+      <pre id="errors" role="alert" hidden></pre>
+      <section aria-label="Simulation">
+        <p class="readout">count <output id="count" aria-live="polite">—</output></p>
+        <div class="controls">
+          <button id="run" disabled>Run</button>
+          <button id="pause" disabled>Pause</button>
+          <button id="step" disabled>Step</button>
+          <button id="reset" disabled>Reset</button>
+        </div>
+        <p>Step = one full clock cycle. Run = 10 cycles per second.</p>
+      </section>
+    </main>
+  </body>
+</html>

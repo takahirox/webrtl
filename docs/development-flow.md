@@ -46,18 +46,17 @@ or necessary validation.
 
 ### Repository validation
 
-The repository currently contains collaboration templates and documentation, with
-no application files, dependencies, CI, or configured build/test commands. Do not
-invent build or runtime commands or add tooling merely to document a process.
-Choose validation appropriate to the changed files and actual available tooling.
+For application changes, follow the toolchain setup and validation commands in
+[README.md](../README.md#validation). The MVP uses Python standard-library service
+tests and a Playwright integration test that compiles and runs real RTL in a
+browser. Choose validation appropriate to the changed files and available tooling.
 
 For templates and documentation, inspect Markdown structure and template syntax,
 verify relative links and heading anchors, and check policy consistency. Run
 `git diff --check` for unstaged whitespace errors and `git diff --cached --check`
 for staged changes; stage new files so the latter check includes them. No runtime
 tests, hardware checks, or deployed-site verification are needed for a
-templates/documentation-only change. If application tooling is added later, inspect
-it before choosing commands.
+templates/documentation-only change.
 
 ## 3. Create a Pull Request for the Issue
 
