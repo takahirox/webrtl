@@ -1,8 +1,12 @@
 const ui = Object.fromEntries(
-  ["source", "compile", "status", "errors", "count", "run", "pause", "step", "reset", "diagnostics"]
+  ["source", "source-label", "compile", "status", "errors", "count", "run", "pause", "step", "reset", "diagnostics",
+    "project", "files", "filename", "add-file", "rename-file", "remove-file", "import-files", "top", "example", "load-example"]
     .map((id) => [id, document.getElementById(id)]),
 );
 const browser = document.documentElement.dataset.mode === "browser";
+const projectTools = browser ? await import("./project.js") : null;
+let files = {};
+let activeFile = null;
 let simulator = null;
 let timer = null;
 let busy = true;
@@ -10,7 +14,10 @@ let advancing = false;
 
 function controls() {
   ui.compile.disabled = busy;
-  ui.source.disabled = busy;
+  ui.source.disabled = busy || (browser && !activeFile);
+  ui.project.disabled = busy;
+  ui["rename-file"].disabled = !activeFile;
+  ui["remove-file"].disabled = !activeFile;
   ui.run.disabled = !simulator || advancing || timer !== null;
   ui.pause.disabled = timer === null;
   ui.step.disabled = !simulator || advancing || timer !== null;
@@ -39,6 +46,112 @@ function showError(error) {
   ui.errors.textContent = error.message;
   ui.errors.hidden = false;
   ui.status.textContent = "Failed. Fix the source or toolchain and compile again.";
+}
+
+function projectChanged() {
+  discard();
+  ui.errors.hidden = true;
+  ui.diagnostics.textContent = "";
+  ui.status.textContent = "Source or project changed. Compile to simulate this version.";
+}
+
+function selectFile(name) {
+  activeFile = name;
+  ui.files.value = name || "";
+  ui.source.value = name ? files[name] : "";
+  ui.filename.value = name || "";
+  ui["source-label"].textContent = name ? `Verilog source · ${name}` : "Verilog source · no files";
+  controls();
+}
+
+function refreshFiles(name) {
+  ui.files.replaceChildren(...Object.keys(files).map((filename) => new Option(filename, filename)));
+  selectFile(name);
+}
+
+// File-operation errors leave the project (and any running circuit) intact.
+function projectError(error) {
+  ui.errors.textContent = error.message;
+  ui.errors.hidden = false;
+}
+
+function checkNewName(name, names = Object.keys(files)) {
+  projectTools.validateFilename(name);
+  if (names.includes(name)) throw new Error(`Source file "${name}" already exists. Choose another filename; existing files are never overwritten.`);
+}
+
+if (browser) {
+  ui.files.addEventListener("change", () => selectFile(ui.files.value));
+  ui.top.addEventListener("input", projectChanged);
+  ui["add-file"].addEventListener("click", () => {
+    try {
+      const name = ui.filename.value;
+      checkNewName(name);
+      files[name] = "";
+      projectChanged();
+      refreshFiles(name);
+    } catch (error) { projectError(error); }
+  });
+  ui["rename-file"].addEventListener("click", () => {
+    try {
+      const name = ui.filename.value;
+      if (name === activeFile) return;
+      checkNewName(name);
+      files = Object.fromEntries(Object.entries(files).map(([key, source]) => [key === activeFile ? name : key, source]));
+      projectChanged();
+      refreshFiles(name);
+    } catch (error) { projectError(error); }
+  });
+  ui["remove-file"].addEventListener("click", () => {
+    delete files[activeFile];
+    projectChanged();
+    refreshFiles(Object.keys(files)[0] || null);
+  });
+  ui["import-files"].addEventListener("change", async () => {
+    const imported = Array.from(ui["import-files"].files);
+    if (!imported.length) return;
+    busy = true;
+    controls();
+    try {
+      const names = Object.keys(files);
+      for (const file of imported) {
+        checkNewName(file.name, names);
+        names.push(file.name);
+      }
+      // Reject oversized imports before reading their contents into memory.
+      const currentSize = Object.values(files).reduce((size, source) => size + new TextEncoder().encode(source).length, 0);
+      if (currentSize + imported.reduce((size, file) => size + file.size, 0) > projectTools.MAX_SOURCE_BYTES) {
+        throw new Error("Import exceeds the 64 KiB total project limit. Remove files or select smaller sources.");
+      }
+      const additions = await Promise.all(imported.map(async (file) => [file.name, await file.text()]));
+      const updated = { ...files, ...Object.fromEntries(additions) };
+      projectTools.validateSize(updated);
+      files = updated;
+      projectChanged();
+      refreshFiles(imported[0].name);
+    } catch (error) { projectError(error); }
+    finally {
+      ui["import-files"].value = "";
+      busy = false;
+      controls();
+    }
+  });
+  ui["load-example"].addEventListener("click", async () => {
+    busy = true;
+    controls();
+    try {
+      const split = ui.example.value === "split";
+      const sources = split
+        ? [["split-counter.v", "./examples/split-counter/split-counter.v"], ["counter-next.v", "./examples/split-counter/counter-next.v"]]
+        : [["counter.v", "./example.v"]];
+      const entries = await Promise.all(sources.map(async ([name, url]) => [name, await loadSource(url)]));
+      files = Object.fromEntries(entries);
+      ui.top.value = split ? "split_counter" : "counter";
+      projectChanged();
+      refreshFiles(entries[0][0]);
+    } catch (error) { projectError(error); }
+    finally { busy = false; controls(); }
+  });
 }
 
 async function loadSimulator(moduleUrl) {
@@ -77,7 +190,7 @@ ui.compile.addEventListener("click", async () => {
     if (browser) {
       const { compileBrowser } = await import("./browser-client.js");
       simulator = await compileBrowser(
-        { files: { "counter.v": ui.source.value }, top: "counter" },
+        { files, top: ui.top.value },
         (progress) => { ui.status.textContent = progress; },
       );
       ui.diagnostics.textContent = simulator.diagnostics;
@@ -117,17 +230,23 @@ ui.reset.addEventListener("click", () => {
   simulate(() => simulator._sim_reset());
 });
 ui.source.addEventListener("input", () => {
-  discard();
-  ui.errors.hidden = true;
-  ui.diagnostics.textContent = "";
-  ui.status.textContent = "Source changed. Compile to simulate this version.";
+  if (browser && activeFile) files[activeFile] = ui.source.value;
+  projectChanged();
 });
 window.addEventListener("pagehide", discard);
 
+async function loadSource(url) {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Could not load example source ${url}. Retry loading the example.`);
+  return response.text();
+}
+
 try {
-  const response = await fetch("./example.v");
-  if (!response.ok) throw new Error("Could not load the counter example. Reload the page.");
-  ui.source.value = await response.text();
+  const source = await loadSource("./example.v");
+  if (browser) {
+    files = { "counter.v": source };
+    refreshFiles("counter.v");
+  } else ui.source.value = source;
   ui.status.textContent = "Edit the example or compile it as is.";
 } catch (error) {
   showError(error);

@@ -11,6 +11,35 @@ successfully deploys `main`). Edit the supplied RTL and click **Compile**. The f
 compile downloads the toolchain; progress and errors appear below the editor,
 and successful compiler output is available under **Compiler diagnostics**.
 
+The browser starts with the original single-file counter. Use the **Verilog project**
+controls to work with multiple sources:
+
+1. Enter a filename and click **Add file**, or use **Import local .v files** to
+   select multiple files at once. Imports add files to the current project.
+2. Choose a **Source file** to edit. Edits are kept when switching files. Enter a
+   new filename and click **Rename file**, or click **Remove file** to remove the
+   selected source. Renaming a file does not rename modules or their references.
+3. Enter the exact, case-sensitive HDL module name in **Top module**. This is a
+   module name, not a filename; all project files are passed to the browser compiler.
+4. Click **Compile**, then use the simulation controls below. File or top-module
+   changes discard the old simulation; switching the selected file alone keeps it.
+
+For a small multi-file demonstration, choose **Two-file counter** and click
+**Load example (replaces project)**. The top module `split_counter` in
+[split-counter.v](examples/split-counter/split-counter.v) instantiates `counter_next`
+from [counter-next.v](examples/split-counter/counter-next.v). Compile and Step to 1.
+Select `counter-next.v`, change `current + 8'd1` to `current + 8'd3`, compile again,
+and Step to 3 then 6. The output comes from the newly generated WASM circuit, with
+both source files compiled together. Choose **Single-file counter** and load it to
+return to the original example. Loading an example replaces all current sources;
+projects are held only in memory and are lost on reload.
+
+Invalid names, duplicate imports/renames, or imports exceeding the size limit are
+rejected without replacing existing files. Import batches are atomic: if any file
+fails validation, none are added. Compilation errors retain all sources and the
+chosen top module so you can fix and retry. Missing modules and Verilog errors
+include the existing Yosys diagnostics.
+
 Use **Step** for one full clock cycle, **Run** for approximately 10 cycles per
 second, **Pause** to stop, and **Reset** to pause and clock the reset input.
 With the original example, Reset yields 0 and Step increments modulo 256. Change
@@ -56,11 +85,10 @@ Editor project {files, top}
 
 [compiler.js](web/compiler.js) accepts project files and a top-module name, operates
 in the tools' in-memory virtual filesystems, and returns newly compiled Wasm bytes.
-The first UI exposes one source file and selects `counter`. Module hierarchy within
-that source is supported and tested. A file explorer, multi-file editor, and top
-selection UI remain follow-up work; the compiler boundary already accepts files
-and a selected top. [browser-simulator.cpp](web/browser-simulator.cpp) is the
-small board adapter for `clk`, `reset`, and `count`; it only drives inputs and reads
+The project UI passes its complete source map and chosen top to this same pipeline;
+modules can be in separate files or share a file.
+[browser-simulator.cpp](web/browser-simulator.cpp) is the small board adapter for
+`clk`, `reset`, and `count`; it only drives inputs and reads
 the generated model. It contains no counter implementation. The runtime worker
 supplies no filesystem/network imports to the circuit and rejects WASI I/O.
 
@@ -97,10 +125,20 @@ texts ship in [third-party-notices.txt](web/third-party-notices.txt).
   compiler-required features enabled. Safari/WebKit and mobile browsers have not
   been validated. No SharedArrayBuffer, cross-origin isolation headers, special
   browser flags, or compilation backend is required.
-- Preserve top **`counter`**, scalar input **`clk`**, scalar active-high input
-  **`reset`**, and unsigned 8-bit output **`count`**, with no extra ports. Interface
-  mismatches report an error before C++ compilation. Reset follows the edited
-  circuit's RTL; it does not force zero independently of that circuit.
+- **Filenames** are flat, case-sensitive names ending in lowercase `.v`. Start
+  with a letter, digit or underscore, followed by letters, digits, underscores or
+  hyphens (for example `counter-next.v`). Paths, spaces, leading hyphens, other
+  punctuation, and duplicate filenames are rejected. No directory/project import
+  or include-tree resolution is provided. The `.v` extension also applies to the
+  supported subset of SystemVerilog.
+- **Top-module names** start with an ASCII letter, followed by ASCII letters,
+  digits or underscores. Enter the declared module name exactly; it need not match
+  a filename. Escaped identifiers are unsupported. The board still requires scalar
+  input **`clk`**, scalar active-high input **`reset`**, and unsigned 8-bit output
+  **`count`**, with no extra ports. Interface mismatches report an error before C++
+  compilation. Reset follows the edited circuit's RTL; it does not force zero
+  independently of that circuit. Arbitrary top-level I/O, CPU bus/register adapters,
+  and ROM/RAM loading remain follow-up work.
 - Supports Yosys's synthesizable Verilog and limited SystemVerilog frontend:
   arithmetic, bitwise/combinational logic, edge-triggered registers, synchronous
   and asynchronous resets, and internal module instances. This is a two-state,
@@ -110,8 +148,11 @@ texts ship in [third-party-notices.txt](web/third-party-notices.txt).
   external includes, arbitrary project imports, assertions and full SystemVerilog
   are outside this milestone. Yosys may ignore simulation-only constructs; use
   synthesizable clocked logic and inspect diagnostics.
-- At most **64 KiB** of project source and one compile at a time. Compilation,
-  including downloads, has a **120-second** deadline. A simulation request has a
+- At most **64 KiB total UTF-8 source** across all project files, with nonempty
+  source in every file at compile time, and one compile at a time. Imports are
+  checked against the total limit before adding files; edited source is checked
+  on Compile. Compilation, including downloads, has a **120-second** deadline.
+  A simulation request has a
   **10-second** watchdog. Timeout terminates the relevant worker and permits a new
   compile. Timer throttling in background tabs can delay both simulation and
   watchdogs. The UI targets 10 cycles/second rather than maximum throughput.
@@ -149,6 +190,12 @@ Step=1, then change the increment to `8'd3`, compile, and check Step=3 then 6.
 Check Run/Pause/Reset and syntax-error recovery. Confirm requests stay under
 `/webrtl/` and only download static assets. This live deployment check remains
 pending until deployment; local pre-merge tests do not prove publication succeeded.
+
+**Required post-merge verification for #12:** after deployment, open the public
+`/webrtl/` site, load and compile the two-file counter, and confirm Step=1. Change
+`current + 8'd1` to `current + 8'd3` in `counter-next.v`, compile again, and confirm
+Step=3 then 6 and working Run/Pause/Reset. Record the public-site result separately.
+This check is pending deployment; local static-site tests are pre-merge evidence only.
 
 ## Local setup
 
@@ -296,7 +343,9 @@ The static tests assemble the compiler, serve only `.build/pages/` on port 8766,
 and load `/webrtl/` in Chromium and Firefox. They observe real newly generated Wasm
 bytes and differing circuit outputs, 255 → 0 wraparound, Run/Pause/Step/Reset,
 recompilation during Run, source edits, syntax errors, interface errors, missing
-tooling and recovery, a helper-module design, UI heartbeats during compilation,
+tooling and recovery, the two-file example with a chosen top and edited helper,
+file switching/add/rename/remove, atomic multi-file imports, invalid and duplicate
+filenames, total source limits, missing top modules, UI heartbeats during compilation,
 and same-origin static GET requests without a build API. These checks run before
 merge without a live Pages deployment. To run either mode separately:
 

@@ -6,6 +6,9 @@ h1 { margin-bottom: 0; }
 .notice { padding: .75rem; background: #fff2cf; border-radius: 6px; }
 label { display: block; font-weight: 600; margin: 1.5rem 0 .5rem; }
 textarea { box-sizing: border-box; width: 100%; min-height: 21rem; padding: 1rem; resize: vertical; font: 14px/1.5 monospace; tab-size: 4; border: 1px solid #728594; border-radius: 6px; }
+fieldset { border: 1px solid #728594; border-radius: 6px; margin-top: 1.5rem; }
+fieldset label { margin-top: .75rem; }
+input, select { box-sizing: border-box; max-width: 100%; padding: .5rem; font: inherit; }
 button { padding: .6rem 1.2rem; margin: .75rem .4rem 0 0; border: 1px solid #486578; border-radius: 5px; background: white; color: inherit; font: inherit; cursor: pointer; }
 button:enabled:hover { background: #e0edf5; }
 button:disabled { opacity: .5; cursor: default; }
