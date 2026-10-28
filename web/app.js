@@ -203,7 +203,9 @@ async function simulate(action, playAudio = false) {
   advancing = true;
   controls();
   try {
-    await action();
+    // Native simulation completes inline; only worker requests need to yield.
+    const result = action();
+    if (result instanceof Promise) await result;
     if (simulator !== active || epoch !== runEpoch) return;
     ui.count.textContent = active._sim_count();
     const output = active._sim_output?.();

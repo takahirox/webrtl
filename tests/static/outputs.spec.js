@@ -61,8 +61,10 @@ async function compile(page) {
 }
 
 async function select(page, board) {
-  await page.locator("#example").selectOption(board);
+  await page.locator("#example").selectOption(board === "counter" ? "single" : board);
+  await page.locator("#load-example").click();
   await expect(page.locator("#source")).toHaveValue(readFileSync(`examples/${board}.v`, "utf8"));
+  await expect(page.getByLabel("Output interface", { exact: true })).toHaveValue(board);
 }
 
 async function pixels(page) {
@@ -95,6 +97,37 @@ async function probe(page, board, commands) {
     } finally { worker.terminate(); }
   }, { board, commands });
 }
+
+test("video supports multiple source files, a selected top, and independent interface changes", async ({ page }) => {
+  await page.goto("./");
+  await select(page, "video");
+  const source = page.locator("#source");
+  const edited = readFileSync("examples/video.v", "utf8")
+    .replace("module video(", "module display_top(")
+    .replace("    reg [5:0] x, y;", "    wire [23:0] left_color;\n    pattern colors(left_color);\n    reg [5:0] x, y;")
+    .replace("24'hff0000", "left_color");
+  await source.fill(edited);
+  await page.getByLabel("Top module", { exact: true }).fill("display_top");
+  const helper = "module pattern(output [23:0] color); assign color = 24'h804020; endmodule";
+  await page.locator("#import-files").setInputFiles({
+    name: "pattern.v", mimeType: "text/plain", buffer: Buffer.from(helper),
+  });
+  await expect(source).toHaveValue(helper);
+  await compile(page);
+  await page.locator("#run").click();
+  const expected = [[128, 64, 32, 255], [0, 255, 0, 255], [0, 0, 255, 255], [255, 255, 255, 255]];
+  await expect.poll(() => pixels(page)).toEqual(expected);
+  await page.locator("#pause").click();
+  await page.getByLabel("Source file", { exact: true }).selectOption("video.v");
+  await expect(source).toHaveValue(edited);
+  await expect(page.locator("#run")).toBeEnabled();
+  await page.getByLabel("Output interface", { exact: true }).selectOption("counter");
+  await expect(page.locator("#run")).toBeDisabled();
+  await expect(page.locator("#video")).toBeHidden();
+  await expect(source).toHaveValue(edited);
+  await expect(page.locator("#top")).toHaveValue("display_top");
+  await expect(page.locator("#files option")).toHaveText(["video.v", "pattern.v"]);
+});
 
 test("video frames come from edited RTL, with precise framing and clean controls", async ({ page }) => {
   await observeOutputs(page);

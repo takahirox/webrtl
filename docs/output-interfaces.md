@@ -1,13 +1,17 @@
 # Browser RTL video and audio
 
 The static browser compiler supports three selectable board interfaces: Counter,
-Video, and Audio. Select an example above the editor, **Compile**, then **Run**.
-Changing the selection replaces the editor; there is no source persistence. The
+Video, and Audio. Select an example above the editor, click **Load example
+(replaces project)**, **Compile**, then **Run**. Loading an example replaces all
+project files and selects its top module and output interface. The project stays
+in memory until reload; switching source files preserves edits. The
 trusted-local Verilator service continues to support the counter only.
 
 These are reusable RTL contracts, not JavaScript generators. Write any
-synthesizable design with the selected top and exact ports below, within one
-source file (internal helper modules are allowed). The compiler checks port
+synthesizable design with the selected interface's exact ports below, using one
+or more source files and any valid **Top module** name. **Output interface** can
+be changed independently of the example and top; changing it discards the old
+simulation but preserves all project sources. The compiler checks port
 names, directions, widths, and signedness before compiling the C++ adapter.
 Video and audio are separate selectable interfaces; simultaneous AV, arbitrary
 pin mapping, and configurable resolutions/rates are outside this small board API.
@@ -22,7 +26,7 @@ then deasserts/settles it. That reset cycle is not included in the displayed
 simulation time and its output is discarded. Initialize all state in RTL; the
 adapter does not generate pixels or PCM or impose your circuit's reset values.
 
-| Selection / top | Simulated clock | Run request size | Output |
+| Interface / example top | Simulated clock | Run request size | Output |
 | --- | ---: | ---: | --- |
 | Counter / `counter` | 10 Hz | 1 cycle | unsigned `count[7:0]` |
 | Video / `video` | 184320 Hz | 3072 cycles (1/60 simulated second) | 64 × 48 RGB888 frames |
@@ -36,7 +40,7 @@ changing image contents or tone pitch needs only an RTL edit and recompile.
 
 ## Video ports and framing
 
-In addition to `clk` and `reset`, top `video` has these unsigned outputs:
+In addition to `clk` and `reset`, a Video top has these unsigned outputs:
 
 | Port | Width | Meaning at each rising edge |
 | --- | ---: | --- |
@@ -63,7 +67,7 @@ Canvas and scales the image with nearest-neighbor display.
 
 ## Audio ports and sample timing
 
-In addition to `clk` and `reset`, top `audio` has these outputs:
+In addition to `clk` and `reset`, an Audio top has these outputs:
 
 | Port | Width / type | Meaning at each rising edge |
 | --- | --- | --- |
@@ -111,9 +115,10 @@ See the [Web Audio buffer source reference](https://developer.mozilla.org/en-US/
 - **Step** advances exactly one cycle and is silent, even for Audio. A Video Step
   updates the canvas only if that edge completes a frame.
 - **Reset** pauses, clocks RTL reset, clears partial/completed frames and queued
-  audio, and returns displayed simulated time to zero. Editing, changing the
-  example, compiling again, leaving the page, and simulation errors also discard
-  pending output. Compilation/editing closes the previous audio context.
+  audio, and returns displayed simulated time to zero. Editing, loading an
+  example, changing the top or interface, compiling again, leaving the page, and
+  simulation errors also discard pending output. Compilation/editing closes the
+  previous audio context.
 - Compiler/runtime errors appear below the editor. Runtime faults discard the
   worker; fix the design and recompile. The existing 120 s compiler deadline,
   10 s simulation watchdog, and 64 MiB Wasm memory maximum still apply.
