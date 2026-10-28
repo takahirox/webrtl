@@ -1,5 +1,5 @@
 :root { font-family: system-ui, sans-serif; color: #172b3a; background: #f3f6f8; }
-html[data-mode="local"] .demo-only, html[data-mode="demo"] .local-only { display: none; }
+html[data-mode="local"] .browser-only, html[data-mode="browser"] .local-only { display: none; }
 body { margin: 0; }
 main { max-width: 900px; margin: 2rem auto; padding: 0 1.25rem 2rem; }
 h1 { margin-bottom: 0; }
@@ -11,6 +11,7 @@ button:enabled:hover { background: #e0edf5; }
 button:disabled { opacity: .5; cursor: default; }
 :focus-visible { outline: 3px solid #147cb8; outline-offset: 3px; }
 pre { background: #fff1f0; color: #8b1e16; padding: 1rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+#diagnostics { background: #e7eef3; color: inherit; max-height: 20rem; overflow: auto; }
 section { border-top: 1px solid #c3d0d9; margin-top: 1.5rem; }
 .readout { display: flex; align-items: baseline; gap: 1rem; }
 output { font: 3rem monospace; }

@@ -1,4 +1,4 @@
-name: Build, test, and deploy counter demo
+name: Build, test, and deploy browser compiler
 
 on:
   pull_request:
@@ -30,7 +30,7 @@ jobs:
           verilator --version
           em++ --version
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install --with-deps chromium firefox
       # Includes both the trusted-local flow and a fresh static build tested at /webrtl/.
       - run: npm test
       - name: Upload tested static site
