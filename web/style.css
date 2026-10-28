@@ -18,3 +18,6 @@ pre { background: #fff1f0; color: #8b1e16; padding: 1rem; white-space: pre-wrap;
 section { border-top: 1px solid #c3d0d9; margin-top: 1.5rem; }
 .readout { display: flex; align-items: baseline; gap: 1rem; }
 output { font: 3rem monospace; }
+
+select { padding: .5rem; font: inherit; }
+#video { width: 100%; max-width: 512px; image-rendering: pixelated; background: black; }

@@ -17,6 +17,8 @@ MAX_REQUEST_BYTES = MAX_SOURCE_BYTES * 6 + 1024  # JSON escaping overhead
 STATIC = {
     "/": (ROOT / "web/index.html", "text/html; charset=utf-8"),
     "/app.js": (ROOT / "web/app.js", "text/javascript; charset=utf-8"),
+    "/audio-output.js": (ROOT / "web/audio-output.js", "text/javascript; charset=utf-8"),
+    "/output-contracts.js": (ROOT / "web/output-contracts.js", "text/javascript; charset=utf-8"),
     "/style.css": (ROOT / "web/style.css", "text/css; charset=utf-8"),
     "/example.v": (ROOT / "examples/counter.v", "text/plain; charset=utf-8"),
 }

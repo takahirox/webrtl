@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>WebRTL · RTL project</title>
+    <title>WebRTL · Browser RTL</title>
     <link rel="stylesheet" href="./style.css">
     <script type="module" src="./app.js"></script>
   </head>
@@ -15,7 +15,7 @@
       <p class="browser-only">Edit Verilog. Compile and run the circuit entirely in your browser.</p>
       <p class="notice browser-only">The first Compile loads about 185 MB of compiler tools.
         Use a recent desktop browser with sufficient memory. Your HDL stays in this browser.
-        Keep the counter interface: clk, reset, and 8-bit count.
+        Select an output interface and preserve its RTL ports.
         <a href="https://github.com/takahirox/webrtl#browser-support-and-limits">Compatibility and limits</a> ·
         <a href="./third-party-notices.txt">Toolchain licenses</a>.</p>
       <fieldset id="project" class="browser-only" disabled>
@@ -24,8 +24,18 @@
         <select id="example">
           <option value="single">Single-file counter</option>
           <option value="split">Two-file counter</option>
+          <option value="video">Video test pattern · 64 × 48 RGB</option>
+          <option value="audio">Audio tone · mono PCM16</option>
         </select>
         <button id="load-example" type="button">Load example (replaces project)</button>
+        <label for="interface">Output interface</label>
+        <select id="interface">
+          <option value="counter">8-bit counter</option>
+          <option value="video">Video · 64 × 48 RGB</option>
+          <option value="audio">Audio · mono PCM16</option>
+        </select>
+        <p>Preserve the selected interface's ports in your chosen top module.
+          <a href="https://github.com/takahirox/webrtl/blob/main/docs/output-interfaces.md">RTL output contracts</a></p>
         <label for="top">Top module</label>
         <input id="top" type="text" value="counter" spellcheck="false" autocomplete="off">
         <label for="files">Source file</label>
@@ -50,13 +60,18 @@
       <details class="browser-only"><summary>Compiler diagnostics</summary><pre id="diagnostics"></pre></details>
       <section aria-label="Simulation">
         <p class="readout">count <output id="count" aria-live="polite">—</output></p>
+        <div class="browser-only">
+          <canvas id="video" width="64" height="48" aria-label="RTL video output" hidden></canvas>
+          <p id="audio-status" hidden>Click Run to enable audio. Step advances silently.</p>
+          <p id="timing" hidden></p>
+        </div>
         <div class="controls">
           <button id="run" disabled>Run</button>
           <button id="pause" disabled>Pause</button>
           <button id="step" disabled>Step</button>
           <button id="reset" disabled>Reset</button>
         </div>
-        <p>Step = one full clock cycle. Run = 10 cycles per second.</p>
+        <p id="run-help">Step = one full clock cycle. Run = 10 cycles per second.</p>
       </section>
     </main>
   </body>
