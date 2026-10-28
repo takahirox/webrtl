@@ -1,16 +1,25 @@
+import { boards } from "./output-contracts.js";
+import { AudioOutput } from "./audio-output.js";
+
 const ui = Object.fromEntries(
-  ["source", "compile", "status", "errors", "count", "run", "pause", "step", "reset", "diagnostics"]
+  ["source", "compile", "status", "errors", "count", "run", "pause", "step", "reset", "diagnostics",
+    "example", "video", "audio-status", "timing", "run-help", "source-label"]
     .map((id) => [id, document.getElementById(id)]),
 );
 const browser = document.documentElement.dataset.mode === "browser";
+const audio = new AudioOutput();
+const canvas = ui.video.getContext("2d");
+let selected = "counter";
 let simulator = null;
 let timer = null;
 let busy = true;
 let advancing = false;
+let runEpoch = 0;
 
 function controls() {
   ui.compile.disabled = busy;
   ui.source.disabled = busy;
+  ui.example.disabled = busy;
   ui.run.disabled = !simulator || advancing || timer !== null;
   ui.pause.disabled = timer === null;
   ui.step.disabled = !simulator || advancing || timer !== null;
@@ -18,19 +27,28 @@ function controls() {
 }
 
 function pause() {
-  clearInterval(timer);
+  clearTimeout(timer);
   timer = null;
+  runEpoch++;
+  audio.clear();
   controls();
+}
+
+function clearOutput() {
+  canvas.clearRect(0, 0, ui.video.width, ui.video.height);
+  ui.timing.textContent = "0 cycles · 0.000 simulated seconds";
 }
 
 function discard() {
   pause();
+  audio.close();
   if (simulator) {
     try { simulator._sim_destroy(); } catch { /* An aborted module may already be unusable. */ }
   }
   simulator = null;
   advancing = false;
   ui.count.textContent = "—";
+  clearOutput();
   controls();
 }
 
@@ -47,23 +65,34 @@ async function loadSimulator(moduleUrl) {
   simulator._sim_init();
 }
 
-function simulate(action) {
+async function simulate(action, playAudio = false) {
   if (advancing || !simulator) return;
   const active = simulator;
-  const update = () => {
-    if (simulator === active) ui.count.textContent = active._sim_count();
-  };
-  const fail = (error) => { if (simulator === active) showError(error); };
+  const epoch = runEpoch;
+  advancing = true;
+  controls();
   try {
-    const result = action();
-    if (result instanceof Promise) {
-      advancing = true;
-      controls();
-      result.then(update, fail).finally(() => {
-        if (simulator === active) { advancing = false; controls(); }
-      });
-    } else update();
-  } catch (error) { fail(error); }
+    await action();
+    if (simulator !== active || epoch !== runEpoch) return;
+    ui.count.textContent = active._sim_count();
+    const output = active._sim_output?.();
+    if (output) {
+      ui.timing.textContent = `${output.cycles} cycles · ${output.seconds.toFixed(3)} simulated seconds`;
+      if (output.frame) canvas.putImageData(new ImageData(output.frame, 64, 48), 0, 0);
+      if (playAudio && selected === "audio") {
+        try { audio.play(output.audio, boards.audio.sampleRate); }
+        catch (error) {
+          pause();
+          ui["audio-status"].textContent = `${error.message} Click Run to retry.`;
+          ui.status.textContent = "Audio unavailable. Paused; the compiled circuit is preserved.";
+        }
+      }
+    }
+  } catch (error) {
+    if (simulator === active) showError(error);
+  } finally {
+    if (simulator === active) { advancing = false; controls(); }
+  }
 }
 
 ui.compile.addEventListener("click", async () => {
@@ -77,7 +106,7 @@ ui.compile.addEventListener("click", async () => {
     if (browser) {
       const { compileBrowser } = await import("./browser-client.js");
       simulator = await compileBrowser(
-        { files: { "counter.v": ui.source.value }, top: "counter" },
+        { files: { [`${selected}.v`]: ui.source.value }, top: boards[selected].top, board: selected },
         (progress) => { ui.status.textContent = progress; },
       );
       ui.diagnostics.textContent = simulator.diagnostics;
@@ -102,17 +131,51 @@ ui.compile.addEventListener("click", async () => {
 });
 
 ui.step.addEventListener("click", () => simulate(() => simulator._sim_step()));
-ui.run.addEventListener("click", () => {
-  timer = setInterval(() => simulate(() => simulator._sim_step()), 100);
-  ui.status.textContent = "Running the compiled circuit.";
+ui.run.addEventListener("click", async () => {
+  const epoch = ++runEpoch;
+  timer = 0;
   controls();
+  if (selected === "audio") {
+    try {
+      await audio.unlock();
+      if (epoch !== runEpoch) return;
+      ui["audio-status"].textContent = "Playing RTL PCM · mono, signed 16-bit, 8000 samples/s.";
+    } catch (error) {
+      if (epoch !== runEpoch) return;
+      pause();
+      ui["audio-status"].textContent = `${error.message} Allow sound and click Run to retry.`;
+      ui.status.textContent = "Audio unavailable. Paused; the compiled circuit is preserved.";
+      return;
+    }
+  }
+  ui.status.textContent = "Running the compiled circuit.";
+  const board = boards[selected];
+  const advance = async () => {
+    if (epoch !== runEpoch) return;
+    if (selected === "audio" && audio.context?.state !== "running") {
+      pause();
+      ui["audio-status"].textContent = "Audio was suspended. Allow sound for this site and click Run again.";
+      ui.status.textContent = "Audio unavailable. Paused; the compiled circuit is preserved.";
+      return;
+    }
+    const start = performance.now();
+    // AudioContext's clock paces audio; slow simulation underruns with silence.
+    if (selected !== "audio" || audio.queuedSeconds() < 0.10) {
+      await simulate(() => browser ? simulator._sim_batch(board.batchCycles) : simulator._sim_step(), true);
+    }
+    if (epoch !== runEpoch) return;
+    const delay = selected === "audio" ? 10 : Math.max(0, 1000 * board.batchCycles / board.clockHz - (performance.now() - start));
+    timer = setTimeout(advance, delay);
+  };
+  timer = setTimeout(advance, selected === "counter" ? 100 : 0);
 });
 ui.pause.addEventListener("click", () => {
   pause();
-  ui.status.textContent = "Paused.";
+  ui.status.textContent = "Paused. Pending audio cleared.";
 });
 ui.reset.addEventListener("click", () => {
   pause();
+  clearOutput();
   ui.status.textContent = "Reset. Paused.";
   simulate(() => simulator._sim_reset());
 });
@@ -124,13 +187,32 @@ ui.source.addEventListener("input", () => {
 });
 window.addEventListener("pagehide", discard);
 
-try {
-  const response = await fetch("./example.v");
-  if (!response.ok) throw new Error("Could not load the counter example. Reload the page.");
-  ui.source.value = await response.text();
-  ui.status.textContent = "Edit the example or compile it as is.";
-} catch (error) {
-  showError(error);
+async function loadExample() {
+  discard();
+  busy = true;
+  selected = ui.example.value;
+  ui.video.hidden = selected !== "video";
+  ui["audio-status"].hidden = selected !== "audio";
+  ui["audio-status"].textContent = "Click Run to enable audio. Step advances silently.";
+  ui.timing.hidden = selected === "counter";
+  ui.count.parentElement.hidden = selected !== "counter";
+  const title = ui.example.selectedOptions[0].textContent;
+  ui["source-label"].textContent = selected === "counter" ? "8-bit counter · counter.v" : `${title} · ${selected}.v`;
+  ui["run-help"].textContent = selected === "counter" ? "Step = one full clock cycle. Run = 10 cycles per second." :
+    `Step = one clock cycle (silent). Run batches ${boards[selected].batchCycles} cycles at a target ${boards[selected].clockHz} simulated clocks/s.`;
+  controls();
+  try {
+    const response = await fetch(selected === "counter" ? "./example.v" : `./examples/${selected}.v`);
+    if (!response.ok) throw new Error("Could not load the example. Reload the page.");
+    ui.source.value = await response.text();
+    ui.errors.hidden = true;
+    ui.diagnostics.textContent = "";
+    ui.status.textContent = "Edit the example or compile it as is.";
+  } catch (error) {
+    showError(error);
+  }
+  busy = false;
+  controls();
 }
-busy = false;
-controls();
+ui.example.addEventListener("change", loadExample);
+await loadExample();

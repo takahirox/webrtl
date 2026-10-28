@@ -26,6 +26,7 @@ def build_site():
             if source.suffix in (".js", ".css", ".cpp", ".txt"):
                 shutil.copyfile(source, staged / source.name)
         shutil.copyfile(ROOT / "examples/counter.v", staged / "example.v")
+        shutil.copytree(ROOT / "examples", staged / "examples")
         for package in ("yosys", "clang"):
             shutil.copytree(packages / package / "gen", staged / "tools" / package)
         # Use headers from exactly the same pinned Yosys distribution. Pass a
