@@ -1,32 +1,46 @@
-"""Build the static counter demo using the same trusted HDL pipeline as the service."""
+"""Assemble the static browser compiler; never compile a user's HDL at build time."""
 
 import argparse
+import json
 from pathlib import Path
 import shutil
+import tarfile
 import tempfile
 
-from build import BuildError, ROOT, compile_verilog
-
+ROOT = Path(__file__).resolve().parent
 SITE = ROOT / ".build/pages/webrtl"
 
 
 def build_site():
-    # Keep compiler intermediates and diagnostics out of the published artifact.
+    packages = ROOT / "node_modules/@yowasp"
+    if not (packages / "yosys/gen/bundle.js").is_file():
+        raise OSError("Browser toolchain missing. Run npm ci first.")
     with tempfile.TemporaryDirectory(prefix="webrtl-site-") as temporary:
-        compiled = Path(temporary) / "compiled"
-        compile_verilog((ROOT / "examples/counter.v").read_text(encoding="utf-8"), compiled)
         staged = Path(temporary) / "site"
         staged.mkdir()
         html = (ROOT / "web/index.html").read_text(encoding="utf-8")
         (staged / "index.html").write_text(
-            html.replace('data-mode="local"', 'data-mode="demo"'), encoding="utf-8"
+            html.replace('data-mode="local"', 'data-mode="browser"'), encoding="utf-8"
         )
-        for name in ("app.js", "style.css"):
-            shutil.copyfile(ROOT / "web" / name, staged / name)
+        for source in (ROOT / "web").iterdir():
+            if source.suffix in (".js", ".css", ".cpp", ".txt"):
+                shutil.copyfile(source, staged / source.name)
         shutil.copyfile(ROOT / "examples/counter.v", staged / "example.v")
-        for name in ("sim.mjs", "sim.wasm"):
-            shutil.copyfile(compiled / name, staged / name)
-        # Only replace the fixed generated destination after a successful build.
+        for package in ("yosys", "clang"):
+            shutil.copytree(packages / package / "gen", staged / "tools" / package)
+        # Use headers from exactly the same pinned Yosys distribution. Pass a
+        # virtual directory tree to Clang; do not extract archive paths to disk.
+        headers = {}
+        with tarfile.open(packages / "yosys/gen/yosys-resources.0.tar") as archive:
+            prefix = "include/backends/cxxrtl/runtime/"
+            for member in archive.getmembers():
+                if member.isfile() and member.name.startswith(prefix):
+                    parts = member.name[len(prefix):].split("/")
+                    directory = headers
+                    for part in parts[:-1]:
+                        directory = directory.setdefault(part, {})
+                    directory[parts[-1]] = archive.extractfile(member).read().decode("utf-8")
+        (staged / "tools/cxxrtl.json").write_text(json.dumps(headers), encoding="utf-8")
         if SITE.exists():
             shutil.rmtree(SITE)
         shutil.copytree(staged, SITE)
@@ -38,6 +52,6 @@ if __name__ == "__main__":
     parser.parse_args()
     try:
         site = build_site()
-    except (BuildError, OSError) as error:
+    except OSError as error:
         parser.exit(1, f"{error}\n")
-    print(f"Built static demo in {site.relative_to(ROOT)}")
+    print(f"Built static browser compiler in {site.relative_to(ROOT)}")

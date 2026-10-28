@@ -1,71 +1,162 @@
 # webrtl
 
-WebRTL runs an 8-bit Verilog counter as a WebAssembly circuit in your browser.
-The static demo uses a precompiled model; local development also supports editing
-and compiling trusted HDL with Verilator and Emscripten.
+WebRTL compiles edited Verilog into a new WebAssembly circuit entirely in your
+browser. The GitHub Pages site needs only static assets. The original trusted-local
+Verilator/Emscripten development mode remains available separately.
 
-## Public counter demo
+## Public browser compiler
 
 Demo URL: **https://takahirox.github.io/webrtl/** (published after the Pages workflow
-successfully deploys `main`). No installation or backend is needed. The page loads
-the precompiled counter automatically. Use **Run / Pause / Step / Reset** to inspect
-the circuit: Step advances one full clock cycle, count wraps modulo 256, and Reset
-pauses and returns to zero.
+successfully deploys `main`). Edit the supplied RTL and click **Compile**. The first
+compile downloads the toolchain; progress and errors appear below the editor,
+and successful compiler output is available under **Compiler diagnostics**.
 
-The demo shows the compiled RTL as read-only and has no Compile action. Arbitrary
-RTL editing/recompilation and browser-side HDL compilation are not available on
-GitHub Pages yet. Use [local development](#local-setup) for edit-and-compile work.
-The demo reuses the existing RTL, C++ simulator, and Verilator/Emscripten pipeline;
-JavaScript displays the actual Wasm model output.
+Use **Step** for one full clock cycle, **Run** for approximately 10 cycles per
+second, **Pause** to stop, and **Reset** to pause and clock the reset input.
+With the original example, Reset yields 0 and Step increments modulo 256. Change
+`count + 8'd1` to `count + 8'd3`, compile, and Step yields 3 then 6. The value comes
+from the newly generated Wasm circuit. Editing or compiling terminates the previous
+simulation; each successful compile initializes and resets a fresh model. A failed
+compile leaves simulation disabled; fix the source and compile again.
 
 ### Build and preview the static site
 
-Install the same Python, Verilator, and Emscripten tools described below, then run:
+Use Node.js 22+ and Python 3.10+:
 
 ```sh
-python3 build_site.py
+npm ci
+npm run build:demo
 python3 -m http.server 8000 --bind 127.0.0.1 --directory .build/pages
 ```
 
-Open **http://127.0.0.1:8000/webrtl/**, including the trailing slash. This is a plain
-static file server; do not start `server.py` for this preview. Relative asset URLs
-keep the UI, example RTL, ES module, and sibling Wasm file under `/webrtl/`.
+Open **http://127.0.0.1:8000/webrtl/**, including the trailing slash. No native HDL
+compiler, Emscripten SDK, compilation API, or `server.py` is needed for this build
+or for users' edits. The build copies the pinned YoWASP packages from `node_modules`
+into the static artifact; it never compiles the example HDL. All URLs are relative,
+including worker, compiler Wasm, runtime headers, and example URLs, so the same
+artifact works under the GitHub Pages project subpath.
 
-The build replaces `.build/pages/webrtl/` with the six runtime files: `index.html`,
-`app.js`, `style.css`, `example.v`, `sim.mjs`, and `sim.wasm`. Native compilation runs
-only at build time through [build.py](build.py). Compiler intermediates are not
-published, and generated files are ignored by Git. Rebuild after changing the RTL,
-simulator, or UI. Node.js is needed only for automated browser tests, not this build.
-Use the Ubuntu 24.04 packages as the deployment reference toolchain. The newer
-Verilator 5.052 / Emscripten 6.0.13 combination currently fails to link CPU-affinity
-symbols in the existing pipeline; use the Ubuntu packages for static builds if
-you encounter that error.
+[build_site.py](build_site.py) replaces `.build/pages/webrtl/` only after staging
+succeeds. The artifact contains the UI, example source, compiler and simulator
+workers, C++ board adapter, toolchain notices, and `tools/` (Yosys/Clang JS, Wasm,
+resources, and matching CXXRTL headers). There is no precompiled circuit. Generated
+site assets are ignored by Git; `package-lock.json` pins toolchain integrity.
+Rebuild after changing the UI, adapter, or dependencies.
+
+### Browser architecture and tool selection
+
+```text
+Editor project {files, top}
+  → compiler Web Worker: YoWASP Yosys → generated CXXRTL C++
+                       → YoWASP Clang/LLD → new sim.wasm bytes
+  → terminate compiler worker
+  → simulator Web Worker: instantiate sim.wasm → reset/step/read count
+  → UI displays circuit output
+```
+
+[compiler.js](web/compiler.js) accepts project files and a top-module name, operates
+in the tools' in-memory virtual filesystems, and returns newly compiled Wasm bytes.
+The first UI exposes one source file and selects `counter`. Module hierarchy within
+that source is supported and tested. A file explorer, multi-file editor, and top
+selection UI remain follow-up work; the compiler boundary already accepts files
+and a selected top. [browser-simulator.cpp](web/browser-simulator.cpp) is the
+small board adapter for `clk`, `reset`, and `count`; it only drives inputs and reads
+the generated model. It contains no counter implementation. The runtime worker
+supplies no filesystem/network imports to the circuit and rejects WASI I/O.
+
+The compiler worker is terminated on success, failure, or timeout. Its C++ and
+virtual filesystem disappear; only the Wasm result moves to a fresh runtime worker.
+The runtime is terminated on editing/recompilation or execution errors. Simulation
+requests are serialized, with a watchdog for stalled circuits. The UI schedules
+steps and displays results; it does not evaluate Verilog or emulate the counter.
+
+Existing OSS was evaluated before choosing this path:
+
+- [Vera](https://github.com/roman01la/vera) demonstrates browser Verilator →
+  Emception Clang → Wasm. Reusing that route would require maintaining its
+  Verilator build and Emscripten sysroot integration here.
+- [YoWASP](https://yowasp.org/) distributes browser-ready Yosys and Clang/LLD
+  packages with a [common virtual-filesystem API](https://github.com/YoWASP/runtime-js).
+  The pinned Yosys CXXRTL backend plus Clang provides the required synthesizable
+  cycle simulation without a custom HDL compiler or native toolchain build.
+  This is the selected route. It differs from the local Verilator frontend, so its
+  supported HDL and diagnostics differ too.
+
+All runtime dependencies are hosted with the site; there is no CDN dependency.
+Only static GET requests download the tooling. HDL, generated C++, and compiled
+circuits are never uploaded to a compilation service, GitHub Actions, or another
+remote endpoint. They stay in browser memory, with no project persistence yet.
+Tool downloads may remain in the browser's normal HTTP cache. Toolchain license
+texts ship in [third-party-notices.txt](web/third-party-notices.txt).
+
+### Browser support and limits
+
+- **Desktop Chromium and Firefox** are covered by the real-compiler Playwright
+  suite (tested here with Chromium 156 and Firefox 157 bundled by Playwright 1.64.1).
+  Use a current browser with ES modules, module workers, WebAssembly and its
+  compiler-required features enabled. Safari/WebKit and mobile browsers have not
+  been validated. No SharedArrayBuffer, cross-origin isolation headers, special
+  browser flags, or compilation backend is required.
+- Preserve top **`counter`**, scalar input **`clk`**, scalar active-high input
+  **`reset`**, and unsigned 8-bit output **`count`**, with no extra ports. Interface
+  mismatches report an error before C++ compilation. Reset follows the edited
+  circuit's RTL; it does not force zero independently of that circuit.
+- Supports Yosys's synthesizable Verilog and limited SystemVerilog frontend:
+  arithmetic, bitwise/combinational logic, edge-triggered registers, synchronous
+  and asynchronous resets, and internal module instances. This is a two-state,
+  cycle-based CXXRTL simulation, not a full event-driven language simulator.
+  Unknown/high-impedance values and uninitialized state do not have full four-state
+  semantics. HDL timing delays, testbench tasks, DPI, external C++, filesystem I/O,
+  external includes, arbitrary project imports, assertions and full SystemVerilog
+  are outside this milestone. Yosys may ignore simulation-only constructs; use
+  synthesizable clocked logic and inspect diagnostics.
+- At most **64 KiB** of project source and one compile at a time. Compilation,
+  including downloads, has a **120-second** deadline. A simulation request has a
+  **10-second** watchdog. Timeout terminates the relevant worker and permits a new
+  compile. Timer throttling in background tabs can delay both simulation and
+  watchdogs. The UI targets 10 cycles/second rather than maximum throughput.
+- Static compiler assets total approximately **185 MB uncompressed** (Yosys about
+  79 MB; Clang/sysroot about 105 MB), plus small UI/header assets. Network transfer
+  depends on hosting compression and caching. First load may take tens of seconds
+  on an ordinary connection, and slow downloads can hit the deadline. Local
+  loopback first compilation measured about **2.5 seconds** in Chromium on this
+  development machine; this is not a network or cross-device performance promise.
+- Compiler memory can reach hundreds of MiB or more; use a desktop with several
+  GiB available. Compiler peak memory has not been measured and is limited by the
+  browser/engine rather than an application-enforced heap cap. Large/pathological
+  designs can exhaust it and cause a worker or tab to fail. The generated simulator
+  has a **64 MiB** Wasm memory maximum. Fresh workers release old compiler/model
+  allocations rather than retaining all compiled designs.
 
 ### GitHub Pages deployment
 
-One time, in the repository's **Settings → Pages → Build and deployment**, select
-**GitHub Actions** as the source. If the `github-pages` environment has deployment
-branch restrictions, allow `main`.
+One time, in **Settings → Pages → Build and deployment**, select **GitHub Actions**
+as the source. Allow `main` in any `github-pages` environment branch restrictions.
 
-[The Pages workflow](.github/workflows/pages.yml) runs on pull requests to `main`,
-pushes to `main`, and manual dispatch. It installs the toolchain on Ubuntu 24.04,
-runs the Python and real-circuit browser checks for both modes, then uploads the
-tested `.build/pages/webrtl/` contents as a Pages artifact. Only runs on `main`
-deploy, using the `github-pages` environment and scoped `pages: write` and
-`id-token: write` permissions. Manual dispatch on `main` can retry a deployment.
-The artifact's contents become the project site's root; do not upload the parent
-`.build/pages/` directory or the URL would have an extra `webrtl/` segment.
+[The Pages workflow](.github/workflows/pages.yml) runs on PRs and pushes to `main`,
+and manual dispatch. It installs the native reference toolchain only for the
+separate trusted-local regression test, installs pinned browser tools with `npm ci`,
+and runs Python tests and real-circuit browser tests in both modes. The static
+suite uses Chromium and Firefox under `/webrtl/`. The tested
+`.build/pages/webrtl/` contents are uploaded directly as the Pages artifact; uploading
+the parent directory would add an unwanted URL segment. Only `main` deploys, with
+scoped Pages permissions. Actions assemble the app and toolchain; they never
+compile each user's HDL.
 
-Required post-merge verification for #6 remains separate from pre-merge checks:
-after the workflow deploys, open **https://takahirox.github.io/webrtl/** publicly,
-confirm the Wasm initializes at zero, Step to one, Run then Pause and confirm the
-value stops changing, and Reset to zero. Record any deployment/settings problems
-separately. Local checks do not establish that the live deployment succeeded.
+**Required post-merge verification for #8:** after deployment, open the public
+site in a fresh browser context, compile the original RTL and check Reset=0 and
+Step=1, then change the increment to `8'd3`, compile, and check Step=3 then 6.
+Check Run/Pause/Reset and syntax-error recovery. Confirm requests stay under
+`/webrtl/` and only download static assets. This live deployment check remains
+pending until deployment; local pre-merge tests do not prove publication succeeded.
 
 ## Local setup
 
 Use Python 3.10+, Verilator 5+, and Emscripten 3.1.6+ with `verilator` and `em++`
-on `PATH`. No Python packages or frontend dependencies are needed to run the app.
+on `PATH`. No Python packages or frontend dependencies are needed to run this local mode.
+Ubuntu 24.04 packages are the reference native toolchain. Verilator 5.052 with
+Emscripten 6.0.13 has a known CPU-affinity symbol link failure; use the reference
+Verilator 5.020 toolchain if affected. This does not affect browser compilation.
 On Ubuntu 24.04:
 
 ```sh
@@ -105,7 +196,7 @@ compile starts a fresh circuit and resets it. Reset also works while running.
 Use `--port 8001` if the default port is occupied. Stop with Ctrl-C; temporary
 build artifacts are removed on normal shutdown.
 
-## Build and simulation boundaries
+## Trusted-local build and simulation boundaries
 
 ```text
 Editor → POST /api/build {"source": "…"}
@@ -132,7 +223,7 @@ and adapts that build function to HTTP. Build failures return a non-2xx JSON
 `{"error": "…"}` response with tool diagnostics (the final 16 KB). Successful
 modules and their sibling Wasm files have unique URLs and the appropriate MIME
 types. This HTTP response and the small simulation API are the integration
-boundaries for replacing the backend later. The service never runs the simulator.
+boundaries for the local backend. The service never runs the simulator.
 
 To build the same example independently of the web service:
 
@@ -144,7 +235,7 @@ This produces `.build/counter/sim.mjs` and `.build/counter/sim.wasm` along with
 intermediate sources and diagnostics. Load the module over HTTP rather than
 opening it with `file://`.
 
-## Supported input and limitations
+## Trusted-local supported input and limitations
 
 - A single source file with top module **`counter`**, scalar inputs **`clk`** and
   **`reset`**, and unsigned 8-bit output **`count`**. Preserve this interface when
@@ -163,7 +254,7 @@ opening it with `file://`.
   timeout. Compiled modules may grow Wasm memory to 64 MiB. Successful build
   directories remain until service shutdown; restart to reclaim disk space.
 
-## Trust boundary
+## Trusted-local trust boundary
 
 **This is a development-only build service for trusted local HDL.** Starting it
 requires `--trusted-local`, and it binds exclusively to `127.0.0.1`. Host checks
@@ -196,21 +287,26 @@ With the runtime toolchain installed, use Node.js 22+ for the test dependencies:
 
 ```sh
 npm ci
-npx playwright install --with-deps chromium
+npx playwright install --with-deps chromium firefox
 npm test
 ```
 
 The local browser test starts and stops its own trusted local service on port 8765.
-The static tests build the demo, serve only `.build/pages/` on port 8766, and load
-`/webrtl/` in Chromium. They check real Wasm bytes and output, wraparound,
-Run/Pause/Step/Reset, reload, read-only demo mode, missing-asset errors, and that
-requests stay under the project subpath without calling a build API. These checks
-run before merge without a live Pages deployment. To run either mode separately:
+The static tests assemble the compiler, serve only `.build/pages/` on port 8766,
+and load `/webrtl/` in Chromium and Firefox. They observe real newly generated Wasm
+bytes and differing circuit outputs, 255 → 0 wraparound, Run/Pause/Step/Reset,
+recompilation during Run, source edits, syntax errors, interface errors, missing
+tooling and recovery, a helper-module design, UI heartbeats during compilation,
+and same-origin static GET requests without a build API. These checks run before
+merge without a live Pages deployment. To run either mode separately:
 
 ```sh
 npm run test:local
 npm run test:demo
 ```
+
+The static checks need only Node, Python, the npm packages, and installed Playwright
+browsers; native Verilator and Emscripten are needed only for `test:local`.
 
 Python checks can also run alone without the compiler or Node:
 
