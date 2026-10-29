@@ -203,6 +203,12 @@
         }
       }
     ],
-    "limits": "Feature fixtures are not exhaustive conformance. Trusted-local native toolchain failure above was not rerun; live Pages checks remain pending publication."
+    "limits": "Feature fixtures are not exhaustive conformance. Trusted-local native toolchain failure above was not rerun; live Pages checks remain pending publication.",
+    "artifacts": {
+      "examples/snes/snes-core.v": "06747d04cbdabae3d5ee2a2ed214dbb236e9a44fc79d91cd5c82ad968899d2b0",
+      "examples/snes/snes.v": "bdd2be3c1fec482d91b03f3759340d49770dc7f93ec9833fe4353e4b821e9e1a",
+      "examples/snes/test.sfc": "1f8ec0ba8bbc51e917c5104f771003e97705c8f2491258593f8181013da35fdb",
+      "examples/snes/boot/spc700-boot-rom.bin": "69ef17c3f4ff6f44ca3d86a344360e785fb1eb0ff0f51305e46c70d594a7fb65"
+    }
   }
 }
