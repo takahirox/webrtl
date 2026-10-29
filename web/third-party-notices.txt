@@ -1,5 +1,13 @@
 WebRTL browser toolchain notices
 
+65C816 example: P65C816 by srg320, SystemVerilog conversion and IIgs changes
+Copyright (c) 2026 Alan Steremberg, from Apple-IIgs_MiSTer commit
+9adbba8622f378253765b7d438b6cbcc4d03fc57. GPL-3.0-or-later.
+Adapted source, original notices and full license ship in examples/cpu816/;
+see examples/cpu816/LICENSE and examples/cpu816/UPSTREAM.md. Source and build
+instructions: https://github.com/takahirox/webrtl (docs/cpu816.md).
+Compiled circuits containing that core are subject to its GPL license.
+
 Pinned packages: @yowasp/yosys 0.70.1258; @yowasp/clang 22.0.0-git20542-10.
 YoWASP packages and JavaScript runtime: ISC.
 Yosys/CXXRTL: ISC. LLVM/Clang/LLD and libc++: Apache-2.0 with LLVM exceptions.

@@ -55,7 +55,7 @@ export async function compileProject(project, progress) {
       // runtime has no C++ exception ABI; failed checks must abort instead.
       "clang++", `-DBOARD_${board.toUpperCase()}`, "-std=c++17", "-O2", "-fno-exceptions", "-I.", "-mexec-model=reactor",
       ...["sim_step", "sim_reset", "sim_count", "sim_batch", "sim_frame", "sim_frame_ready",
-        "sim_audio", "sim_audio_count"].map((name) => `-Wl,--export=${name}`),
+        "sim_audio", "sim_audio_count", "sim_trace", "sim_trace_count"].map((name) => `-Wl,--export=${name}`),
       "-Wl,--max-memory=67108864", "sim.cc", "-o", "sim.wasm",
     ], { ...headers, "design.cc": generated["design.cc"], "sim.cc": await wrapper.text() }, options);
     return { wasm: result["sim.wasm"], diagnostics: diagnostics.replace(/\x1b\[[0-9;]*m/g, "") };

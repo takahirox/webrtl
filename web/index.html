@@ -25,6 +25,7 @@
           <option value="single">Single-file counter</option>
           <option value="split">Two-file counter</option>
           <option value="bus">CPU bus · ROM/RAM self-test (pass = 1, fail = 255)</option>
+          <option value="cpu816">65C816 CPU · machine-code ROM test</option>
           <option value="video">Video test pattern · 64 × 48 RGB</option>
           <option value="audio">Audio tone · mono PCM16</option>
         </select>
@@ -32,6 +33,7 @@
         <label for="interface">Output interface</label>
         <select id="interface">
           <option value="counter">8-bit counter</option>
+          <option value="cpu816">65C816 test result and bus trace</option>
           <option value="video">Video · 64 × 48 RGB</option>
           <option value="audio">Audio · mono PCM16</option>
         </select>
@@ -50,7 +52,7 @@
         </div>
         <label for="import-files">Import local .v files (adds to project)</label>
         <input id="import-files" type="file" accept=".v" multiple>
-        <p>Flat .v filenames only; 64 KiB total source. Projects stay in memory until reload.
+        <p>Flat .v filenames only; 128 KiB total source. Projects stay in memory until reload.
           Switching files keeps edits. Loading an example replaces all files.</p>
       </fieldset>
       <label id="source-label" for="source">8-bit counter · counter.v</label>
@@ -65,6 +67,9 @@
           <canvas id="video" width="64" height="48" aria-label="RTL video output" hidden></canvas>
           <p id="audio-status" hidden>Click Run to enable audio. Step advances silently.</p>
           <p id="timing" hidden></p>
+          <p hidden>CPU result <output id="cpu-result" aria-live="polite">—</output>
+            · <a href="https://github.com/takahirox/webrtl/blob/main/docs/cpu816.md">Program and bus guide</a></p>
+          <details hidden><summary>CPU bus trace (up to 128 sampled cycles)</summary><pre id="cpu-trace"></pre></details>
         </div>
         <div class="controls">
           <button id="run" disabled>Run</button>

@@ -42,6 +42,15 @@ or Run: the existing `count` output displays transaction bytes, then **1 = PASS*
 [bus contract, address map and expected trace](docs/cpu-bus.md) for timing,
 source files, fault edits and the required post-merge public-site check.
 
+Choose **65C816 CPU · machine-code ROM test** for a real synthesizable P65C816
+CPU running an inline permitted program. Compile, then Run to **PASS** (37 CPU
+clocks), or Step to inspect its reset-vector, instruction-fetch and 24-bit
+RAM write/readback bus trace. Reset repeats deterministically. See the
+[65C816 guide](docs/cpu816.md) for core provenance/GPL license, source adaptations,
+ROM bytes, memory/timing contracts, fault edits, measured browser performance,
+automated checks and the pending post-merge Pages check. This is a small RTL
+board example; it contains no JavaScript CPU emulator or SNES console devices.
+
 Invalid names, duplicate imports/renames, or imports exceeding the size limit are
 rejected without replacing existing files. Import batches are atomic: if any file
 fails validation, none are added. Compilation errors retain all sources and the
@@ -105,9 +114,9 @@ The project UI passes its complete source map and chosen top to this same pipeli
 modules can be in separate files or share a file. The selected **Output interface**
 chooses the required ports independently of the top-module name.
 [browser-simulator.cpp](web/browser-simulator.cpp) is the small selectable adapter
-for the documented counter/video/audio contracts; it drives clock/reset and batches
-outputs from the generated model. It contains no counter, pattern, or tone
-implementation. The runtime worker
+for the documented counter/video/audio and CPU result/trace contracts; it drives
+clock/reset and batches outputs from the generated model. It contains no counter,
+pattern, tone or CPU instruction implementation. The runtime worker
 supplies no filesystem/network imports to the circuit and rejects WASI I/O.
 
 The compiler worker is terminated on success, failure, or timeout. Its C++ and
@@ -157,7 +166,9 @@ texts ship in [third-party-notices.txt](web/third-party-notices.txt).
   compilation. Reset follows the edited circuit's RTL; it does not force zero
   independently of that circuit. The CPU bus example uses this same output for
   its result register; its ROM/RAM bus stays internal to RTL. Arbitrary top-level
-  I/O and external ROM/RAM loading remain follow-up work. Video and Audio use
+  I/O and external ROM/RAM loading remain follow-up work. The 65C816 example has
+  its focused [result/trace contract](docs/cpu816.md#adapter-bounds-and-performance).
+  Video and Audio use
   their documented [output contracts](docs/output-interfaces.md) with any valid
   top-module name.
 - Supports Yosys's synthesizable Verilog and limited SystemVerilog frontend:
@@ -169,7 +180,8 @@ texts ship in [third-party-notices.txt](web/third-party-notices.txt).
   external includes, arbitrary project imports, assertions and full SystemVerilog
   are outside this milestone. Yosys may ignore simulation-only constructs; use
   synthesizable clocked logic and inspect diagnostics.
-- At most **64 KiB total UTF-8 source** across all project files, with nonempty
+- At most **128 KiB total UTF-8 source** across all project files (raised to fit
+  the 65C816 core), with nonempty
   source in every file at compile time, and one compile at a time. Imports are
   checked against the total limit before adding files; edited source is checked
   on Compile. Compilation, including downloads, has a **120-second** deadline.
@@ -373,6 +385,9 @@ also checks edited RTL pixels and PCM, precise framing/sample timing, real
 Web Audio processing, unlock failure recovery, and output lifecycle/bounds.
 The CPU bus suite checks the complete ROM-to-RAM transaction trace, deterministic
 reset, edited ROM/RAM failures, address decoding/protection, and compiler recovery.
+The 65C816 suite compiles the existing RTL CPU, checks instruction/vector/bus
+observations and PASS, instruction/branch/RAM mutations, reset, timeout and
+24-bit memory decoding, and reports compilation/simulation measurements.
 These checks run before merge without a live Pages deployment. To run either mode separately:
 
 ```sh

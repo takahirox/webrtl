@@ -298,8 +298,8 @@ test("imports multiple files atomically, manages files, and recovers from projec
   await expect(files.locator("option")).toHaveText(["counter.v"]);
   await input.setInputFiles(upload("bad name.v", "// invalid"));
   await expect(alert).toContainText("Invalid source name");
-  await input.setInputFiles(upload("large.v", "x".repeat(65536)));
-  await expect(alert).toContainText("64 KiB");
+  await input.setInputFiles(upload("large.v", "x".repeat(131072)));
+  await expect(alert).toContainText("128 KiB");
   await expect(source).toHaveValue(original);
   await expect(files.locator("option")).toHaveText(["counter.v"]);
 
@@ -319,10 +319,10 @@ test("imports multiple files atomically, manages files, and recovers from projec
   await expect(alert).toContainText("Invalid top-module name");
   await top.fill("split_counter");
   await files.selectOption("counter-next.v");
-  await source.fill("//" + "é".repeat(32768));
+  await source.fill("//" + "é".repeat(65536));
   await compile.click();
-  await expect(alert).toContainText("64 KiB");
-  await expect(source).toHaveValue("//" + "é".repeat(32768));
+  await expect(alert).toContainText("128 KiB");
+  await expect(source).toHaveValue("//" + "é".repeat(65536));
   await source.fill("module counter_next ( broken syntax");
   await compile.click();
   await expect(alert).toContainText(/counter-next.v.*(syntax error|ERROR)/s, { timeout: 120000 });
