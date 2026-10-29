@@ -1,7 +1,8 @@
 # Browser RTL video and audio
 
-The static browser compiler supports three selectable board interfaces: Counter,
-Video, and Audio. Select an example above the editor, click **Load example
+The static browser compiler supports Counter, Video, Audio and a focused
+[65C816 result/bus-trace interface](cpu816.md#adapter-bounds-and-performance).
+Select an example above the editor, click **Load example
 (replaces project)**, **Compile**, then **Run**. Loading an example replaces all
 project files and selects its top module and output interface. The project stays
 in memory until reload; switching source files preserves edits. The
@@ -29,6 +30,7 @@ adapter does not generate pixels or PCM or impose your circuit's reset values.
 | Interface / example top | Simulated clock | Run request size | Output |
 | --- | ---: | ---: | --- |
 | Counter / `counter` | 10 Hz | 1 cycle | unsigned `count[7:0]` |
+| 65C816 / `cpu816_test` | 10000 Hz | 256 cycles | RTL result and bounded bus trace; see [CPU guide](cpu816.md) |
 | Video / `video` | 184320 Hz | 3072 cycles (1/60 simulated second) | 64 × 48 RGB888 frames |
 | Audio / `audio` | 48000 Hz | 3072 cycles (64 simulated ms) | mono signed PCM16 at 8000 samples/s |
 

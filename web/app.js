@@ -4,7 +4,7 @@ import { AudioOutput } from "./audio-output.js";
 const ui = Object.fromEntries(
   ["source", "source-label", "compile", "status", "errors", "count", "run", "pause", "step", "reset", "diagnostics",
     "project", "files", "filename", "add-file", "rename-file", "remove-file", "import-files", "top", "example", "load-example",
-    "interface", "video", "audio-status", "timing", "run-help"]
+    "interface", "video", "audio-status", "timing", "run-help", "cpu-result", "cpu-trace"]
     .map((id) => [id, document.getElementById(id)]),
 );
 const browser = document.documentElement.dataset.mode === "browser";
@@ -43,6 +43,8 @@ function pause() {
 function clearOutput() {
   canvas.clearRect(0, 0, ui.video.width, ui.video.height);
   ui.timing.textContent = "0 cycles · 0.000 simulated seconds";
+  ui["cpu-result"].textContent = "—";
+  ui["cpu-trace"].textContent = "";
 }
 
 function discard() {
@@ -80,7 +82,10 @@ function selectInterface(board) {
   ui["audio-status"].textContent = "Click Run to enable audio. Step advances silently.";
   ui.timing.hidden = board === "counter";
   ui.count.parentElement.hidden = board !== "counter";
+  ui["cpu-result"].parentElement.hidden = board !== "cpu816";
+  ui["cpu-trace"].parentElement.hidden = board !== "cpu816";
   ui["run-help"].textContent = board === "counter" ? "Step = one full clock cycle. Run = 10 cycles per second." :
+    board === "cpu816" ? "Step = one CPU clock. Run = 10,000 clocks per second. A result freezes the CPU until Reset." :
     `Step = one clock cycle (silent). Run batches ${boards[board].batchCycles} cycles at a target ${boards[board].clockHz} simulated clocks/s.`;
 }
 
@@ -154,7 +159,7 @@ if (browser) {
       // Reject oversized imports before reading their contents into memory.
       const currentSize = Object.values(files).reduce((size, source) => size + new TextEncoder().encode(source).length, 0);
       if (currentSize + imported.reduce((size, file) => size + file.size, 0) > projectTools.MAX_SOURCE_BYTES) {
-        throw new Error("Import exceeds the 64 KiB total project limit. Remove files or select smaller sources.");
+        throw new Error("Import exceeds the 128 KiB total project limit. Remove files or select smaller sources.");
       }
       const additions = await Promise.all(imported.map(async (file) => [file.name, await file.text()]));
       const updated = { ...files, ...Object.fromEntries(additions) };
@@ -176,7 +181,11 @@ if (browser) {
       const example = ui.example.value;
       const board = ["single", "split", "bus"].includes(example) ? "counter" : example;
       const split = example === "split";
-      const sources = example === "bus"
+      const sources = example === "cpu816"
+        ? ["cpu816-test.v", "cpu816-memory.v", "cpu816-rom.v", "P65C816_pkg.v", "P65C816.v", "mcode.v",
+          "AddrGen.v", "ALU.v", "AddSubBCD.v", "BCDAdder.v", "adder4.v", "bit_adder.v"]
+          .map((name) => [name, `./examples/cpu816/${name}`])
+        : example === "bus"
         ? ["bus-test.v", "bus-master.v", "bus-rom.v", "bus-ram.v", "bus-decoder.v"]
           .map((name) => [name, `./examples/cpu-bus/${name}`])
         : split
@@ -214,6 +223,7 @@ async function simulate(action, playAudio = false) {
     const output = active._sim_output?.();
     if (output) {
       ui.timing.textContent = `${output.cycles} cycles · ${output.seconds.toFixed(3)} simulated seconds`;
+      if (selected === "cpu816") showCpuOutput(output);
       if (output.frame) canvas.putImageData(new ImageData(output.frame, 64, 48), 0, 0);
       if (playAudio && selected === "audio") {
         try { audio.play(output.audio, boards.audio.sampleRate); }
@@ -229,6 +239,18 @@ async function simulate(action, playAudio = false) {
   } finally {
     if (simulator === active) { advancing = false; controls(); }
   }
+}
+
+function showCpuOutput(output) {
+  ui["cpu-result"].textContent = output.count === 1 ? "PASS" : output.count === 255 ? "FAIL" : `Running (${output.count})`;
+  if (!output.trace?.length) return;
+  const hex = (value, width) => value.toString(16).padStart(width, "0");
+  const lines = ui["cpu-trace"].textContent.split("\n").filter(Boolean);
+  for (let i = 0; i < output.trace.length; i += 4) {
+    const [cycle, address, data, flags] = output.trace.slice(i, i + 4);
+    lines.push(`${cycle}: ${hex(address, 6)} ${flags & 1 ? "W" : "R"} ${hex(data, 2)} VPA=${(flags >> 2) & 1} VDA=${(flags >> 1) & 1}`);
+  }
+  ui["cpu-trace"].textContent = lines.slice(-128).join("\n");
 }
 
 ui.compile.addEventListener("click", async () => {
@@ -257,6 +279,7 @@ ui.compile.addEventListener("click", async () => {
       await loadSimulator(result.moduleUrl);
     }
     ui.count.textContent = simulator._sim_count();
+    if (selected === "cpu816") showCpuOutput(simulator._sim_output());
     ui.status.textContent = "Ready. The compiled circuit is reset.";
   } catch (error) {
     showError(error);

@@ -8,6 +8,8 @@ static uint8_t frame[64 * 48 * 4], drawing[64 * 48 * 4];
 static int16_t samples[16384];
 static unsigned sample_count;
 static bool frame_ready;
+static uint32_t trace[128 * 4];
+static unsigned trace_count, cycle_count;
 
 extern "C" {
 static void tick(bool capture = true) {
@@ -15,6 +17,16 @@ static void tick(bool capture = true) {
     model.step();
     model.p_clk.set(true);
     model.step();
+    if (capture) ++cycle_count;
+#ifdef BOARD_CPU816
+    if (capture && (model.p_trace__flags.get<unsigned>() & 8) && trace_count < 128) {
+        unsigned offset = trace_count++ * 4;
+        trace[offset] = cycle_count;
+        trace[offset + 1] = model.p_trace__address.get<unsigned>();
+        trace[offset + 2] = model.p_trace__data.get<unsigned>();
+        trace[offset + 3] = model.p_trace__flags.get<unsigned>();
+    }
+#endif
     // Capture after the rising edge has settled, before the falling edge.
 #ifdef BOARD_VIDEO
     if (capture && model.p_video__valid.get<bool>()) {
@@ -46,6 +58,7 @@ void sim_batch(unsigned cycles) {
     if (cycles > 16384) __builtin_trap();
     sample_count = 0;
     frame_ready = false;
+    trace_count = 0;
     for (unsigned i = 0; i < cycles; i++) tick();
 }
 
@@ -59,10 +72,14 @@ void sim_reset() {
     frame_ready = false;
     memset(frame, 0, sizeof(frame));
     memset(drawing, 0, sizeof(drawing));
+    trace_count = 0;
+    cycle_count = 0;
 }
 unsigned sim_count() {
 #ifdef BOARD_COUNTER
     return model.p_count.get<unsigned>();
+#elif defined(BOARD_CPU816)
+    return model.p_result.get<unsigned>();
 #else
     return 0;
 #endif
@@ -71,4 +88,6 @@ uint8_t *sim_frame() { return frame; }
 unsigned sim_frame_ready() { return frame_ready; }
 int16_t *sim_audio() { return samples; }
 unsigned sim_audio_count() { return sample_count; }
+uint32_t *sim_trace() { return trace; }
+unsigned sim_trace_count() { return trace_count; }
 }

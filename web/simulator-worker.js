@@ -29,6 +29,10 @@ self.onmessage = async ({ data: { id, action, wasm, board: selected, batchCycles
     } else throw new Error("Unknown simulator action.");
     const reply = { id, count: simulator.sim_count(), cycles, seconds: cycles / board.clockHz };
     const transfers = [];
+    if (selected === "cpu816") {
+      reply.trace = new Uint32Array(simulator.memory.buffer, simulator.sim_trace(), simulator.sim_trace_count() * 4).slice();
+      transfers.push(reply.trace.buffer);
+    }
     if (simulator.sim_frame_ready()) {
       reply.frame = new Uint8ClampedArray(simulator.memory.buffer, simulator.sim_frame(), board.width * board.height * 4).slice();
       transfers.push(reply.frame.buffer);

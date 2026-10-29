@@ -1,4 +1,4 @@
-export const MAX_SOURCE_BYTES = 65536;
+export const MAX_SOURCE_BYTES = 131072;
 
 export function validateFilename(name) {
   if (!/^[a-zA-Z0-9_][a-zA-Z0-9_-]*\.v$/.test(name) || !name.endsWith(".v")) {
@@ -8,7 +8,7 @@ export function validateFilename(name) {
 
 export function validateSize(files) {
   const size = Object.values(files).reduce((total, source) => total + new TextEncoder().encode(source).length, 0);
-  if (size > MAX_SOURCE_BYTES) throw new Error("Verilog source exceeds the 64 KiB total project limit. Remove files or shorten the source.");
+  if (size > MAX_SOURCE_BYTES) throw new Error("Verilog source exceeds the 128 KiB total project limit. Remove files or shorten the source.");
 }
 
 export function validateProject({ files, top }) {
