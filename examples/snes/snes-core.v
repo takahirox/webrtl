@@ -2545,7 +2545,7 @@ always @(posedge CLK) begin
         if (PA == 8'h34 || PA == 8'h35 || PA == 8'h36 || PA == 8'h38 ||
             PA == 8'h39 || PA == 8'h3A || PA == 8'h3E)
             MDR1 <= D_OUT;
-        if (PA == 8'h38 || PA == 8'h3C || PA == 8'h3D || PA == 8'h3F)
+        if (PA == 8'h3B || PA == 8'h3C || PA == 8'h3D || PA == 8'h3F)
             MDR2 <= D_OUT;
     end
 end
@@ -3224,7 +3224,7 @@ always @(posedge CLK) begin : calc_sprite_range
     reg [7:0] SCREEN_Y;
     reg [8:0] X;
     reg [7:0] Y;
-    reg [5:0] W, H, H2;
+    reg [5:0] W, H, RANGE_H;
     reg [5:0] NEW_RANGE_CNT;
     reg [8:0] TILE_X;
     reg [2:0] CUR_TILES_CNT;
@@ -3291,14 +3291,11 @@ always @(posedge CLK) begin : calc_sprite_range
             W = SprWidth({OAM_OBJ_S, OBJSIZE});
             H = SprHeight({OAM_OBJ_S, OBJSIZE});
 
-            if (OBJINTERLACE)
-                H = {1'b0, H[5:1]};
-            else
-                H2 = H;
+            RANGE_H = OBJINTERLACE ? {1'b0, H[5:1]} : H;
 
             // OBJ_RANGE: Collect visible tile addresses into OAM_RANGE[]
             if (OBJ_RANGE && H_CNT[0] && ~FORCE_BLANK) begin
-                if ((OAM_OBJ_X <= 256 || (9'd0 - OAM_OBJ_X) <= {3'b0, W}) && (SCREEN_Y - OAM_OBJ_Y) <= {2'b0, H}) begin
+                if ((OAM_OBJ_X <= 256 || (9'd0 - OAM_OBJ_X) <= {3'b0, W}) && (SCREEN_Y - OAM_OBJ_Y) <= {2'b0, RANGE_H}) begin
                     // sprite is visible, and Y is within range
                     if (~OBJ_RANGE_DONE) begin
                         NEW_RANGE_CNT = RANGE_CNT + 1;
@@ -3363,7 +3360,7 @@ always @(posedge CLK) begin : calc_sprite_range
 
                     TILES_OAM_CNT <= TILES_OAM_CNT + 1;
                     TILES_CNT <= CUR_TILES_CNT + 1;
-                    if (CUR_TILES_CNT == W[5:3] || ((TILE_X + 8) >= 256 && OAM_OBJ_X != 256)) begin
+                    if (CUR_TILES_CNT == W[5:3] || (!TILE_X[8] && (TILE_X + 9'd8) >= 9'd256 && OAM_OBJ_X != 9'd256)) begin
                         NEW_RANGE_CNT = RANGE_CNT - 1;
                         TILES_CNT <= 0;
                         RANGE_CNT <= NEW_RANGE_CNT;

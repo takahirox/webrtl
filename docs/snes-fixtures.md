@@ -6,7 +6,7 @@ uploads its SPC700 driver through the IPL protocol. The browser test compiles th
 RTL once per browser and power-cycles it for each cartridge. Expected pixels and
 PCM are calculated in the test; they are not recordings of this core's output.
 Pixel comparisons cover every RGBA sample, including its position and alpha.
-The 117-cartridge sweep allows up to 30 minutes per browser, including client-side
+The 120-cartridge sweep allows up to 30 minutes per browser, including client-side
 compilation, and logs bounded fixture progress during simulation.
 For a focused DSP rerun (including baseline input/reset and LoROM/HiROM checks):
 
@@ -33,6 +33,9 @@ the capture buffer starts at row 0.
 | `priority-low`, `priority-high`, `bg3-priority-low/high` | Coincident BG1/BG2 stripes distinguish map priority; Mode 1 BG3 high-priority stripes distinguish its priority-promotion bit. |
 | `sprite-low`, `sprite-high` | Green object occupies dots 16–23, rows 16–23. Low priority is hidden at opaque BG dots; high priority covers them. |
 | `sprite-hflip`, `sprite-vflip` | An asymmetric eight-row object distinguishes horizontal and vertical OAM flips. |
+| `sprite-edges` | OBSEL=`$61` selects 16×16 objects at X=0, 248, 252, −4, −8, −12, on separate rows. Left-edge objects wrap at 512 and display 12, 8, 4 dots; right-edge objects display 8 or 4 dots. The on-screen control displays all 16 dots. |
+| `sprite-interlace` | SETINI=`$03`, OBSEL=`$61`, object at (16,16): upper source tile rows alternate green/white and lower tiles are transparent. Both fields must produce exactly capture rows 32–39, green on even rows and white on odd rows. Rows 40–47 must show the background. |
+| `cgram-latch` | CPU reads entries `$40`–`$42` and stores `$00,$00,$80,$92,$5a,$23` in WRAM. Interposed OAM reads with opposite bit 7 update PPU1 open bus while leaving the CGRAM high byte's PPU2 bit 7 intact, in both directions. |
 | `scroll`, `mosaic` | One-dot scroll reverses the stripes; four-dot mosaic samples transparent dot 0 and makes all pixels blue. |
 | `offset-2/4/6` | Alternating solid/transparent tile rows. BG3 offset data enables a one-line vertical offset after the first eight screen dots; mode 4 uses the combined offset selector. |
 | `direct-3/4/7` | Nontransparent index 1 gives direct-color red value 4/31, expanded to 33/255, independently of CGRAM. |
@@ -159,3 +162,20 @@ timing or commercial-game conformance. Remaining limits are recorded in the
 [feature matrix](snes.md#base-console-feature-matrix). Test evidence includes
 per-fixture mismatch counts and bounded PCM excerpts rather than entire frames,
 keeping the Playwright transport and report memory bounded.
+
+The sprite-edge and interlace expectations follow the independent
+[bsnes object renderer](https://github.com/bsnes-emu/bsnes/blob/master/bsnes/sfc/ppu-fast/object.cpp):
+object X and each tile X wrap to nine bits, and interlace halves range height
+while source Y advances by two plus the field bit. The interlace fixture uses
+different colors per field so a duplicated field cannot satisfy its image check.
+CGRAM readback follows the independent
+[bsnes PPU register implementation](https://github.com/bsnes-emu/bsnes/blob/master/bsnes/sfc/ppu-fast/io.cpp):
+`$213b` updates PPU2 MDR, high-byte reads retain bit 7 from that latch, and
+`$2138` updates only PPU1 MDR. The cartridge verifies each CPU load before
+enabling display, and the browser separately verifies its stores at `$7e3200`–`$7e320d`.
+For a focused rerun of these three PPU regressions:
+
+```sh
+npm run build:demo
+WEBRTL_SNES_FIXTURES='^(sprite-edges|sprite-interlace|cgram-latch)$' npx playwright test --config=playwright.static.config.js --grep 'full SNES RTL'
+```

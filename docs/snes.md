@@ -86,10 +86,10 @@ and CPU paths; it does not replace devices with host implementations.
 | --- | --- | --- |
 | CPU | P65C816 with 5A22 system timing, 24-bit bus, WRAM mirrors, reset/vector fetches | Original native-mode program, long reads, branches, stack/interrupts; existing CPU instruction examples retained. No exhaustive 65C816 instruction conformance suite. |
 | System I/O | Multiply/divide, H/V timers, NMI/IRQ flags, refresh, CPU speed control | ROM checks `$0011`, `$7E0011`, `$800011`, multiply `$12*3=$36`, divide `$1234/3=$0611` remainder 1, RDIO driven/released levels; NMI and horizontal IRQ service. Timing corner cases remain unverified. |
-| Memory | 128 KiB WRAM, two 32 KiB VRAM lanes, 256×15-bit CGRAM, 512+32-byte OAM, 64 KiB ARAM | DMA tiles, palette/OAM writes, CPU WRAM checks and reset replay. Power-up memory is deliberately zeroed. |
+| Memory | 128 KiB WRAM, two 32 KiB VRAM lanes, 256×15-bit CGRAM, 512+32-byte OAM, 64 KiB ARAM | DMA tiles, palette/OAM writes, CPU CGRAM readback with PPU1/PPU2 latch isolation, CPU WRAM checks and reset replay. Power-up memory is deliberately zeroed. |
 | Cartridge | Runtime-loaded LoROM/HiROM, mirroring via mask, up to 4 MiB ROM and 128 KiB SRAM | Both mappings boot the fixture; CPU checks cover unmapped reads, ROM aliases, and 2 KiB SRAM bank/size mirrors. Only power-of-two ROM sizes, optional 512-byte copier header, header types 0–2. SRAM persistence/export and exhaustive map boundaries remain unverified. |
 | BG modes | Modes 0–7, planar 2/4/8bpp, affine Mode 7, BG layers/tilemaps/scroll/mosaic | Exact pixels in all eight modes, higher bitplanes, BG2/3/4, both high-resolution stripe phases and BG1/BG2 priorities, scroll/mosaic, offset-per-tile in modes 2/4/6, direct color in modes 3/4/7, and identity/doubled/constant/rotated/flipped Mode 7 with fractional scaling. Affine clipping and map-boundary corner cases remain unverified. |
-| Objects | OAM/high OAM, sizes/flips, sprite fetch, priorities, sprite line buffer | Exact pixels for an original green 8×8 object at priority 0 and 3, BG occlusion, and asymmetric horizontal/vertical flip fixtures. Sprite limits, wrapping and other sizes remain unverified. |
+| Objects | OAM/high OAM, sizes/flips, sprite fetch, priorities, sprite line buffer | Exact pixels for an original green 8×8 object at priority 0 and 3, BG occlusion, asymmetric horizontal/vertical flips, 16×16 left/right edge clipping and both interlaced fields with distinct source rows. Sprite limits and other sizes remain unverified. |
 | PPU composition | Windows, main/subscreen, priority, color math, brightness/blanking | Exact pixels for all four two-window Boolean operators, BG1/BG2 priorities, Mode 1 BG3 priority promotion, subscreen addition, fixed-color addition/subtraction and halving. Exhaustive layer/window/color-window combinations remain unverified. |
 | Video timing | H/V counters, blanking, two long dots, NTSC short-line exception, overscan/interlace | 224/239/448-line captures and exact pixel positions tested; 357,368/357,364 master-clock noninterlaced field periods observed natively. No PAL board clock selector. |
 | DMA/HDMA | Eight channels, transfer modes, CPU stalls, direct/indirect HDMA | All eight DMA B-bus transfer patterns, reverse VRAM-to-WRAM DMA with CPU readback, and indirect HDMA data and 127-line timing; direct HDMA retained. Exhaustive channel interaction and interrupt-boundary timing remain unverified. |
@@ -142,7 +142,10 @@ original MiSTer VHDL long-dot condition. RDIO reflects released/driven WRIO leve
 H-512 captures place subscreen/main samples in even/odd columns and test each
 sample's own transparency bits for BG1/BG2 at both priorities. Mode 7 advances
 its source coordinate after the synchronous VRAM sample, and color addition is
-halved before saturation. Flipped Mode 7 coordinates are zero-extended before
+halved before saturation. Sprite fetching distinguishes wrapped negative X from
+the visible right edge. Interlaced sprite range evaluation uses half height while
+tile addressing retains the full source-height mask. CGRAM reads update PPU2 MDR;
+OAM reads update only PPU1 MDR. Flipped Mode 7 coordinates are zero-extended before
 signed matrix multiplication; negative DSP pitch modulators use an arithmetic
 shift. DSP echo accesses
 use one latched stereo address, BRR filters preserve signed rounding, out-of-range

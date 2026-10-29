@@ -23,6 +23,9 @@ cases += [(f'direct-{mode}',dict(mode=mode,effect='direct')) for mode in [3,4,7]
 cases += [(f'offset-{mode}',dict(mode=mode,effect='offset')) for mode in [2,4,6]]
 cases += [(name,dict(mode=1,effect=name)) for name in ['bg3-priority-low','bg3-priority-high']]
 cases += [(name,dict(sprite_priority=3,effect=name)) for name in ['sprite-hflip','sprite-vflip']]
+cases += [('sprite-edges',dict(sprite_priority=3,effect='sprite-edges')),
+ ('sprite-interlace',dict(sprite_priority=3,display=3,effect='sprite-interlace')),
+ ('cgram-latch',dict(effect='cgram-latch'))]
 cases += [('serial',dict(joycheck=0xa55)),('reverse',dict(transfer='reverse')),('indirect',dict(transfer='indirect'))]
 cases += [(f'dma-{mode}',dict(transfer=f'mode{mode}')) for mode in range(8)]
 cases += [(f'audio-{audio}',dict(audio=audio)) for audio in ['gain','mute','pitch','voices','adsr','ramp','keyoff','noise','echo','echo-wrap','filter-1','filter-2','filter-3','range13','gauss-wrap','negative-modulator']]
@@ -40,7 +43,7 @@ const selectedModes = process.env.WEBRTL_SNES_FIXTURES ?
   modes.filter(({ name }) => new RegExp(process.env.WEBRTL_SNES_FIXTURES).test(name)) : modes;
 if (!selectedModes.length) throw new Error("WEBRTL_SNES_FIXTURES selected no cartridges");
 
-// Browser compilation plus 117 cartridge power cycles can exceed 20 minutes.
+// Browser compilation plus 120 cartridge power cycles can exceed 20 minutes.
 test.setTimeout(1_800_000);
 
 // Expected pixels are specified from the cartridge data and SNES dot/bitplane,
@@ -79,6 +82,16 @@ function pixel(name, x, y) {
     const mask = { "window-or": a || b, "window-and": a && b,
       "window-xor": a !== b, "window-xnor": a === b }[name];
     if (mask) return blue;
+  }
+  if (name === "sprite-edges") {
+    const xs = [0, 248, 252, -4, -8, -12];
+    if (xs.some((left, i) => dot >= left && dot < left + 16 && y >= 16 + i * 24 && y < 32 + i * 24)) return green;
+  }
+  // SETINI=$03 halves the range height, but source Y still spans 16 rows.
+  // Upper tiles are green/white on even/odd source rows, lower tiles transparent.
+  // The fixed capture interleaves FIELD 0/1 in even/odd rows.
+  if (name === "sprite-interlace" && dot >= 16 && dot < 32 && y >= 32 && y < 40) {
+    return y & 1 ? [255, 255, 255, 255] : green;
   }
   if (["sprite-low", "sprite-high"].includes(name) && dot >= 16 && dot < 24 && y >= 16 && y < 24 &&
       (name === "sprite-high" || !(dot & 1))) return green;
@@ -329,7 +342,7 @@ test("full SNES RTL boots a local cartridge, renders DMA tiles, produces DSP PCM
         const trace = [], pcm = [], hdma = [];
         // Zero targets need a full 256 timer ticks before display is enabled,
         // followed by a complete frame, rather than the short-target window.
-        const batches = fixture.name === "interlace" || fixture.name.startsWith("apu-timer-zero-") ? 224 : 164;
+        const batches = fixture.name.includes("interlace") || fixture.name.startsWith("apu-timer-zero-") ? 224 : 164;
         for (let i = 0; i < batches; i++) {
           const output = await call({ action: "batch", batchCycles: i < 64 ? 512 : 16384,
             buttons: fixture.name === "auto" ? 2048 : fixture.name === "serial" ? 0xa55 : 0 });
@@ -398,7 +411,7 @@ test("full SNES RTL boots a local cartridge, renders DMA tiles, produces DSP PCM
       expect(pcmMatches(onset.slice(64, 500), expectedPcm("mode-0")), "echo's 512-sample delay").toBe(true);
       expect(pcmMatches(onset.slice(600, 768), expectedPcm("audio-echo"))).toBe(true);
     }
-    expect(height, name).toBe(name === "interlace" ? 448 : name === "overscan" ? 239 : 224);
+    expect(height, name).toBe(name.includes("interlace") ? 448 : name === "overscan" ? 239 : 224);
     const writes = Array.from({ length: trace.length / 4 }, (_, i) => trace.slice(i * 4, i * 4 + 4)).filter((t) => t[3] & 1);
     if (name === "serial") {
       expect(writes.filter((t) => t[1] >= 0x7e2000 && t[1] < 0x7e2018).map((t) => t[2])).toEqual(
@@ -412,6 +425,12 @@ test("full SNES RTL boots a local cartridge, renders DMA tiles, produces DSP PCM
       expect(writes.filter((t) => t[1] >= 0x7e3100 && t[1] < 0x7e3100 + expected.length)
         .map((t) => [t[1], t[2]]), `${name} CPU read results`).toEqual(
           expected.map((value, i) => [0x7e3100 + i, value]));
+    }
+    if (name === "cgram-latch") {
+      const expected = [0, 0, 0x80, 0x92, 0x5a, 0x23, 0, 0x80, 0x80, 0, 0x80, 0, 0, 0x92];
+      expect(writes.filter((t) => t[1] >= 0x7e3200 && t[1] < 0x7e3200 + expected.length)
+        .map((t) => [t[1], t[2]]), "CPU CGRAM readback and PPU1/PPU2 latch isolation").toEqual(
+          expected.map((value, i) => [0x7e3200 + i, value]));
     }
     if (name.startsWith("dma-")) {
       const offsets = [[0], [0, 1], [0, 0], [0, 0, 1, 1], [0, 1, 2, 3], [0, 1, 0, 1], [0, 0], [0, 0, 1, 1]][Number(name.at(-1))];

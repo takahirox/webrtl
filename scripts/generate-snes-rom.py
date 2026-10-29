@@ -294,6 +294,35 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
     check(1)
     write(0x1e, 1)
     write(0x2100, 0x80)
+    if effect == "cgram-latch":
+        # CGRAM high reads inherit bit 7 from PPU2 MDR. Low reads update it;
+        # OAM reads update only PPU1 MDR. Record actual CPU results in WRAM.
+        observations = []
+
+        def observe_ppu(address, expected):
+            load(address)
+            index = len(observations)
+            cpu.emit(f"STA $7e3200+{index}", 0x8f, index, 0x32, 0x7e)
+            check(expected)
+            observations.append(expected)
+
+        write(0x2121, 0x40)
+        for value in [0, 0, 0x80, 0x12, 0x5a, 0x23]:
+            write(0x2122, value)
+        write(0x2121, 0x40)
+        for expected in [0, 0, 0x80, 0x92, 0x5a, 0x23]:
+            observe_ppu(0x213b, expected)
+        stz(0x2102)
+        stz(0x2103)
+        write(0x2104, 0x80)
+        write(0x2104, 0)
+        stz(0x2102)
+        for entry, low, oam, high in [(0x40, 0, 0x80, 0), (0x41, 0x80, 0, 0x92)]:
+            write(0x2121, entry)
+            observe_ppu(0x213b, low)
+            observe_ppu(0x2138, oam)
+            observe_ppu(0x2104, oam)  # PPU1 open bus retains the OAM read
+            observe_ppu(0x213b, high)
     write(0x2105, mode)
     stz(0x2107)
     write(0x210b, 1)
@@ -371,14 +400,21 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
             stz(address)
     if sprite_priority is not None:
         assert mode == 0 and sprite_priority in [0, 3]
-        # One opaque green 8x8 sprite at (16,16); other objects are offscreen.
+        # Normally one green 8x8 object; edge/interlace fixtures use 16x16.
+        large_sprite = effect in ["sprite-edges", "sprite-interlace"]
         write(0x2121, 130)
         write(0x2122, 0xe0)
         write(0x2122, 3)
-        write(0x2101, 1)
+        if large_sprite:
+            write(0x2122, 0xff)  # palette 131: white for odd source rows
+            write(0x2122, 0x7f)
+        write(0x2101, 0x61 if large_sprite else 1)
         stz(0x2116)
         write(0x2117, 0x20)
-        for address, value in [(0x4302, 0x40), (0x4305, 32), (0x420b, 1)]:
+        sprite_source = 0x9b00 if large_sprite else 0x9040
+        sprite_bytes = 18 * 32 if large_sprite else 32
+        for address, value in [(0x4302, sprite_source & 255), (0x4303, sprite_source >> 8),
+                               (0x4305, sprite_bytes & 255), (0x4306, sprite_bytes >> 8), (0x420b, 1)]:
             write(address, value)
         stz(0x2102)
         stz(0x2103)
@@ -604,6 +640,18 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
         oam = bytearray([0, 240, 0, 0] * 128 + [0] * 32)
         flip = 0x40 if effect == "sprite-hflip" else 0x80 if effect == "sprite-vflip" else 0
         oam[:4] = bytes([16, 16, 0, (sprite_priority << 4) | flip])
+        if large_sprite:
+            opaque = bytes([0, 255] * 8 + [0] * 16)
+            upper = bytes(v for y in range(8) for v in [255 if y & 1 else 0, 255]) + bytes(16)
+            sprite_graphics = bytearray(18 * 32)
+            for tile_index in [0, 1, 16, 17]:
+                tile_data = (upper if tile_index < 2 else bytes(32)) if effect == "sprite-interlace" else opaque
+                sprite_graphics[tile_index * 32:(tile_index + 1) * 32] = tile_data
+            rom[0x1b00:0x1b00 + len(sprite_graphics)] = sprite_graphics
+            xs = [0, 248, 252, 508, 504, 500] if effect == "sprite-edges" else [16]
+            for i, x in enumerate(xs):
+                oam[4 * i:4 * i + 4] = bytes([x & 255, 16 + i * 24, 0, sprite_priority << 4])
+                oam[512 + i // 4] |= (x >> 8) << (2 * (i % 4))
         rom[0x1800:0x1a20] = oam
     rom[0x1100:0x1600] = payload
     rom[0x7fc0:0x7fd5] = b"WEBRTL ORIGINAL TEST ".ljust(21)

@@ -85,6 +85,21 @@ def adapt(sources, boot):
                 source = source.replace(f"17'({product})",
                                         f"17'(shortint'({product}))")
         if name == "src/ppu.v":
+            # CGRAM reads update PPU2 MDR; OAM reads update only PPU1 MDR.
+            source = source.replace("PA == 8'h38 || PA == 8'h3C || PA == 8'h3D || PA == 8'h3F",
+                                    "PA == 8'h3B || PA == 8'h3C || PA == 8'h3D || PA == 8'h3F")
+            # Interlace halves the visible range, not the source tile height.
+            # Preserve the full height mask for OBJ_TILE_ROW addressing.
+            source = source.replace("reg [5:0] W, H, H2;", "reg [5:0] W, H, RANGE_H;")
+            source, count = re.subn(r"if \(OBJINTERLACE\)\s+H = \{1'b0, H\[5:1\]\};\s+else\s+H2 = H;",
+                                    "RANGE_H = OBJINTERLACE ? {1'b0, H[5:1]} : H;", source)
+            assert count == 1
+            source = source.replace("(SCREEN_Y - OAM_OBJ_Y) <= {2'b0, H}",
+                                    "(SCREEN_Y - OAM_OBJ_Y) <= {2'b0, RANGE_H}")
+            # Negative nine-bit X wraps at 512 and can continue onto the left
+            # edge. Only a tile on the visible right edge terminates fetching.
+            source = source.replace("((TILE_X + 8) >= 256 && OAM_OBJ_X != 256)",
+                                    "(!TILE_X[8] && (TILE_X + 9'd8) >= 9'd256 && OAM_OBJ_X != 9'd256)")
             # Each H-512 sample has its own transparency bits. DOT_CLK selects
             # the low sample; testing the high sample loses reversed stripes.
             for bg, old, new, zero in [(1, "7:4", "3:0", "4'b0000"),
