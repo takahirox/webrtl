@@ -51,7 +51,9 @@ export async function compileProject(project, progress) {
     const wrapper = await fetch(new URL("./browser-simulator.cpp", import.meta.url));
     if (!wrapper.ok) throw new Error("Could not load the simulator adapter. Reload and retry.");
     const result = await runClang([
-      "clang++", `-DBOARD_${board.toUpperCase()}`, "-std=c++17", "-O2", "-I.", "-mexec-model=reactor",
+      // Memory-backed CXXRTL models use C++ containers. This standalone Wasm
+      // runtime has no C++ exception ABI; failed checks must abort instead.
+      "clang++", `-DBOARD_${board.toUpperCase()}`, "-std=c++17", "-O2", "-fno-exceptions", "-I.", "-mexec-model=reactor",
       ...["sim_step", "sim_reset", "sim_count", "sim_batch", "sim_frame", "sim_frame_ready",
         "sim_audio", "sim_audio_count"].map((name) => `-Wl,--export=${name}`),
       "-Wl,--max-memory=67108864", "sim.cc", "-o", "sim.wasm",

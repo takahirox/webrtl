@@ -34,6 +34,14 @@ both source files compiled together. Choose **Single-file counter** and load it 
 return to the original example. Loading an example replaces all current sources;
 projects are held only in memory and are lost on reload.
 
+Choose **CPU bus · ROM/RAM self-test (pass = 1, fail = 255)** for a five-file
+CPU-style memory example. Its small RTL bus master reads inline ROM bytes, writes
+XOR-transformed bytes into RAM, and verifies readback. Compile and Step 13 times
+or Run: the existing `count` output displays transaction bytes, then **1 = PASS**
+(**255 = FAIL**). Reset clears RAM and repeats the sequence. See the
+[bus contract, address map and expected trace](docs/cpu-bus.md) for timing,
+source files, fault edits and the required post-merge public-site check.
+
 Invalid names, duplicate imports/renames, or imports exceeding the size limit are
 rejected without replacing existing files. Import batches are atomic: if any file
 fails validation, none are added. Compilation errors retain all sources and the
@@ -147,9 +155,11 @@ texts ship in [third-party-notices.txt](web/third-party-notices.txt).
   input **`clk`**, scalar active-high input **`reset`**, and unsigned 8-bit output
   **`count`**, with no extra ports. Interface mismatches report an error before C++
   compilation. Reset follows the edited circuit's RTL; it does not force zero
-  independently of that circuit. Arbitrary top-level I/O, CPU bus/register adapters,
-  and ROM/RAM loading remain follow-up work. Video and Audio use their documented
-  [output contracts](docs/output-interfaces.md) with any valid top-module name.
+  independently of that circuit. The CPU bus example uses this same output for
+  its result register; its ROM/RAM bus stays internal to RTL. Arbitrary top-level
+  I/O and external ROM/RAM loading remain follow-up work. Video and Audio use
+  their documented [output contracts](docs/output-interfaces.md) with any valid
+  top-module name.
 - Supports Yosys's synthesizable Verilog and limited SystemVerilog frontend:
   arithmetic, bitwise/combinational logic, edge-triggered registers, synchronous
   and asynchronous resets, and internal module instances. This is a two-state,
@@ -361,6 +371,8 @@ filenames, total source limits, missing top modules, UI heartbeats during compil
 and same-origin static GET requests without a build API. The video/audio suite
 also checks edited RTL pixels and PCM, precise framing/sample timing, real
 Web Audio processing, unlock failure recovery, and output lifecycle/bounds.
+The CPU bus suite checks the complete ROM-to-RAM transaction trace, deterministic
+reset, edited ROM/RAM failures, address decoding/protection, and compiler recovery.
 These checks run before merge without a live Pages deployment. To run either mode separately:
 
 ```sh
