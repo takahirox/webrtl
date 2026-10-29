@@ -79,8 +79,21 @@ test("CPU bus compiles five files and exposes the RTL ROM/write/readback trace w
   await expect(page.locator("#count")).toHaveText("1");
   await reset(page);
   await page.locator("#run").click();
-  await expect(page.locator("#count")).toHaveText("18");
-  await reset(page); // Reset during Run also pauses and restarts deterministically.
+  // Wait for real simulation progress, then deliver Reset atomically with the
+  // enabled check. A separate Playwright click can race the next worker batch,
+  // and no individual transaction byte is guaranteed to survive until polling.
+  await page.waitForFunction(() => {
+    const reset = document.getElementById("reset");
+    const cycles = Number.parseInt(document.getElementById("timing").textContent, 10);
+    if (!(cycles > 0)
+        || document.getElementById("pause").disabled || reset.disabled) return false;
+    reset.click();
+    return true;
+  });
+  // The worker reply must acknowledge Reset before stepping the full restart.
+  await expect(page.locator("#step")).toBeEnabled();
+  await expect(page.locator("#count")).toHaveText("0");
+  await expect(page.locator("#timing")).toHaveText("0 cycles · 0.000 simulated seconds");
   await expect(page.locator("#pause")).toBeDisabled();
   await steps(page, trace);
   const circuits = await page.evaluate(() => window.circuits);
