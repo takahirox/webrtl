@@ -26,11 +26,19 @@ jobs:
       - name: Install native build tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3 verilator emscripten
+          sudo apt-get install -y python3 verilator emscripten pulseaudio
           verilator --version
           em++ --version
       - run: npm ci
       - run: npx playwright install --with-deps chromium firefox
+      # Firefox needs an audio backend even when headless. Process real Web Audio
+      # through a virtual output device on runners without sound hardware.
+      - name: Start audio output for browser tests
+        run: |
+          pulseaudio --start --exit-idle-time=-1
+          pactl load-module module-null-sink sink_name=webrtl_ci rate=48000
+          pactl set-default-sink webrtl_ci
+          pactl list short sinks
       # Includes both the trusted-local flow and a fresh static build tested at /webrtl/.
       - run: npm test
       - name: Upload tested static site

@@ -371,6 +371,20 @@ npm run test:demo
 The static checks need only Node, Python, the npm packages, and installed Playwright
 browsers; native Verilator and Emscripten are needed only for `test:local`.
 
+On headless Ubuntu hosts without sound hardware, Firefox also needs a running
+audio backend. The Pages workflow installs `pulseaudio` and runs these commands
+as the test user before `npm test`:
+
+```sh
+pulseaudio --start --exit-idle-time=-1
+pactl load-module module-null-sink sink_name=webrtl_ci rate=48000
+pactl set-default-sink webrtl_ci
+pactl list short sinks
+```
+
+The virtual sink supplies an output device; the tests still process RTL PCM
+through real Web Audio and assert non-silent analyser output.
+
 Python checks can also run alone without the compiler or Node:
 
 ```sh
