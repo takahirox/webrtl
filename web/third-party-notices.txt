@@ -975,3 +975,23 @@ system/lib/libc/musl/COPYRIGHT
 The third_party/ subdirectory contains code with other licenses. None of it is
 used by default, but certain options use it (e.g., the optional closure compiler
 flag will run closure compiler from third_party/).
+
+SNES example hardware and replacement firmware
+---------------------------------------------
+
+SNESTang by nand2mario, based on SNES_FPGA by srg320/Sergiy Dvodnenko and gyurco.
+https://github.com/nand2mario/snestang
+Pinned source: 5f0ef193145f67bded7f73f2c477ac8da4d85f7e
+Distributed under GNU GPL version 3. Full license: examples/snes/LICENSE.
+Source closure, hashes and adaptations: examples/snes/upstream.json,
+examples/snes/snes-core.v and scripts/adapt_snes.py in the WebRTL repository.
+
+Replacement SPC700 boot ROM, Copyright (c) 2026 StackBlender LLC.
+https://github.com/StackBlender/snes-spc700-boot-rom
+Pinned source: 6f3f92686b6477654fdc76289516281e91e8d509
+GPL-3.0-or-later. Full license and corresponding source: examples/snes/boot/.
+The original console manufacturer's IPL bytes are not distributed.
+
+The original WebRTL SNES board and test cartridge source are GPL-3.0-or-later.
+See examples/snes/README.md and the repository's docs/snes.md for provenance,
+reproduction, scope and validation limits. No third-party game ROM is included.

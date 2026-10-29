@@ -1,0 +1,118 @@
+{
+  "issue": 22,
+  "date": "2026-10-29",
+  "host": "macOS arm64, Apple M4 Max",
+  "scope": "Experimental complete-core integration; broader base-console conformance coverage remains outstanding (docs/snes.md).",
+  "checks": {
+    "python": {
+      "passed": 10
+    },
+    "staticBrowsers": {
+      "passed": 44,
+      "browsers": [
+        "chromium",
+        "firefox"
+      ]
+    },
+    "finalSnesBrowsers": {
+      "passed": 4,
+      "romVariantsPerBrowser": 17
+    },
+    "trustedLocal": {
+      "status": "failed",
+      "initialAttempt": "Port 8765 was occupied; retried on 18765 without disturbing the existing service.",
+      "cause": "Documented Verilator 5.052 / Emscripten 6.0.13 link failure: pthread_getaffinity_np, sched_getcpu and pthread_setaffinity_np unresolved."
+    },
+    "livePages": {
+      "status": "pending publication; not performed"
+    },
+    "finalUiRegression": {
+      "passed": 14,
+      "browsers": [
+        "chromium",
+        "firefox"
+      ],
+      "scope": "Counter, project management, video and Web Audio after final UI/capture changes."
+    }
+  },
+  "measurements": [
+    {
+      "browser": "chromium",
+      "compileMs": 68437.5999994278,
+      "wasmBytes": 268010,
+      "cxxrtlBytes": 1604670,
+      "runtime": {
+        "samples": 2001,
+        "nonzero": 1311,
+        "pcmHash": 1143492812,
+        "hashes": [
+          698101324,
+          2439834836,
+          3371206625
+        ],
+        "frameCycles": [
+          311296,
+          671744,
+          1032192
+        ],
+        "hdmaWrites": 5,
+        "nmiVectors": 2,
+        "irqVectors": 648,
+        "memoryBytes": 20578304,
+        "pcmPeriod16": true,
+        "pcmMin": -14011,
+        "pcmMax": 14005,
+        "elapsedMs": 4921.199999809265,
+        "cycles": 1343488,
+        "masterClocksPerSecond": 273000.0812915693,
+        "capturedFramesPerSecond": 0.6096074128497669,
+        "realTimeRatio": 0.012711116510225428
+      }
+    },
+    {
+      "browser": "firefox",
+      "compileMs": 72963,
+      "wasmBytes": 268010,
+      "cxxrtlBytes": 1604670,
+      "runtime": {
+        "samples": 2001,
+        "nonzero": 1311,
+        "pcmHash": 1143492812,
+        "hashes": [
+          698101324,
+          2439834836,
+          3371206625
+        ],
+        "frameCycles": [
+          311296,
+          671744,
+          1032192
+        ],
+        "hdmaWrites": 5,
+        "nmiVectors": 2,
+        "irqVectors": 648,
+        "memoryBytes": 20578304,
+        "pcmPeriod16": true,
+        "pcmMin": -14011,
+        "pcmMax": 14005,
+        "elapsedMs": 6153,
+        "cycles": 1343488,
+        "masterClocksPerSecond": 218346.82268811963,
+        "capturedFramesPerSecond": 0.48756704046806437,
+        "realTimeRatio": 0.01016641419920314
+      }
+    }
+  ],
+  "measurementLimits": {
+    "compilerPeakMemory": "not measured",
+    "runtimeWindow": "active sequential worker requests, includes startup; excludes compile, loading and pauses",
+    "romBytes": 32768,
+    "wasmMemoryLimitBytes": 67108864
+  },
+  "artifacts": {
+    "examples/snes/snes-core.v": "e48579673e36540e796c3704e43dc11577c6203978336a8e0cc7646f3c9097da",
+    "examples/snes/snes.v": "88ac714dc09811a6577b50daff87b37534b87ab51300d601509f1178e1d147f3",
+    "examples/snes/test.sfc": "a9d262d9c00590987c597065e1c3b64057fbb6afd75e92c9fb1de3cc39941441",
+    "examples/snes/boot/spc700-boot-rom.bin": "69ef17c3f4ff6f44ca3d86a344360e785fb1eb0ff0f51305e46c70d594a7fb65"
+  }
+}

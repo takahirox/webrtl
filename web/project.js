@@ -1,4 +1,10 @@
 export const MAX_SOURCE_BYTES = 131072;
+export const MAX_SLANG_SOURCE_BYTES = 2097152;
+
+export function sourceLimit(frontend = "verilog") {
+  if (!["verilog", "slang"].includes(frontend)) throw new Error("Unknown HDL frontend.");
+  return frontend === "slang" ? MAX_SLANG_SOURCE_BYTES : MAX_SOURCE_BYTES;
+}
 
 export function validateFilename(name) {
   if (!/^[a-zA-Z0-9_][a-zA-Z0-9_-]*\.v$/.test(name) || !name.endsWith(".v")) {
@@ -6,12 +12,12 @@ export function validateFilename(name) {
   }
 }
 
-export function validateSize(files) {
+export function validateSize(files, frontend = "verilog") {
   const size = Object.values(files).reduce((total, source) => total + new TextEncoder().encode(source).length, 0);
-  if (size > MAX_SOURCE_BYTES) throw new Error("Verilog source exceeds the 128 KiB total project limit. Remove files or shorten the source.");
+  if (size > sourceLimit(frontend)) throw new Error(`Verilog source exceeds the ${frontend === "slang" ? "2 MiB" : "128 KiB"} total project limit. Remove files or shorten the source.`);
 }
 
-export function validateProject({ files, top }) {
+export function validateProject({ files, top, frontend = "verilog" }) {
   if (!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(top) || top !== top.trim()) {
     throw new Error("Invalid top-module name. Enter a module name starting with a letter, followed by letters, digits or underscores.");
   }
@@ -23,5 +29,5 @@ export function validateProject({ files, top }) {
       throw new Error(`Source file "${name}" is empty. Add Verilog source or remove the file.`);
     }
   }
-  validateSize(files);
+  validateSize(files, frontend);
 }

@@ -26,6 +26,7 @@
           <option value="split">Two-file counter</option>
           <option value="bus">CPU bus · ROM/RAM self-test (pass = 1, fail = 255)</option>
           <option value="cpu816">65C816 CPU · machine-code ROM test</option>
+          <option value="snes">SNES · experimental base console RTL</option>
           <option value="bg1">65C816 CPU → BG1 tiles · 64 × 48</option>
           <option value="backdrop">65C816 CPU → PPU backdrop · 64 × 48</option>
           <option value="video">Video test pattern · 64 × 48 RGB</option>
@@ -38,11 +39,17 @@
           <option value="cpu816">65C816 test result and bus trace</option>
           <option value="video">Video · 64 × 48 RGB</option>
           <option value="audio">Audio · mono PCM16</option>
+          <option value="snes">SNES · cartridge, controller, video and PCM</option>
         </select>
         <p>Preserve the selected interface's ports in your chosen top module.
           <a href="https://github.com/takahirox/webrtl/blob/main/docs/output-interfaces.md">RTL output contracts</a></p>
         <label for="top">Top module</label>
         <input id="top" type="text" value="counter" spellcheck="false" autocomplete="off">
+        <label for="frontend">HDL frontend</label>
+        <select id="frontend">
+          <option value="verilog">Yosys Verilog · 128 KiB</option>
+          <option value="slang">Slang SystemVerilog · 2 MiB</option>
+        </select>
         <label for="files">Source file</label>
         <select id="files"></select>
         <label for="filename">Filename to add or rename</label>
@@ -54,7 +61,7 @@
         </div>
         <label for="import-files">Import local .v files (adds to project)</label>
         <input id="import-files" type="file" accept=".v" multiple>
-        <p>Flat .v filenames only; 128 KiB total source. Projects stay in memory until reload.
+        <p>Flat .v filenames only; 128 KiB total source (2 MiB with Slang). Projects stay in memory until reload.
           Switching files keeps edits. Loading an example replaces all files.</p>
       </fieldset>
       <label id="source-label" for="source">8-bit counter · counter.v</label>
@@ -66,7 +73,17 @@
       <section aria-label="Simulation">
         <p class="readout">count <output id="count" aria-live="polite">—</output></p>
         <div class="browser-only">
-          <canvas id="video" width="64" height="48" aria-label="RTL video output" hidden></canvas>
+          <fieldset id="cartridge-controls" hidden>
+            <legend>Local SNES cartridge</legend>
+            <label for="cartridge">Import a redistributable .sfc/.smc ROM (stays in this browser)</label>
+            <input id="cartridge" type="file" accept=".sfc,.smc">
+            <button id="test-cartridge" type="button">Load original test cartridge</button>
+            <p id="cartridge-status">Compile, then load a local ROM or the original test cartridge.</p>
+            <p>Focus the canvas for keyboard input: Z=B, X=A, A=Y, S=X, Q=L, W=R,
+              arrows=D-pad, Enter=Start, Shift=Select. Standard gamepads also work.
+              Experimental integration; <a href="https://github.com/takahirox/webrtl/blob/main/docs/snes.md">coverage and limitations</a>.</p>
+          </fieldset>
+          <canvas id="video" width="64" height="48" tabindex="0" aria-label="RTL video output" hidden></canvas>
           <p id="audio-status" hidden>Click Run to enable audio. Step advances silently.</p>
           <p id="timing" hidden></p>
           <p hidden>CPU result <output id="cpu-result" aria-live="polite">—</output>

@@ -1,7 +1,8 @@
 # Browser RTL video and audio
 
-The static browser compiler supports Counter, Video, Audio and a focused
-[65C816 result/bus-trace interface](cpu816.md#adapter-bounds-and-performance).
+The static browser compiler supports Counter, Video, Audio, a focused
+[65C816 result/bus-trace interface](cpu816.md#adapter-bounds-and-performance),
+and an experimental [SNES board contract](snes.md#architecture-and-actual-interfaces).
 Select an example above the editor, click **Load example
 (replaces project)**, **Compile**, then **Run**. Loading an example replaces all
 project files and selects its top module and output interface. The project stays
@@ -13,9 +14,11 @@ synthesizable design with the selected interface's exact ports below, using one
 or more source files and any valid **Top module** name. **Output interface** can
 be changed independently of the example and top; changing it discards the old
 simulation but preserves all project sources. The compiler checks port
-names, directions, widths, and signedness before compiling the C++ adapter.
-Video and audio are separate selectable interfaces; simultaneous AV, arbitrary
-pin mapping, and configurable resolutions/rates are outside this small board API.
+names, directions and widths before compiling the C++ adapter, plus signedness
+with the legacy Verilog frontend (Slang omits that port metadata).
+Video and Audio remain separate selectable interfaces. The SNES board adds a fixed
+combined video/audio, cartridge and controller contract; arbitrary pin mapping
+and configurable resolutions/rates remain outside this small board API.
 
 ## Clock and reset shared by all boards
 
@@ -26,6 +29,8 @@ rising-edge logic. Reset asserts active-high `reset` for one complete cycle and
 then deasserts/settles it. That reset cycle is not included in the displayed
 simulation time and its output is discarded. Initialize all state in RTL; the
 adapter does not generate pixels or PCM or impose your circuit's reset values.
+The SNES board additionally clocks a RAM scrub and supports a power-cycle Reset
+that reloads the cartridge; see its separate contract.
 
 | Interface / example top | Simulated clock | Run request size | Output |
 | --- | ---: | ---: | --- |
@@ -33,6 +38,7 @@ adapter does not generate pixels or PCM or impose your circuit's reset values.
 | 65C816 / `cpu816_test` | 10000 Hz | 256 cycles | RTL result and bounded bus trace; see [CPU guide](cpu816.md) |
 | Video / `video` | 184320 Hz | 3072 cycles (1/60 simulated second) | 64 × 48 RGB888 frames |
 | Audio / `audio` | 48000 Hz | 3072 cycles (64 simulated ms) | mono signed PCM16 at 8000 samples/s |
+| SNES / `snes` | 21477270 Hz | 16384 cycles | up to 512 × 478 RGB frames, 32000 samples/s PCM, inputs and cartridge; see [SNES guide](snes.md) |
 
 The Counter interface can also display an 8-bit RTL result register. The
 [CPU bus self-test](cpu-bus.md) uses it to show ROM/RAM transaction bytes,

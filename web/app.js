@@ -4,7 +4,8 @@ import { AudioOutput } from "./audio-output.js";
 const ui = Object.fromEntries(
   ["source", "source-label", "compile", "status", "errors", "count", "run", "pause", "step", "reset", "diagnostics",
     "project", "files", "filename", "add-file", "rename-file", "remove-file", "import-files", "top", "example", "load-example",
-    "interface", "video", "audio-status", "timing", "run-help", "cpu-result", "cpu-trace"]
+    "interface", "frontend", "video", "audio-status", "timing", "run-help", "cpu-result", "cpu-trace",
+    "cartridge-controls", "cartridge", "test-cartridge", "cartridge-status"]
     .map((id) => [id, document.getElementById(id)]),
 );
 const browser = document.documentElement.dataset.mode === "browser";
@@ -19,6 +20,34 @@ let timer = null;
 let busy = true;
 let advancing = false;
 let runEpoch = 0;
+let cartridgeData = null;
+let cartridgeLoaded = false;
+let keyboardButtons = 0;
+let frames = 0, runningCycles = 0, runningMs = 0;
+const audioBoard = () => selected === "audio" || selected === "snes";
+const keyBits = { KeyZ: 11, KeyA: 10, ShiftLeft: 9, ShiftRight: 9, Enter: 8,
+  ArrowUp: 7, ArrowDown: 6, ArrowLeft: 5, ArrowRight: 4, KeyX: 3, KeyS: 2, KeyQ: 1, KeyW: 0 };
+function controllerButtons() {
+  let result = keyboardButtons;
+  const pad = Array.from(navigator.getGamepads?.() || []).find((pad) => pad?.mapping === "standard");
+  if (pad) {
+    const map = [11, 3, 10, 2, 1, 0, null, null, 9, 8, null, null, 7, 6, 5, 4];
+    map.forEach((bit, index) => { if (bit !== null && pad.buttons[index]?.pressed) result |= 1 << bit; });
+    if (pad.axes[0] < -0.5) result |= 1 << 5;
+    if (pad.axes[0] > 0.5) result |= 1 << 4;
+    if (pad.axes[1] < -0.5) result |= 1 << 7;
+    if (pad.axes[1] > 0.5) result |= 1 << 6;
+  }
+  return result;
+}
+for (const type of ["keydown", "keyup"]) ui.video.addEventListener(type, (event) => {
+  const bit = keyBits[event.code];
+  if (selected !== "snes" || bit === undefined) return;
+  event.preventDefault();
+  if (type === "keydown") keyboardButtons |= 1 << bit;
+  else keyboardButtons &= ~(1 << bit);
+});
+ui.video.addEventListener("blur", () => { keyboardButtons = 0; });
 
 function controls() {
   ui.compile.disabled = busy;
@@ -26,10 +55,11 @@ function controls() {
   ui.project.disabled = busy;
   ui["rename-file"].disabled = !activeFile;
   ui["remove-file"].disabled = !activeFile;
-  ui.run.disabled = !simulator || advancing || timer !== null;
+  ui.run.disabled = busy || !simulator || advancing || timer !== null || (selected === "snes" && !cartridgeLoaded);
   ui.pause.disabled = timer === null;
-  ui.step.disabled = !simulator || advancing || timer !== null;
-  ui.reset.disabled = !simulator || advancing;
+  ui.step.disabled = busy || !simulator || advancing || timer !== null || (selected === "snes" && !cartridgeLoaded);
+  ui.reset.disabled = busy || !simulator || advancing;
+  ui["cartridge-controls"].disabled = busy || !simulator || advancing;
 }
 
 function pause() {
@@ -41,6 +71,7 @@ function pause() {
 }
 
 function clearOutput() {
+  frames = 0; runningCycles = 0; runningMs = 0;
   canvas.clearRect(0, 0, ui.video.width, ui.video.height);
   ui.timing.textContent = "0 cycles · 0.000 simulated seconds";
   ui["cpu-result"].textContent = "—";
@@ -54,6 +85,7 @@ function discard() {
     try { simulator._sim_destroy(); } catch { /* An aborted module may already be unusable. */ }
   }
   simulator = null;
+  cartridgeLoaded = false;
   advancing = false;
   ui.count.textContent = "—";
   clearOutput();
@@ -77,8 +109,12 @@ function projectChanged() {
 function selectInterface(board) {
   selected = board;
   ui.interface.value = board;
-  ui.video.hidden = board !== "video";
-  ui["audio-status"].hidden = board !== "audio";
+  ui.video.hidden = board !== "video" && board !== "snes";
+  ui.video.width = boards[board].width || 64;
+  ui.video.height = board === "snes" ? 224 : boards[board].height || 48;
+  ui.video.style.aspectRatio = board === "snes" ? "8 / 7" : "";
+  ui["cartridge-controls"].hidden = board !== "snes";
+  ui["audio-status"].hidden = !audioBoard();
   ui["audio-status"].textContent = "Click Run to enable audio. Step advances silently.";
   ui.timing.hidden = board === "counter";
   ui.count.parentElement.hidden = board !== "counter";
@@ -117,6 +153,7 @@ function checkNewName(name, names = Object.keys(files)) {
 if (browser) {
   ui.files.addEventListener("change", () => selectFile(ui.files.value));
   ui.top.addEventListener("input", projectChanged);
+  ui.frontend.addEventListener("change", projectChanged);
   ui.interface.addEventListener("change", () => {
     projectChanged();
     selectInterface(ui.interface.value);
@@ -158,12 +195,12 @@ if (browser) {
       }
       // Reject oversized imports before reading their contents into memory.
       const currentSize = Object.values(files).reduce((size, source) => size + new TextEncoder().encode(source).length, 0);
-      if (currentSize + imported.reduce((size, file) => size + file.size, 0) > projectTools.MAX_SOURCE_BYTES) {
-        throw new Error("Import exceeds the 128 KiB total project limit. Remove files or select smaller sources.");
+      if (currentSize + imported.reduce((size, file) => size + file.size, 0) > projectTools.sourceLimit(ui.frontend.value)) {
+        throw new Error(`Import exceeds the ${ui.frontend.value === "slang" ? "2 MiB" : "128 KiB"} total project limit. Remove files or select smaller sources.`);
       }
       const additions = await Promise.all(imported.map(async (file) => [file.name, await file.text()]));
       const updated = { ...files, ...Object.fromEntries(additions) };
-      projectTools.validateSize(updated);
+      projectTools.validateSize(updated, ui.frontend.value);
       files = updated;
       projectChanged();
       refreshFiles(imported[0].name);
@@ -182,7 +219,8 @@ if (browser) {
       const board = ["backdrop", "bg1"].includes(example) ? "video" :
         ["single", "split", "bus"].includes(example) ? "counter" : example;
       const split = example === "split";
-      const sources = ["backdrop", "bg1"].includes(example)
+      const sources = example === "snes" ? ["snes.v", "snes-core.v"].map((name) => [name, `./examples/snes/${name}`])
+        : ["backdrop", "bg1"].includes(example)
         ? [
           ...(example === "bg1"
             ? ["cpu816-bg1.v", "bg1-ppu.v", "bg1-rom.v", "bg1-scanout.v"]
@@ -204,6 +242,7 @@ if (browser) {
         : [[`${board}.v`, board === "counter" ? "./example.v" : `./examples/${board}.v`]];
       const entries = await Promise.all(sources.map(async ([name, url]) => [name, await loadSource(url)]));
       files = Object.fromEntries(entries);
+      ui.frontend.value = example === "snes" ? "slang" : "verilog";
       ui.top.value = example === "bg1" ? "cpu816_bg1" : example === "backdrop" ? "cpu816_backdrop" : example === "bus" ? "bus_test" : split ? "split_counter" : boards[board].top;
       projectChanged();
       selectInterface(board);
@@ -226,6 +265,8 @@ async function simulate(action, playAudio = false) {
   advancing = true;
   controls();
   try {
+    const started = performance.now();
+    const before = active._sim_output?.()?.cycles || 0;
     // Native simulation completes inline; only worker requests need to yield.
     const result = action();
     if (result instanceof Promise) await result;
@@ -234,10 +275,25 @@ async function simulate(action, playAudio = false) {
     const output = active._sim_output?.();
     if (output) {
       ui.timing.textContent = `${output.cycles} cycles · ${output.seconds.toFixed(3)} simulated seconds`;
+      if (selected === "snes") {
+        const completed = Math.max(0, output.cycles - before);
+        if (completed) {
+          runningMs += performance.now() - started;
+          runningCycles += completed;
+        }
+        if (output.frame) frames++;
+        const rate = runningCycles / Math.max(0.001, runningMs / 1000);
+        ui.timing.textContent += ` · ${Math.round(rate)} clocks/s · ${(frames / Math.max(0.001, runningMs / 1000)).toFixed(2)} frames/s · ${(rate / boards.snes.clockHz).toFixed(4)}× real time`;
+      }
       if (selected === "cpu816") showCpuOutput(output);
-      if (output.frame) canvas.putImageData(new ImageData(output.frame, 64, 48), 0, 0);
-      if (playAudio && selected === "audio") {
-        try { audio.play(output.audio, boards.audio.sampleRate); }
+      if (output.frame) {
+        if (ui.video.width !== output.width || ui.video.height !== output.height) {
+          ui.video.width = output.width; ui.video.height = output.height;
+        }
+        canvas.putImageData(new ImageData(output.frame, output.width, output.height), 0, 0);
+      }
+      if (playAudio && audioBoard()) {
+        try { audio.play(output.audio, boards[selected].sampleRate); }
         catch (error) {
           pause();
           ui["audio-status"].textContent = `${error.message} Click Run to retry.`;
@@ -275,10 +331,14 @@ ui.compile.addEventListener("click", async () => {
     if (browser) {
       const { compileBrowser } = await import("./browser-client.js");
       simulator = await compileBrowser(
-        { files, top: ui.top.value, board: selected },
+        { files, top: ui.top.value, board: selected, frontend: ui.frontend.value },
         (progress) => { ui.status.textContent = progress; },
       );
       ui.diagnostics.textContent = simulator.diagnostics;
+      if (selected === "snes" && cartridgeData) {
+        await simulator._sim_cartridge(cartridgeData);
+        cartridgeLoaded = true;
+      }
     } else {
       const response = await fetch("/api/build", {
         method: "POST",
@@ -301,15 +361,50 @@ ui.compile.addEventListener("click", async () => {
 });
 
 ui.step.addEventListener("click", () => simulate(() => simulator._sim_step()));
+async function loadCartridge(bytes, name) {
+  const { parseCartridge } = await import("./snes-rom.js");
+  const parsed = parseCartridge(bytes);
+  pause();
+  busy = true;
+  controls();
+  ui.status.textContent = "Loading cartridge…";
+  try {
+    await simulator._sim_cartridge(parsed.bytes);
+    cartridgeData = parsed.bytes;
+    cartridgeLoaded = true;
+    clearOutput();
+    ui["cartridge-status"].textContent = `${name} · ${parsed.bytes.length} bytes · ${parsed.hirom ? "HiROM" : "LoROM"} · loaded locally. Click Run.`;
+    ui.status.textContent = "Cartridge loaded. Reset and paused.";
+  } catch (error) {
+    showError(error);
+    throw error;
+  } finally { busy = false; controls(); }
+}
+ui.cartridge.addEventListener("change", async () => {
+  const file = ui.cartridge.files[0];
+  if (!file) return;
+  try {
+    if (file.size > 4194816) throw new Error("Cartridge exceeds the 4 MiB ROM limit.");
+    await loadCartridge(await file.arrayBuffer(), file.name);
+  } catch (error) { projectError(error); }
+  finally { ui.cartridge.value = ""; }
+});
+ui["test-cartridge"].addEventListener("click", async () => {
+  try {
+    const response = await fetch("./examples/snes/test.sfc");
+    if (!response.ok) throw new Error("Could not load the original test cartridge.");
+    await loadCartridge(await response.arrayBuffer(), "WebRTL original test");
+  } catch (error) { projectError(error); }
+});
 ui.run.addEventListener("click", async () => {
   const epoch = ++runEpoch;
   timer = 0;
   controls();
-  if (selected === "audio") {
+  if (audioBoard()) {
     try {
       await audio.unlock();
       if (epoch !== runEpoch) return;
-      ui["audio-status"].textContent = "Playing RTL PCM · mono, signed 16-bit, 8000 samples/s.";
+      ui["audio-status"].textContent = `Playing RTL PCM · mono, signed 16-bit, ${boards[selected].sampleRate} samples/s.`;
     } catch (error) {
       if (epoch !== runEpoch) return;
       pause();
@@ -322,7 +417,7 @@ ui.run.addEventListener("click", async () => {
   const board = boards[selected];
   const advance = async () => {
     if (epoch !== runEpoch) return;
-    if (selected === "audio" && audio.context?.state !== "running") {
+    if (audioBoard() && audio.context?.state !== "running") {
       pause();
       ui["audio-status"].textContent = "Audio was suspended. Allow sound for this site and click Run again.";
       ui.status.textContent = "Audio unavailable. Paused; the compiled circuit is preserved.";
@@ -330,8 +425,8 @@ ui.run.addEventListener("click", async () => {
     }
     const start = performance.now();
     // AudioContext's clock paces audio; slow simulation underruns with silence.
-    if (selected !== "audio" || audio.queuedSeconds() < 0.10) {
-      await simulate(() => browser ? simulator._sim_batch(board.batchCycles) : simulator._sim_step(), true);
+    if (!audioBoard() || audio.queuedSeconds() < 0.10) {
+      await simulate(() => browser ? simulator._sim_batch(board.batchCycles, controllerButtons()) : simulator._sim_step(), true);
     }
     if (epoch !== runEpoch) return;
     const delay = selected === "audio" ? 10 : Math.max(0, 1000 * board.batchCycles / board.clockHz - (performance.now() - start));

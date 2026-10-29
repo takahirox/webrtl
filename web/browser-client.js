@@ -3,12 +3,15 @@ function workerError(event) {
   return new Error(event.message || "Browser worker failed. Check browser compatibility and reload.");
 }
 
+import { parseCartridge } from "./snes-rom.js";
+
 export async function compileBrowser(project, progress) {
   const compiler = new Worker(new URL("./compiler-worker.js", import.meta.url), { type: "module" });
   let result;
   try {
     result = await new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error("Compilation exceeded 120 seconds. Simplify the design or retry.")), 120000);
+      const seconds = project.frontend === "slang" ? 300 : 120;
+      const timeout = setTimeout(() => reject(new Error(`Compilation exceeded ${seconds} seconds. Simplify the design or retry.`)), seconds * 1000);
       const finish = (callback, value) => { clearTimeout(timeout); callback(value); };
       compiler.onerror = (event) => finish(reject, workerError(event));
       compiler.onmessage = ({ data }) => {
@@ -49,24 +52,40 @@ export async function compileBrowser(project, progress) {
     if (data.error) request.reject(new Error(data.error));
     else { count = data.count; output = data; request.resolve(data); }
   };
-  const call = (action, wasm, batchCycles) => new Promise((resolve, reject) => {
+  const call = (action, wasm, batchCycles, extra = {}) => new Promise((resolve, reject) => {
     const id = nextId++;
     const timeout = setTimeout(() => {
       reject(new Error("Circuit did not respond within 10 seconds. Check for combinational loops."));
       destroy();
     }, 10000);
     pending.set(id, { resolve, reject, timeout });
-    worker.postMessage({ id, action, wasm, board: project.board || "counter", batchCycles }, wasm ? [wasm.buffer] : []);
+    worker.postMessage({ id, action, wasm, board: project.board || "counter", batchCycles, ...extra }, wasm ? [wasm.buffer] : []);
   });
   try { await call("init", result.wasm); }
   catch (error) { destroy(); throw error; }
+  let mountedCartridge;
+  const loadCartridge = async (input) => {
+    const { bytes } = parseCartridge(input);
+    // Reset is a power cycle. Reinstantiate the compiled module so upstream
+    // pipeline registers without reset pins also regain their initial state.
+    // Reload through the same RTL cartridge port in bounded requests.
+    await call("power-reset");
+    await call("cartridge", undefined, undefined, { cartridge: bytes });
+    for (let offset = 0; offset < bytes.length; offset += 16384) {
+      await call("cartridge-chunk", undefined, undefined, { offset, bytes: bytes.slice(offset, offset + 16384) });
+    }
+    await call("reset");
+    mountedCartridge = bytes;
+  };
   return {
     _sim_step: () => call("step"),
-    _sim_batch: (cycles) => call("batch", undefined, cycles),
+    _sim_batch: (cycles, buttons = 0) => call("batch", undefined, cycles, { buttons }),
+    _sim_cartridge: loadCartridge,
     _sim_output: () => output,
-    _sim_reset: () => call("reset"),
+    _sim_reset: () => project.board === "snes" && mountedCartridge ? loadCartridge(mountedCartridge) : call("reset"),
     _sim_count: () => count,
     _sim_destroy: destroy,
     diagnostics: result.diagnostics,
+    metrics: result.metrics,
   };
 }
