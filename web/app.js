@@ -174,14 +174,17 @@ if (browser) {
     controls();
     try {
       const example = ui.example.value;
-      const board = example === "single" || example === "split" ? "counter" : example;
+      const board = ["single", "split", "bus"].includes(example) ? "counter" : example;
       const split = example === "split";
-      const sources = split
+      const sources = example === "bus"
+        ? ["bus-test.v", "bus-master.v", "bus-rom.v", "bus-ram.v", "bus-decoder.v"]
+          .map((name) => [name, `./examples/cpu-bus/${name}`])
+        : split
         ? [["split-counter.v", "./examples/split-counter/split-counter.v"], ["counter-next.v", "./examples/split-counter/counter-next.v"]]
         : [[`${board}.v`, board === "counter" ? "./example.v" : `./examples/${board}.v`]];
       const entries = await Promise.all(sources.map(async ([name, url]) => [name, await loadSource(url)]));
       files = Object.fromEntries(entries);
-      ui.top.value = split ? "split_counter" : boards[board].top;
+      ui.top.value = example === "bus" ? "bus_test" : split ? "split_counter" : boards[board].top;
       projectChanged();
       selectInterface(board);
       refreshFiles(entries[0][0]);

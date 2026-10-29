@@ -32,6 +32,10 @@ adapter does not generate pixels or PCM or impose your circuit's reset values.
 | Video / `video` | 184320 Hz | 3072 cycles (1/60 simulated second) | 64 × 48 RGB888 frames |
 | Audio / `audio` | 48000 Hz | 3072 cycles (64 simulated ms) | mono signed PCM16 at 8000 samples/s |
 
+The Counter interface can also display an 8-bit RTL result register. The
+[CPU bus self-test](cpu-bus.md) uses it to show ROM/RAM transaction bytes,
+then 1 for PASS or 255 for FAIL, without adding another output adapter.
+
 These clock rates define simulation time (`completed cycles / clock Hz`), not
 an assertion that a JavaScript timer or a large circuit can run in real time.
 The shared definitions are in [output-contracts.js](../web/output-contracts.js).
