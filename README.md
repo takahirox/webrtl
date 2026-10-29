@@ -60,6 +60,15 @@ the existing Video worker/Canvas path draws the RTL pixels. See the
 GPL ROM, frame timing, automated pixel/bus tests, performance and pending public
 site verification. This example uses the existing source and runtime bounds.
 
+Choose **65C816 CPU → BG1 tiles · 64 × 48** for a CPU-programmed Mode 0 (2bpp)
+example. Compile and Run to see a repeating blue/red/green/white checkerboard
+and one magenta/cyan striped tile. The actual CPU writes RTL-owned VRAM, tilemap
+and CGRAM through memory-mapped PPU registers. Edit the labeled tile/map/palette
+bytes in `bg1-rom.v` and recompile to change the pixels. See the
+[BG1 guide](docs/cpu816-bg1.md) for the sparse memory/register subset, reproducible
+original GPL ROM, expected pixels, frame/reset timing, browser tests, measurements
+and required post-merge public-site check. Existing compiler/runtime limits apply.
+
 Invalid names, duplicate imports/renames, or imports exceeding the size limit are
 rejected without replacing existing files. Import batches are atomic: if any file
 fails validation, none are added. Compilation errors retain all sources and the
@@ -399,6 +408,8 @@ observations and PASS, instruction/branch/RAM mutations, reset, timeout and
 24-bit memory decoding, and reports compilation/simulation measurements.
 The CPU-to-PPU backdrop suite additionally checks actual register writes, CGRAM
 latch/address behavior, ROM-driven Canvas colors, brightness/blanking and reset.
+The BG1 suite checks the full CPU register-write sequence, sparse VRAM addressing
+and increments, planar tile/map/palette pixels, ROM edits and deterministic reset.
 These checks run before merge without a live Pages deployment. To run either mode separately:
 
 ```sh

@@ -179,13 +179,15 @@ if (browser) {
     controls();
     try {
       const example = ui.example.value;
-      const board = example === "backdrop" ? "video" :
+      const board = ["backdrop", "bg1"].includes(example) ? "video" :
         ["single", "split", "bus"].includes(example) ? "counter" : example;
       const split = example === "split";
-      const sources = example === "backdrop"
+      const sources = ["backdrop", "bg1"].includes(example)
         ? [
-          ...["cpu816-backdrop.v", "backdrop-ppu.v", "backdrop-rom.v", "backdrop-scanout.v"]
-            .map((name) => [name, `./examples/cpu816-backdrop/${name}`]),
+          ...(example === "bg1"
+            ? ["cpu816-bg1.v", "bg1-ppu.v", "bg1-rom.v", "bg1-scanout.v"]
+            : ["cpu816-backdrop.v", "backdrop-ppu.v", "backdrop-rom.v", "backdrop-scanout.v"])
+            .map((name) => [name, `./examples/cpu816-${example}/${name}`]),
           ...["P65C816_pkg.v", "P65C816.v", "mcode.v", "AddrGen.v", "ALU.v",
             "AddSubBCD.v", "BCDAdder.v", "adder4.v", "bit_adder.v"]
             .map((name) => [name, `./examples/cpu816/${name}`]),
@@ -202,7 +204,7 @@ if (browser) {
         : [[`${board}.v`, board === "counter" ? "./example.v" : `./examples/${board}.v`]];
       const entries = await Promise.all(sources.map(async ([name, url]) => [name, await loadSource(url)]));
       files = Object.fromEntries(entries);
-      ui.top.value = example === "backdrop" ? "cpu816_backdrop" : example === "bus" ? "bus_test" : split ? "split_counter" : boards[board].top;
+      ui.top.value = example === "bg1" ? "cpu816_bg1" : example === "backdrop" ? "cpu816_backdrop" : example === "bus" ? "bus_test" : split ? "split_counter" : boards[board].top;
       projectChanged();
       selectInterface(board);
       refreshFiles(entries[0][0]);
