@@ -5424,7 +5424,7 @@ always @(posedge CLK) begin : main_process
                     if (BRR_OFFS[VS.V] == 6) begin
                         if (TBRRHDR[0]) begin      // end bit ON
                             BRR_ADDR[VS.V] <= BRR_NEXT_ADDR;
-                            ENDX_BUF[VS.V] <= 1'b1;
+                            BRR_END[VS.V] <= 1'b1;
                         end else
                             BRR_ADDR[VS.V] <= BRR_ADDR[VS.V] + 9;
                     end
@@ -5553,8 +5553,8 @@ always @(posedge CLK) begin : main_process
                 ECHO_FIR_TEMP[1] <= ECHO_FIR_TEMP[1] +
                         16'(23'(signed'(ECHO_BUF[1][FFC_CNT]) * ECHO_FFC[FFC_CNT]) >>> 6); // and x"FFFE"
                 if (FFC_CNT == 7) begin
-                    ECHO_FIR[0] <= CLAMP16(17'(ECHO_FIR_TEMP[0]) + 17'(23'(signed'(ECHO_BUF[0][FFC_CNT]) * ECHO_FFC[FFC_CNT]) >>> 6)) & 16'hFFFE;
-                    ECHO_FIR[1] <= CLAMP16(17'(ECHO_FIR_TEMP[1]) + 17'(23'(signed'(ECHO_BUF[1][FFC_CNT]) * ECHO_FFC[FFC_CNT]) >>> 6)) & 16'hFFFE;
+                    ECHO_FIR[0] <= CLAMP16(17'(ECHO_FIR_TEMP[0]) + 17'(shortint'(23'(signed'(ECHO_BUF[0][FFC_CNT]) * ECHO_FFC[FFC_CNT]) >>> 6))) & 16'hFFFE;
+                    ECHO_FIR[1] <= CLAMP16(17'(ECHO_FIR_TEMP[1]) + 17'(shortint'(23'(signed'(ECHO_BUF[1][FFC_CNT]) * ECHO_FFC[FFC_CNT]) >>> 6))) & 16'hFFFE;
                 end
                 FFC_CNT <= FFC_CNT + 1;
             end

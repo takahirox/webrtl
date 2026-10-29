@@ -117,9 +117,38 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
         registers += [(0x6c, 0), (0x2c, 0x40), (0x3c, 0x40), (0x4d, 1),
                       (0x6d, 0x20), (0x7d, 1), (0x0d, 0)]
         registers += [(0x0f + tap * 16, 0x40 if tap == 0 else 0) for tap in range(8)]
+    if audio == "echo-wrap":
+        # EDL=0 repeatedly reads the same stereo pair. FLG=$20 keeps echo
+        # writes disabled; only tap 7 contributes, with signed coefficient -128.
+        for address, value in [(0x2000, 0), (0x2001, 0x80), (0x2002, 0), (0x2003, 0x80)]:
+            apu.emit(f"MOV A,#${value:02x}; MOV !${address:04x},A",
+                     0xe8, value, 0xc5, address & 255, address >> 8)
+        registers += [(0x0c, 0), (0x1c, 0), (0x2c, 0x7f), (0x3c, 0x7f),
+                      (0x6d, 0x20), (0x7d, 0)]
+        registers += [(0x0f + tap * 16, 0x80 if tap == 7 else 0) for tap in range(8)]
     registers += [(0x4c, 0xff if audio == "voices" else 3 if audio == "negative-modulator" else 1)]
     for reg, value in registers:
         apu.emit(f"MOV $f2,#${reg:02x}; MOV $f3,#${value:02x}", 0x8f, reg, 0xf2, 0x8f, value, 0xf3)
+    if apu_check == "endx":
+        # A non-looping sample ends once per KON, so ENDX cannot be set again
+        # while testing clear-on-any-write. Check both zero and nonzero writes.
+        for value in [0, 0xff]:
+            if value:
+                apu.emit("KON voice 0 again", 0x8f, 0x4c, 0xf2, 0x8f, 1, 0xf3)
+            apu.emit("Select ENDX", 0x8f, 0x7c, 0xf2)
+            apu.label(f"endx_wait_{value}")
+            apu.emit("MOV A,$f3; AND A,#1", 0xe4, 0xf3, 0x28, 1)
+            apu.branch(0xf0, f"endx_wait_{value}")
+            apu.emit("MOV A,$f3 (ENDX is sticky)", 0xe4, 0xf3)
+            apu_expect(1)
+            apu.emit("Read-only ENDX mirror write; MOV A,$f3",
+                     0x8f, 0xfc, 0xf2, 0x8f, 0xff, 0xf3, 0xe4, 0xf3)
+            apu_expect(1)
+            apu.emit(f"Clear ENDX with ${value:02x}; MOV A,$f3",
+                     0x8f, 0x7c, 0xf2, 0x8f, value, 0xf3, 0xe4, 0xf3)
+            apu_expect(0)
+            apu.emit("MOV A,$f3 (ENDX stays cleared)", 0xe4, 0xf3)
+            apu_expect(0)
     targets = [1, 2, 3]
     if apu_check and apu_check.startswith("timer-zero-"):
         targets[int(apu_check[-1])] = 0
@@ -158,6 +187,13 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
     payload[:len(apu.finish())] = apu.data
     payload[0x300:0x304] = bytes([0, 6, 0, 6])  # sample directory: start and loop $0600
     payload[0x400:0x409] = bytes([0xb3] + [0x77] * 4 + [0x99] * 4)  # original looping BRR square wave
+    if apu_check == "endx":
+        # Play a normal block before the silent end block (END without LOOP).
+        # Its loop pointer continues into zeroed ARAM, preventing another end
+        # event until the next KON restarts the sample at $0600.
+        payload[0x400] = 0xb0
+        payload[0x409:0x412] = bytes([0xb1] + [0] * 8)
+        payload[0x302:0x304] = bytes([0x12, 6])
     if audio and audio.startswith("filter-"):
         payload[0x400] = 0x43 | (int(audio[-1]) << 2)
     if audio == "range13": payload[0x400] = 0xd3

@@ -6,8 +6,14 @@ uploads its SPC700 driver through the IPL protocol. The browser test compiles th
 RTL once per browser and power-cycles it for each cartridge. Expected pixels and
 PCM are calculated in the test; they are not recordings of this core's output.
 Pixel comparisons cover every RGBA sample, including its position and alpha.
-The 115-cartridge sweep allows up to 30 minutes per browser, including client-side
+The 117-cartridge sweep allows up to 30 minutes per browser, including client-side
 compilation, and logs bounded fixture progress during simulation.
+For a focused DSP rerun (including baseline input/reset and LoROM/HiROM checks):
+
+```sh
+npm run build:demo
+WEBRTL_SNES_FIXTURES='^(apu-endx|audio-echo-wrap)$' npx playwright test --config=playwright.static.config.js --grep 'full SNES RTL'
+```
 
 The register, bitplane, priority, window, transfer and controller expectations
 follow the [SNES development manual](https://floating.muncher.se/bot/manual/book1_text.pdf):
@@ -42,6 +48,8 @@ the capture buffer starts at row 0.
 | `apu-timer-zero-0/1/2` | Each timer independently uses target zero (256 ticks); all three timer output ports must report ticks before the CPU enables display. |
 | `apu-aux`, `apu-aux-repeat` | Both AUX registers initially read zero, then independently retain `$5a/$a5` and `$c3/$3c`. Repeating after power reset reproduces the frame and PCM. |
 | `apu-dsp-mirror-volume/flg/kon` | Repeated writes through DSPADDR `$8c/$ec/$cc` leave mirrored readback and the normal PCM waveform intact, including KON/FLG side effects. |
+| `apu-endx` | A non-looping BRR sample sets ENDX bit 0 before APU readiness. The bit stays set across reads and read-only mirror writes; normal writes of `$00` and `$ff` each clear it after separate key-ons. |
+| `audio-echo-wrap` | Both echo channels read `$8000`, tap 7 is `$80`, all other taps and main volumes are zero, echo volumes are `$7f`, and echo writes are disabled. Every settled PCM sample must equal −32512. |
 | `apu-div-normal/overflow/zero-divisor/nine-bit/boundary/zero-result/half-clear` | SPC700 machine code checks A, Y and N/V/H/Z after DIV, with carry both clear and set; carry must be preserved. |
 
 Every cartridge checks RDIO after WRIO writes `$ff/$00/$40/$80/$ff`. With standard
@@ -102,6 +110,16 @@ and echo volume `$40`; its expected delayed waveform includes FIR history and
 integer rounding, and the initial 512-sample dry interval. Timer targets 1/2/3 must all report ticks through APU ports
 before the CPU enables display. Default playback also checks sample rate and
 exact frame/PCM replay after power reset.
+
+The echo-wrap fixture follows the reference's `echo_25` rule: the final tap's
+shifted product is `(−32768 / 2 × −128) >> 6 = 32768`, which wraps to signed
+16-bit −32768 before addition and saturation. Echo volume `$7f` then yields
+`(−32768 × 127) >> 7 = −32512` in both channels and the mono downmix.
+Saturating the unwrapped product instead yields the incorrect positive 32510.
+The ENDX fixture checks the reference's `voice_V4`–`voice_V7` end-event latch
+and clear-on-write behavior with original SPC700 instructions; display remains
+disabled until both end/set/clear sequences pass. The one-shot voice must first
+produce non-silent PCM and then settle to silence.
 
 The APU register fixtures follow the independent bsnes
 [SMP I/O implementation](https://github.com/bsnes-emu/bsnes/blob/master/bsnes/sfc/smp/io.cpp)

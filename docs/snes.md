@@ -147,7 +147,9 @@ signed matrix multiplication; negative DSP pitch modulators use an arithmetic
 shift. DSP echo accesses
 use one latched stereo address, BRR filters preserve signed rounding, out-of-range
 BRR shifts follow the DSP rule, and Gaussian interpolation wraps the first three
-terms before adding the fourth. SMP timer comparisons wrap at eight bits so
+terms before adding the fourth. BRR end events pass through the latch consumed
+by ENDX, and the final echo FIR product wraps to signed 16 bits before saturation.
+SMP timer comparisons wrap at eight bits so
 target zero represents 256 ticks; AUX reads return the stored registers.
 DSPADDR bit 7 gates register RAM writes and special write side effects while
 preserving mirrored reads. SPC700 DIV retains its nine shift/subtract steps,

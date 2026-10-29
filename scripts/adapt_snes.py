@@ -74,6 +74,16 @@ def adapt(sources, boot):
             # before adding the fourth and saturating (the hardware glitch).
             source = source.replace("GSUM = CLAMP16(SUM012 + SUM3);",
                                     "GSUM = CLAMP16(17'($signed(SUM012[15:0])) + SUM3);")
+            # VS_VOLR merges the BRR end latch from VS_VOLL into ENDX_BUF.
+            # Writing ENDX_BUF in VS_VOLL loses the event at that merge.
+            source = source.replace("ENDX_BUF[VS.V] <= 1'b1;",
+                                    "BRR_END[VS.V] <= 1'b1;")
+            # echo_25 wraps tap 7 to signed 16 bits before adding it to the
+            # wrapped taps 0-6 and saturating. In particular, +32768 is -32768.
+            for channel in range(2):
+                product = f"23'(signed'(ECHO_BUF[{channel}][FFC_CNT]) * ECHO_FFC[FFC_CNT]) >>> 6"
+                source = source.replace(f"17'({product})",
+                                        f"17'(shortint'({product}))")
         if name == "src/ppu.v":
             # Each H-512 sample has its own transparency bits. DOT_CLK selects
             # the low sample; testing the high sample loses reversed stripes.

@@ -25,16 +25,22 @@ cases += [(name,dict(mode=1,effect=name)) for name in ['bg3-priority-low','bg3-p
 cases += [(name,dict(sprite_priority=3,effect=name)) for name in ['sprite-hflip','sprite-vflip']]
 cases += [('serial',dict(joycheck=0xa55)),('reverse',dict(transfer='reverse')),('indirect',dict(transfer='indirect'))]
 cases += [(f'dma-{mode}',dict(transfer=f'mode{mode}')) for mode in range(8)]
-cases += [(f'audio-{audio}',dict(audio=audio)) for audio in ['gain','mute','pitch','voices','adsr','ramp','keyoff','noise','echo','filter-1','filter-2','filter-3','range13','gauss-wrap','negative-modulator']]
+cases += [(f'audio-{audio}',dict(audio=audio)) for audio in ['gain','mute','pitch','voices','adsr','ramp','keyoff','noise','echo','echo-wrap','filter-1','filter-2','filter-3','range13','gauss-wrap','negative-modulator']]
 cases += [(f'apu-{check}',dict(apu_check=check)) for check in
  ['timer-zero-0','timer-zero-1','timer-zero-2','aux','div-normal','div-overflow',
   'div-zero-divisor','div-nine-bit','div-boundary','div-zero-result','div-half-clear',
-  'dsp-mirror-volume','dsp-mirror-flg','dsp-mirror-kon']]
+  'dsp-mirror-volume','dsp-mirror-flg','dsp-mirror-kon','endx']]
 cases += [('apu-aux-repeat',dict(apu_check='aux'))]
 cases += [('reject-mode5-as0',dict(mode=0))]
 print(json.dumps([dict(name=name,bytes=list(build(**args)[0])) for name,args in cases]))`], { maxBuffer: 24 * 1024 * 1024 }));
 
-// Browser compilation plus 115 cartridge power cycles can exceed 20 minutes.
+// Optional focused reruns still exercise browser compilation and the baseline
+// cartridge's input, audio, LoROM/HiROM and deterministic reset checks.
+const selectedModes = process.env.WEBRTL_SNES_FIXTURES ?
+  modes.filter(({ name }) => new RegExp(process.env.WEBRTL_SNES_FIXTURES).test(name)) : modes;
+if (!selectedModes.length) throw new Error("WEBRTL_SNES_FIXTURES selected no cartridges");
+
+// Browser compilation plus 117 cartridge power cycles can exceed 20 minutes.
 test.setTimeout(1_800_000);
 
 // Expected pixels are specified from the cartridge data and SNES dot/bitplane,
@@ -92,7 +98,14 @@ function pixel(name, x, y) {
 // Only Gaussian phases 0 and 1/2 are needed. Coefficients and truncation rules
 // are cross-checked with snes_spc (see docs/snes-fixtures.md), not the RTL tables.
 function expectedPcm(name) {
-  if (["audio-mute", "audio-keyoff"].includes(name)) return [0];
+  if (["audio-mute", "audio-keyoff", "apu-endx"].includes(name)) return [0];
+  if (name === "audio-echo-wrap") {
+    // snes_spc echo_25: ARAM -32768 is halved before FIR, tap 7 is -128.
+    // Cast the shifted product (+32768) to int16 BEFORE saturating the sum.
+    const tap7 = ((((-32768 >> 1) * -128) >> 6) << 16) >> 16;
+    const fir = Math.max(-32768, Math.min(32767, tap7)) & ~1;
+    return [(fir * 127) >> 7]; // -32512 in both channels and the mono downmix
+  }
   const env = name === "audio-gain" ? 0x400 : name === "audio-ramp" ? 0x7ff :
     name === "audio-adsr" ? 0x7ff : 0x7f0;
   const volume = (sample) => {
@@ -344,7 +357,7 @@ test("full SNES RTL boots a local cartridge, renders DMA tiles, produces DSP PCM
       return { first, repeat, hi, modeResults, metrics: window.compiled.metrics,
         validWasm: WebAssembly.validate(window.compiled.wasm) };
     } finally { worker.terminate(); }
-  }, { cartridge: Array.from(rom), modeCartridges: modes, pixelSource: pixel.toString() });
+  }, { cartridge: Array.from(rom), modeCartridges: selectedModes, pixelSource: pixel.toString() });
   writeFileSync(info.outputPath("snes-fixture-results.json"), JSON.stringify(results.modeResults));
   expect(results.validWasm).toBe(true);
   expect(results.first.nonzero).toBeGreaterThan(500);
@@ -362,8 +375,10 @@ test("full SNES RTL boots a local cartridge, renders DMA tiles, produces DSP PCM
   expect(results.hi.nonzero).toBeGreaterThan(500);
   const aux = results.modeResults.find((r) => r.name === "apu-aux");
   const auxRepeat = results.modeResults.find((r) => r.name === "apu-aux-repeat");
-  expect(auxRepeat.frameHash, "AUX checks repeat after power reset").toBe(aux.frameHash);
-  expect(auxRepeat.pcm).toEqual(aux.pcm);
+  if (aux && auxRepeat) {
+    expect(auxRepeat.frameHash, "AUX checks repeat after power reset").toBe(aux.frameHash);
+    expect(auxRepeat.pcm).toEqual(aux.pcm);
+  }
   const fixtureEvidence = [];
   for (const { name, height, mismatches, examples, trace, pcm, onset, hdma } of results.modeResults) {
     fixtureEvidence.push({ name, height, mismatches, examples, pcm: pcm.slice(0, 32), hdma });
@@ -377,6 +392,7 @@ test("full SNES RTL boots a local cartridge, renders DMA tiles, produces DSP PCM
     }
     if (name === "audio-adsr") expect(Math.max(...onset.slice(0, 16).map(Math.abs))).toBeGreaterThan(13000);
     if (name === "audio-keyoff") expect(onset.filter((sample) => sample !== 0).length).toBeGreaterThan(10);
+    if (name === "apu-endx") expect(onset.some((sample) => sample !== 0)).toBe(true);
     if (name === "audio-echo") {
       expect(onset.length).toBe(768);
       expect(pcmMatches(onset.slice(64, 500), expectedPcm("mode-0")), "echo's 512-sample delay").toBe(true);
