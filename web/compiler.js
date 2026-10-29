@@ -1,10 +1,14 @@
+import { boards } from "./output-contracts.js";
+
 // Project source -> Yosys CXXRTL -> Clang/LLD -> a new standalone Wasm module.
 // The compiler owns virtual filesystems; editor and board behavior live elsewhere.
 import { validateProject } from "./project.js";
 
 export async function compileProject(project, progress) {
   validateProject(project);
-  const { files, top } = project;
+  const { files, top, board = "counter" } = project;
+  const contract = boards[board];
+  if (!contract) throw new Error("Unknown output interface.");
   const names = Object.keys(files);
   let diagnostics = "";
   let stage = "Loading browser toolchain";
@@ -29,11 +33,14 @@ export async function compileProject(project, progress) {
       "write_json design.json", "write_cxxrtl -g0 design.cc",
     ].join("; ")], files, options);
     const ports = JSON.parse(generated["design.json"]).modules.webrtltop.ports;
-    // The current board adapter's contract, independent of HDL compilation.
-    const expected = { clk: ["input", 1], reset: ["input", 1], count: ["output", 8] };
-    if (Object.keys(ports).length !== 3 || Object.entries(expected).some(([name, [direction, width]]) =>
-      ports[name]?.direction !== direction || ports[name]?.bits.length !== width || ports[name]?.signed)) {
-      throw new Error("Counter interface required: scalar inputs clk and reset, unsigned 8-bit output count; no other ports.");
+    const expected = { clk: ["input", 1], reset: ["input", 1], ...contract.ports };
+    if (Object.keys(ports).length !== Object.keys(expected).length ||
+      Object.entries(expected).some(([name, [direction, width, signed = false]]) =>
+        ports[name]?.direction !== direction || ports[name]?.bits.length !== width ||
+        Boolean(ports[name]?.signed) !== signed)) {
+      throw new Error(`${board[0].toUpperCase() + board.slice(1)} interface required: ${
+        Object.entries(expected).map(([name, [direction, width, signed]]) =>
+          `${direction} ${signed ? "signed" : "unsigned"} ${width}-bit ${name}`).join(", ")}; no other ports.`);
     }
     stage = "Compiling and linking CXXRTL with Clang";
     progress(stage);
@@ -44,8 +51,9 @@ export async function compileProject(project, progress) {
     const wrapper = await fetch(new URL("./browser-simulator.cpp", import.meta.url));
     if (!wrapper.ok) throw new Error("Could not load the simulator adapter. Reload and retry.");
     const result = await runClang([
-      "clang++", "-std=c++17", "-O2", "-I.", "-mexec-model=reactor",
-      "-Wl,--export=sim_step", "-Wl,--export=sim_reset", "-Wl,--export=sim_count",
+      "clang++", `-DBOARD_${board.toUpperCase()}`, "-std=c++17", "-O2", "-I.", "-mexec-model=reactor",
+      ...["sim_step", "sim_reset", "sim_count", "sim_batch", "sim_frame", "sim_frame_ready",
+        "sim_audio", "sim_audio_count"].map((name) => `-Wl,--export=${name}`),
       "-Wl,--max-memory=67108864", "sim.cc", "-o", "sim.wasm",
     ], { ...headers, "design.cc": generated["design.cc"], "sim.cc": await wrapper.text() }, options);
     return { wasm: result["sim.wasm"], diagnostics: diagnostics.replace(/\x1b\[[0-9;]*m/g, "") };
