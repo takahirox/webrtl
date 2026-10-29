@@ -2965,12 +2965,12 @@ always @* begin : bg_addr_gen
     if (M7SEL[0] == 1'b0)
         M7_X = 9'(M7_SCREEN_X[7:0]);
     else
-        M7_X = 9'(signed'(~M7_SCREEN_X[7:0]));    // signed extension
+        M7_X = {1'b0, ~M7_SCREEN_X[7:0]}; // unsigned 255-X
 
     if (M7SEL[1] == 1'b0)
         M7_Y = 9'(MOSAIC_Y);
     else
-        M7_Y = 9'(signed'(~MOSAIC_Y));            // signed extension
+        M7_Y = {1'b0, ~MOSAIC_Y}; // unsigned 255-Y
 
     MPY = 24'(signed'(M7A) * signed'(M7B[15:8]));
 
@@ -5348,7 +5348,7 @@ always @(posedge CLK) begin : main_process
                     TPITCH <= 0;
                 end else
                     if (TPMON[INS.V])                       // Set pitch modulation, uses 27x18 multiplier
-                        TPITCH <= signed'(TPITCH) + 15'(32'(16'(TOUT >> 5) * signed'(TPITCH)) >>> 10);
+                        TPITCH <= signed'(TPITCH) + 15'(32'(16'(TOUT >>> 5) * signed'(TPITCH)) >>> 10);
 
                 if (RST_FLG || (TBRRHDR[1:0] == 2'b01 && KON_CNT[INS.V] != 5)) begin
                     ENV_MODE[INS.V] <= EM_RELEASE;

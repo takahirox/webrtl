@@ -13,13 +13,15 @@ cases += [(f'depth-{mode}',dict(mode=mode,effect='depth')) for mode in range(7)]
 cases += [(effect,dict(effect=effect)) for effect in ['bg2','bg3','bg4','layers','subscreen','scroll','mosaic','subtract','half',
  'priority-low','priority-high','window-or','window-and','window-xor','window-xnor']]
 cases += [('rotate',dict(mode=7,effect='rotate'))]
+cases += [(effect,dict(mode=7,effect=effect)) for effect in
+ ['hflip','vflip','hvflip','hflip-fraction','hflip-scale','vflip-fraction','vflip-scale']]
 cases += [(f'direct-{mode}',dict(mode=mode,effect='direct')) for mode in [3,4,7]]
 cases += [(f'offset-{mode}',dict(mode=mode,effect='offset')) for mode in [2,4,6]]
 cases += [(name,dict(mode=1,effect=name)) for name in ['bg3-priority-low','bg3-priority-high']]
 cases += [(name,dict(sprite_priority=3,effect=name)) for name in ['sprite-hflip','sprite-vflip']]
 cases += [('serial',dict(joycheck=0xa55)),('reverse',dict(transfer='reverse')),('indirect',dict(transfer='indirect'))]
 cases += [(f'dma-{mode}',dict(transfer=f'mode{mode}')) for mode in range(8)]
-cases += [(f'audio-{audio}',dict(audio=audio)) for audio in ['gain','mute','pitch','voices','adsr','ramp','keyoff','noise','echo','filter-1','filter-2','filter-3','range13','gauss-wrap']]
+cases += [(f'audio-{audio}',dict(audio=audio)) for audio in ['gain','mute','pitch','voices','adsr','ramp','keyoff','noise','echo','filter-1','filter-2','filter-3','range13','gauss-wrap','negative-modulator']]
 cases += [('reject-mode5-as0',dict(mode=0))]
 print(json.dumps([dict(name=name,bytes=list(build(**args)[0])) for name,args in cases]))`], { maxBuffer: 16 * 1024 * 1024 }));
 
@@ -33,6 +35,14 @@ function pixel(name, x, y) {
   const blue = [0, 0, 255, 255], red = [255, 0, 0, 255], green = [0, 255, 0, 255];
   const hires = ["mode-5", "mode-6", "depth-5", "depth-6"].includes(name);
   let dot = hires ? x : x >> 1;
+  if (name.includes("flip") && !name.startsWith("sprite-")) {
+    // bsnes Mode 7: flip unsigned screen coordinates before signed 8.8
+    // matrix multiplication; the vertical product discards six low bits.
+    const scale = name.endsWith("fraction") ? 1 : name.endsWith("scale") ? 0x81 : 0x100;
+    const sourceX = name.startsWith("vflip") ? ((scale * (255 - (y + 1))) & ~63) >> 8 :
+      (scale * (255 - dot)) >> 8;
+    return sourceX & 1 ? red : blue;
+  }
   if (name.startsWith("offset-")) return ((y + 1 + Number(x >= 16)) & 1) ? red : blue;
   if (name.startsWith("depth-")) {
     const mode = Number(name.at(-1));
@@ -110,8 +120,13 @@ function expectedPcm(name) {
     }
   }
   const square = (i) => decoded[i % decoded.length];
-  const wave = Array.from({ length: name === "audio-pitch" ? 32 : decoded.length }, (_, n) => {
-    const pos = name === "audio-pitch" ? n / 2 : n;
+  // snes_spc V3c: constant voice 0's Gaussian output is -14344; applying
+  // direct gain $7f produces -14232. Signed PMON changes $0e27 to $0800.
+  const modulator = ((-14344 * 0x7f0) >> 11) & ~1;
+  const pitch = name === "audio-negative-modulator" ? 0x0e27 + (((modulator >> 5) * 0x0e27) >> 10) :
+    name === "audio-pitch" ? 0x0800 : 0x1000;
+  const wave = Array.from({ length: pitch === 0x0800 ? 32 : decoded.length }, (_, n) => {
+    const pos = n * pitch / 0x1000;
     const coefficients = pos % 1 ? [56, 965, 969, 58] : [370, 1305, 374, 0];
     const terms = coefficients.map((c, i) => (square(Math.floor(pos) + i) * c) >> 11);
     const partial = ((terms[0] + terms[1] + terms[2]) << 16) >> 16;

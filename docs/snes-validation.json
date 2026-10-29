@@ -210,5 +210,54 @@
       "examples/snes/test.sfc": "1f8ec0ba8bbc51e917c5104f771003e97705c8f2491258593f8181013da35fdb",
       "examples/snes/boot/spc700-boot-rom.bin": "69ef17c3f4ff6f44ca3d86a344360e785fb1eb0ff0f51305e46c70d594a7fb65"
     }
+  },
+  "arithmeticReviewFixValidation": {
+    "date": "2026-10-29",
+    "commands": [
+      "python3 -m unittest discover -s tests -v",
+      "npm run build:demo",
+      "npx playwright test --config=playwright.static.config.js tests/static/snes.spec.js --workers=2"
+    ],
+    "pythonTestsPassed": 10,
+    "snesBrowserTestsPassed": 4,
+    "cartridgeVariantsPerBrowser": 84,
+    "exactPixelFixturesPerBrowser": 83,
+    "pcmSamplesPerFixture": 256,
+    "adaptation": "Reproduced exactly from 39 hash-verified pinned upstream files.",
+    "preFixRejection": {
+      "browser": "chromium",
+      "source": "56e5ec61a85b7c57ea3ac4c1b482ba8806cb0fc6",
+      "hflipFractionPixelMismatches": 57344,
+      "vflipFractionPixelMismatches": 65024,
+      "negativeModulatorPcmMatches": false
+    },
+    "measurements": [
+      {
+        "browser": "chromium",
+        "compileMs": 93476.2,
+        "wasmBytes": 268139,
+        "mode7FlipFixtures": 7,
+        "mode7FlipPixelMismatches": 0,
+        "negativeModulatorPcmMatches": true,
+        "modeSubstitutionRejectedPixels": 57344
+      },
+      {
+        "browser": "firefox",
+        "compileMs": 111214,
+        "wasmBytes": 268139,
+        "mode7FlipFixtures": 7,
+        "mode7FlipPixelMismatches": 0,
+        "negativeModulatorPcmMatches": true,
+        "modeSubstitutionRejectedPixels": 57344
+      }
+    ],
+    "wasmSha256": "e3750c3737f253c61960cd8d601920a4c1f9091c944992825b415bd3d1a88c22",
+    "artifacts": {
+      "examples/snes/snes-core.v": "c071acb7fa05b7767d296f89737ee70f1b91c3824f2a2bb26ccf628c8130aba2",
+      "scripts/adapt_snes.py": "0c7d33cc910c230319cc58a51a61ed97f717c0142096d55ac88cedf6052f6d58",
+      "scripts/generate-snes-rom.py": "8a89ee48f7a0183aa8b217185b26dc1803e0da3f0ac73566408e6f7be0b6c3ac",
+      "tests/static/snes.spec.js": "ba826df7d39dd7bb44ebedd8c381478b7ec7849e27dccb893b34c87b70f626e6"
+    },
+    "limits": "Scoped arithmetic revision. Other example regressions and the known native linker failure were not rerun; live Pages checks remain pending publication."
   }
 }

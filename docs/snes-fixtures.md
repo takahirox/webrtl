@@ -27,6 +27,7 @@ the capture buffer starts at row 0.
 | `offset-2/4/6` | Alternating solid/transparent tile rows. BG3 offset data enables a one-line vertical offset after the first eight screen dots; mode 4 uses the combined offset selector. |
 | `direct-3/4/7` | Nontransparent index 1 gives direct-color red value 4/31, expanded to 33/255, independently of CGRAM. |
 | `zoom`, `constant`, `rotate` | Mode 7 doubled X selects transparent pixels, constant X selects red, and a quarter-turn converts vertical stripes to horizontal stripes. |
+| `hflip`, `vflip`, `hvflip`, `hflip-fraction/scale`, `vflip-fraction/scale` | Mode 7 flips use unsigned `255-X/Y` before the matrix. Identity and cross-axis matrices check stripe direction; coefficients `$0001` and `$0081` expose incorrect sign extension during scaling. Vertical cases feed flipped Y through M7B to the striped X axis. |
 | `window`, `window-or/and/xor/xnor` | Inclusive bounds [64,127] and [96,159], combined with the specified Boolean operator, mask BG1 at exact dot positions. |
 | `math`, `subtract`, `half`, `subscreen` | Fixed-green addition, fixed-red subtraction and halved addition, and BG1 red + BG2 green on the subscreen; results follow five-bit component arithmetic. |
 | `overscan`, `interlace` | The expected stripe image covers 239 or 448 rows, respectively. |
@@ -45,6 +46,15 @@ the independent [bsnes timing implementation](https://github.com/bsnes-emu/bsnes
 This fixture polls WRAM/ROM with six/eight-clock CPU cycles; its 16-clock bound
 covers CPU completion plus the eight-clock DMA divider while rejecting a write
 on an adjacent scanline. The test checks every captured `$10`/`$20` pair.
+
+Mode 7 flip/scaling expectations follow the independent
+[bsnes implementation](https://github.com/bsnes-emu/bsnes/blob/master/bsnes/sfc/ppu-fast/mode7.cpp):
+screen coordinates remain in [0,255] after flipping, the matrix is signed 8.8,
+and vertical products discard six low bits before adding the horizontal product.
+With M7SEL=1, M7A=`$0001`, M7D=`$0100` and zero offsets, every X coordinate
+selects transparent texel 0 and the entire frame must be blue. The analogous
+vertical fixture uses M7SEL=2, M7A=0 and M7B=`$0001`. The `$0081` variants check
+nonconstant results across the coordinate sign boundary, sample by sample.
 
 The DSP expectations use the independently developed
 [snes_spc DSP reference](https://github.com/snes9xgit/snes9x/blob/8028d3b6ca994f21fdff220d513a08382e37afc3/apu/bapu/dsp/SPC_DSP.cpp)
@@ -69,6 +79,17 @@ and echo volume `$40`; its expected delayed waveform includes FIR history and
 integer rounding, and the initial 512-sample dry interval. Timer targets 1/2/3 must all report ticks through APU ports
 before the CPU enables display. Default playback also checks sample rate and
 exact frame/PCM replay after power reset.
+
+The `audio-negative-modulator` cartridge keys on two voices. Voice 0 loops
+constant range-11 −7 BRR nibbles at pitch `$1000` with zero stereo volume;
+its post-envelope output still modulates voice 1 through PMON bit 1. The
+reference's Gaussian and envelope arithmetic gives −14344 and then −14232.
+The signed pitch rule gives `$0e27 + ((-445 * $0e27) >> 10) = $0800` for
+voice 1, which plays the normal square-wave BRR at half pitch. All 256 captured
+PCM samples must match the independently calculated 32-sample waveform, allowing
+only a cyclic phase shift. A logical shift instead produces pitch 9294, so it
+cannot pass this comparison. The half-pitch choice permits the same eight
+independent Gaussian coefficients used by the existing pitch fixture.
 
 These are deterministic feature fixtures, not exhaustive instruction, register,
 timing or commercial-game conformance. Remaining limits are recorded in the

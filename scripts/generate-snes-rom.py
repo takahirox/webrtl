@@ -65,11 +65,20 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
         for voice in range(1, 8):
             registers += [(voice * 16 + r, v) for r, v in [(0, 16), (1, 16), (2, 0), (3, 0x10), (4, 0), (5, 0), (7, 0x7f)]]
         registers += [(0, 16), (1, 16)]
+    if audio == "negative-modulator":
+        # Silent voice 0 loops constant -7 BRR nibbles. Its signed output
+        # (-14232) modulates voice 1: $0e27 + ((-445 * $0e27) >> 10) = $0800.
+        # Half-sample pitch keeps the PCM oracle to eight independent Gaussian
+        # coefficients while exposing the same sign error as pitch $1000.
+        registers += [(0, 0), (1, 0)]
+        registers += [(0x10 + r, v) for r, v in
+                      [(0, 0x7f), (1, 0x7f), (2, 0x27), (3, 0x0e), (4, 1), (5, 0), (7, 0x7f)]]
+        registers += [(0x2d, 2)]  # PMON: modulate voice 1 only
     if audio == "echo":
         registers += [(0x6c, 0), (0x2c, 0x40), (0x3c, 0x40), (0x4d, 1),
                       (0x6d, 0x20), (0x7d, 1), (0x0d, 0)]
         registers += [(0x0f + tap * 16, 0x40 if tap == 0 else 0) for tap in range(8)]
-    registers += [(0x4c, 0xff if audio == "voices" else 1)]
+    registers += [(0x4c, 0xff if audio == "voices" else 3 if audio == "negative-modulator" else 1)]
     for reg, value in registers:
         apu.emit(f"MOV $f2,#${reg:02x}; MOV $f3,#${value:02x}", 0x8f, reg, 0xf2, 0x8f, value, 0xf3)
     apu.emit("Enable all timers, targets 1/2/3", 0x8f, 1, 0xfa, 0x8f, 2, 0xfb, 0x8f, 3, 0xfc, 0x8f, 7, 0xf1)
@@ -94,6 +103,10 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
         payload[0x400] = 0x43 | (int(audio[-1]) << 2)
     if audio == "range13": payload[0x400] = 0xd3
     if audio == "gauss-wrap": payload[0x400:0x409] = bytes([0xc3] + [0x88] * 8)
+    if audio == "negative-modulator":
+        payload[0x304:0x308] = bytes([0x10, 6, 0x10, 6])  # voice 1 start/loop $0610
+        payload[0x410:0x419] = payload[0x400:0x409]
+        payload[0x401:0x409] = bytes([0x99] * 8)  # voice 0 constant negative BRR
 
     cpu = Program(0x8000)
     def write(address, value):
@@ -156,6 +169,11 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
     write(0x210b, 1)
     if mode == 7:
         # Identity Mode 7 matrix; map bytes and pixels occupy opposite VRAM lanes.
+        flips = {"hflip": 1, "vflip": 2, "hvflip": 3,
+                 "hflip-fraction": 1, "hflip-scale": 1,
+                 "vflip-fraction": 2, "vflip-scale": 2}
+        if effect in flips:
+            write(0x211a, flips[effect])
         for reg in [0x210d, 0x210e, 0x211b, 0x211c, 0x211d, 0x211e, 0x211f, 0x2120]:
             value = 0x100 if reg in [0x211b, 0x211e] else 0
             if effect == "zoom" and reg == 0x211b: value = 0x200
@@ -163,6 +181,11 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
             if effect == "constant" and reg == 0x211f: value = 1
             if effect == "rotate":
                 value = {0x211c: 0x100, 0x211d: 0xff00}.get(reg, 0)
+            if effect in flips:
+                scale = 1 if effect.endswith("fraction") else 0x81 if effect.endswith("scale") else 0x100
+                # Vertical cases feed Y through M7B to the striped X axis.
+                value = ({0x211c: scale, 0x211d: 0x100} if effect.startswith("vflip") else
+                         {0x211b: scale, 0x211e: 0x100}).get(reg, 0)
             write(reg, value & 255)
             write(reg, value >> 8)
     stz(0x2121)

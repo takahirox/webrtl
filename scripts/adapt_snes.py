@@ -43,6 +43,9 @@ def adapt(sources, boot):
             source = source.replace("STATE2 = STATE - 4'd1;", "")
             source = source.replace("STATE2[2:0]", "(STATE[2:0] - 3'd1)")
         if name == "src/dsp.v":
+            # Previous-voice output is signed: a negative modulator reduces
+            # pitch. A logical shift instead turns it into a positive value.
+            source = source.replace("TOUT >> 5", "TOUT >>> 5")
             source = source.replace(".IN_CLK(2147730)", ".IN_CLK(2147727)")
             source = source.replace("parameter ACLK_FREQ = 411904;", "parameter ACLK_FREQ = 409600;")
             # The read pointer is latched before STEP 22. VS_ESA advances
@@ -66,6 +69,12 @@ def adapt(sources, boot):
             source = source.replace("GSUM = CLAMP16(SUM012 + SUM3);",
                                     "GSUM = CLAMP16(17'($signed(SUM012[15:0])) + SUM3);")
         if name == "src/ppu.v":
+            # Flipped screen coordinates are unsigned 255-X/Y, even though
+            # the matrix multiplication consumes signed nine-bit operands.
+            source = source.replace("9'(signed'(~M7_SCREEN_X[7:0]));    // signed extension",
+                                    "{1'b0, ~M7_SCREEN_X[7:0]}; // unsigned 255-X")
+            source = source.replace("9'(signed'(~MOSAIC_Y));            // signed extension",
+                                    "{1'b0, ~MOSAIC_Y}; // unsigned 255-Y")
             # Match the two long dots in the original VHDL; the translated AND
             # condition can never be true. The short-line exception stays intact.
             source = source.replace("H_CNT == 323 && H_CNT == 327", "H_CNT == 323 || H_CNT == 327")
