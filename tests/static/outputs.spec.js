@@ -260,7 +260,17 @@ test("PCM originates in RTL, plays through Web Audio, and clears on Pause/Reset/
   const changed = await page.evaluate(() => window.played[0]);
   expect(changed.pcm.slice(0, 20)).toEqual(Array(2).fill([...Array(5).fill(0.125), ...Array(5).fill(-0.125)]).flat());
   // Reset during Run must silence scheduled data and rewind simulation time.
-  await page.locator("#reset").click();
+  // Deliver Reset atomically with its enabled check, between worker batches.
+  await page.waitForFunction(() => {
+    const reset = document.getElementById("reset");
+    const cycles = Number.parseInt(document.getElementById("timing").textContent, 10);
+    if (!(cycles > 0)
+        || document.getElementById("pause").disabled || reset.disabled) return false;
+    reset.click();
+    return true;
+  });
+  // Wait for the worker to acknowledge Reset before checking the cleared output.
+  await expect(page.locator("#step")).toBeEnabled();
   await expect(page.locator("#pause")).toBeDisabled();
   await expect(page.locator("#timing")).toHaveText("0 cycles · 0.000 simulated seconds");
   const stopped = await page.evaluate(() => window.played.length);
