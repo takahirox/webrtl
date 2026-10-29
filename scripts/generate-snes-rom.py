@@ -47,7 +47,7 @@ class Program:
 
 
 def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
-          joycheck=None, transfer=None, audio=None):
+          joycheck=None, transfer=None, audio=None, bus=None):
     assert mode in range(8)
     apu = Program(0x200)
     # Disable echo, release reset/mute, configure voice 0 with direct gain.
@@ -123,6 +123,41 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
     cpu.emit("SEI; CLD; CLC; XCE; REP #$10; LDX #$1fff; TXS", 0x78, 0xd8, 0x18, 0xfb, 0xc2, 0x10, 0xa2, 0xff, 0x1f, 0x9a)
     stz(0x4200)
     stz(0x420c)
+    if bus:
+        hirom = bus.endswith("hirom")
+        has_sram = bus.startswith("sram-")
+        observations = []
+
+        def observe(address, expected, absolute=False):
+            if absolute:
+                load(address)
+            else:
+                cpu.emit(f"LDA ${address:06x}", 0xaf, address & 255, (address >> 8) & 255, address >> 16)
+            index = len(observations)
+            cpu.emit(f"STA $7e3100+{index}", 0x8f, index, 0x31, 0x7e)
+            check(expected)
+            observations.append(expected)
+
+        # Undriven reads retain the final operand byte, not ROM filler $cb.
+        observe(0x6000, 0x60, absolute=True)
+        observe(0x5000, 0x50, absolute=True)
+        observe(0x806000, 0x80)
+        if not hirom and not has_sram:
+            observe(0x706000, 0x70)
+            observe(0xf06000, 0xf0)
+        # A data marker is placed at ROM $1070/$9070, away from code and DMA.
+        aliases = [0x009070, 0x809070, 0x409070, 0xc09070]
+        if not hirom: aliases += [0x401070, 0xc01070]
+        for address in aliases:
+            observe(address, 0xa6)
+        if has_sram:
+            address, alias = (0x206000, 0xa06000) if hirom else (0x706000, 0xf06000)
+            cpu.emit("LDA #$5a; STA SRAM", 0xa9, 0x5a, 0x8f, address & 255, (address >> 8) & 255, address >> 16)
+            observe(alias, 0x5a)
+            # 2 KiB SRAM mirrors at +$800; writing the mirror updates both.
+            cpu.emit("LDA #$3c; STA SRAM mirror", 0xa9, 0x3c, 0x8f, (alias + 0x800) & 255,
+                     ((alias + 0x800) >> 8) & 255, alias >> 16)
+            observe(address, 0x3c)
     # RDIO reads the level of the released/driven programmable pins. Standard
     # pads do not drive these pins: test both pins independently and together.
     for value in [0xff, 0, 0x40, 0x80, 0xff]:
@@ -192,7 +227,12 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
     for value in [0, 0x7c, 0x1f, 0, 0xe0, 3, 0xff, 0x7f]:
         write(0x2122, value)
     bpp = 2 if mode == 0 else 4 if mode in [1, 2, 5, 6] else 8
+    if effect and effect.startswith("hires-bg2-"):
+        assert mode == 5
+        bpp = 2
     tile = bytes([0x55, 0] * 8 + [0] * (8 * bpp - 16))
+    if effect and effect.startswith("hires-") and effect.endswith("reverse"):
+        tile = bytes([0xaa, 0] * 8 + [0] * (8 * bpp - 16))
     if effect == "depth":
         tile = bytes([0x55, 0x33] * 8 + ([0x0f, 0] * 8 if bpp >= 4 else []) +
                      ([0xff, 0] * 8 + [0] * 16 if bpp == 8 else []))
@@ -255,6 +295,21 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
         # H-512 uses alternating main/sub samples. Both screens must enable BG1.
         write(0x212d, 1)
         write(0x2130, 0x30)
+    if effect and effect.startswith("hires-"):
+        assert mode in [5, 6]
+        if effect.startswith("hires-bg2-"):
+            write(0x210b, 0x10)
+            write(0x212c, 2)
+            write(0x212d, 2)
+        if "-high-" in effect:
+            stz(0x2116)
+            stz(0x2117)
+            cpu.emit("LDX #$0400", 0xa2, 0, 4)
+            cpu.label("hiresmap")
+            stz(0x2118)
+            write(0x2119, 0x20)
+            cpu.emit("DEX", 0xca)
+            cpu.branch(0xd0, "hiresmap")
     if effect == "direct": write(0x2130, 1)
     if effect == "offset":
         assert mode in [2, 4, 6]
@@ -432,6 +487,8 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
     rom = bytearray([0xcb] * 32768)
     rom[:len(cpu.finish())] = cpu.data
     rom[0x1000:0x1000 + len(graphics)] = graphics
+    if bus:
+        rom[0x1070] = 0xa6
     rom[0x1080:0x1085] = bytes([127, 0, 97, 0, 0])
     if transfer == "indirect":
         rom[0x1080:0x1087] = bytes([127, 0xb0, 0x90, 97, 0xb1, 0x90, 0])
@@ -454,9 +511,17 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
     for offset in [0x7fee, 0x7ffe]:
         struct.pack_into("<H", rom, offset, cpu.labels["irq"])
     struct.pack_into("<H", rom, 0x7ffc, 0x8000)
-    rom[0x7fdc:0x7fe0] = bytes([0xff, 0xff, 0, 0])
+    if bus:
+        rom[0x7fd6] = 2 if has_sram else 0
+        rom[0x7fd8] = 1 if has_sram else 0
+        if hirom:
+            rom = bytearray(32768) + rom
+            rom[0xffd5] = 0x21
+            rom[0xffd7] = 6
+    header = 0xffc0 if bus and hirom else 0x7fc0
+    rom[header + 0x1c:header + 0x20] = bytes([0xff, 0xff, 0, 0])
     checksum = sum(rom) & 0xffff
-    struct.pack_into("<HH", rom, 0x7fdc, checksum ^ 0xffff, checksum)
+    struct.pack_into("<HH", rom, header + 0x1c, checksum ^ 0xffff, checksum)
     return rom, cpu, apu
 
 

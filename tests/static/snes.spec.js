@@ -10,6 +10,10 @@ cases += [('sprite-low',dict(sprite_priority=0)),('sprite-high',dict(sprite_prio
  ('math',dict(effect='math')),('zoom',dict(mode=7,effect='zoom')),
  ('constant',dict(mode=7,effect='constant')),('auto',dict(autojoy=True))]
 cases += [(f'depth-{mode}',dict(mode=mode,effect='depth')) for mode in range(7)]
+cases += [(f'hires-{mode}-{bg}-{priority}-{stripe}',dict(mode=mode,effect=f'hires-{bg}-{priority}-{stripe}'))
+ for mode,bg in [(5,'bg1'),(6,'bg1'),(5,'bg2')]
+ for priority in ['low','high'] for stripe in ['normal','reverse']]
+cases += [(f'bus-{bus}',dict(bus=bus)) for bus in ['no-sram-lorom','no-sram-hirom','sram-lorom','sram-hirom']]
 cases += [(effect,dict(effect=effect)) for effect in ['bg2','bg3','bg4','layers','subscreen','scroll','mosaic','subtract','half',
  'priority-low','priority-high','window-or','window-and','window-xor','window-xnor']]
 cases += [('rotate',dict(mode=7,effect='rotate'))]
@@ -35,6 +39,7 @@ function pixel(name, x, y) {
   const blue = [0, 0, 255, 255], red = [255, 0, 0, 255], green = [0, 255, 0, 255];
   const hires = ["mode-5", "mode-6", "depth-5", "depth-6"].includes(name);
   let dot = hires ? x : x >> 1;
+  if (name.startsWith("hires-")) return (x & 1) ^ Number(name.endsWith("reverse")) ? red : blue;
   if (name.includes("flip") && !name.startsWith("sprite-")) {
     // bsnes Mode 7: flip unsigned screen coordinates before signed 8.8
     // matrix multiplication; the vertical product discards six low bits.
@@ -363,6 +368,15 @@ test("full SNES RTL boots a local cartridge, renders DMA tiles, produces DSP PCM
     if (name === "serial") {
       expect(writes.filter((t) => t[1] >= 0x7e2000 && t[1] < 0x7e2018).map((t) => t[2])).toEqual(
         Array.from({ length: 24 }, (_, i) => i < 12 ? (0xa55 >> (11 - i)) & 1 : Number(i >= 16)));
+    }
+    if (name.startsWith("bus-")) {
+      const hirom = name.endsWith("hirom"), sram = name.startsWith("bus-sram-");
+      const expected = [0x60, 0x50, 0x80,
+        ...(!hirom && !sram ? [0x70, 0xf0] : []),
+        ...Array(hirom ? 4 : 6).fill(0xa6), ...(sram ? [0x5a, 0x3c] : [])];
+      expect(writes.filter((t) => t[1] >= 0x7e3100 && t[1] < 0x7e3100 + expected.length)
+        .map((t) => [t[1], t[2]]), `${name} CPU read results`).toEqual(
+          expected.map((value, i) => [0x7e3100 + i, value]));
     }
     if (name.startsWith("dma-")) {
       const offsets = [[0], [0, 1], [0, 0], [0, 0, 1, 1], [0, 1, 2, 3], [0, 1, 0, 1], [0, 0], [0, 0, 1, 1]][Number(name.at(-1))];

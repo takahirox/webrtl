@@ -3933,7 +3933,7 @@ always @* begin : pixel_render_addr_gen
             CGRAM_FETCH_ADDR = {1'b1,SPR_PIX_DATA[6:0]};
             MATH = CGADSUB[4] & SPR_PIX_DATA[6];
         end
-        else if (BG1_PIX_DATA[7:4] != 4'b0000 && BGPR1EN[0] && DOT_CLK) begin
+        else if (BG1_PIX_DATA[3:0] != 4'b0000 && BGPR1EN[0] && DOT_CLK) begin
             CGRAM_FETCH_ADDR = {1'b0,BG1_PIX_DATA[10:8],BG1_PIX_DATA[3:0]};
         end
         else if (BG1_PIX_DATA[7:4] != 4'b0000 && BGPR1EN[0] && ~DOT_CLK) begin
@@ -3944,7 +3944,7 @@ always @* begin : pixel_render_addr_gen
             CGRAM_FETCH_ADDR = {1'b1,SPR_PIX_DATA[6:0]};
             MATH = CGADSUB[4] & SPR_PIX_DATA[6];
         end
-        else if (BG2_PIX_DATA[3:2] != 2'b00 && BGPR1EN[1] && DOT_CLK) begin
+        else if (BG2_PIX_DATA[1:0] != 2'b00 && BGPR1EN[1] && DOT_CLK) begin
             CGRAM_FETCH_ADDR = {3'b000,BG2_PIX_DATA[6:4],BG2_PIX_DATA[1:0]};
         end
         else if (BG2_PIX_DATA[3:2] != 2'b00 && BGPR1EN[1] && ~DOT_CLK) begin
@@ -3955,7 +3955,7 @@ always @* begin : pixel_render_addr_gen
             CGRAM_FETCH_ADDR = {1'b1,SPR_PIX_DATA[6:0]};
             MATH = CGADSUB[4] & SPR_PIX_DATA[6];
         end
-        else if (BG1_PIX_DATA[7:4] != 4'b0000 && BGPR0EN[0] && DOT_CLK) begin
+        else if (BG1_PIX_DATA[3:0] != 4'b0000 && BGPR0EN[0] && DOT_CLK) begin
             CGRAM_FETCH_ADDR = {1'b0,BG1_PIX_DATA[10:8],BG1_PIX_DATA[3:0]};
         end
         else if (BG1_PIX_DATA[7:4] != 4'b0000 && BGPR0EN[0] && ~DOT_CLK) begin
@@ -3966,7 +3966,7 @@ always @* begin : pixel_render_addr_gen
             CGRAM_FETCH_ADDR = {1'b1,SPR_PIX_DATA[6:0]};
             MATH = CGADSUB[4] & SPR_PIX_DATA[6];
         end
-        else if (BG2_PIX_DATA[3:2] != 2'b00 && BGPR0EN[1] && DOT_CLK) begin
+        else if (BG2_PIX_DATA[1:0] != 2'b00 && BGPR0EN[1] && DOT_CLK) begin
             CGRAM_FETCH_ADDR = {3'b000,BG2_PIX_DATA[6:4],BG2_PIX_DATA[1:0]};
         end
         else if (BG2_PIX_DATA[3:2] != 2'b00 && BGPR0EN[1] && ~DOT_CLK) begin
@@ -3984,7 +3984,7 @@ always @* begin : pixel_render_addr_gen
             CGRAM_FETCH_ADDR = {1'b1,SPR_PIX_DATA[6:0]};
             MATH = CGADSUB[4] & SPR_PIX_DATA[6];
         end
-        else if (BG1_PIX_DATA[7:4] != 4'b0000 && BGPR1EN[0] && DOT_CLK) begin
+        else if (BG1_PIX_DATA[3:0] != 4'b0000 && BGPR1EN[0] && DOT_CLK) begin
             CGRAM_FETCH_ADDR = {1'b0,BG1_PIX_DATA[10:8],BG1_PIX_DATA[3:0]};
         end
         else if (BG1_PIX_DATA[7:4] != 4'b0000 && BGPR1EN[0] && ~DOT_CLK) begin
@@ -3999,7 +3999,7 @@ always @* begin : pixel_render_addr_gen
             CGRAM_FETCH_ADDR = {1'b1,SPR_PIX_DATA[6:0]};
             MATH = CGADSUB[4] & SPR_PIX_DATA[6];
         end
-        else if (BG1_PIX_DATA[7:4] != 4'b0000 && BGPR0EN[0] && DOT_CLK) begin
+        else if (BG1_PIX_DATA[3:0] != 4'b0000 && BGPR0EN[0] && DOT_CLK) begin
             CGRAM_FETCH_ADDR = {1'b0,BG1_PIX_DATA[10:8],BG1_PIX_DATA[3:0]};
         end
         else if (BG1_PIX_DATA[7:4] != 4'b0000 && BGPR0EN[0] && ~DOT_CLK) begin

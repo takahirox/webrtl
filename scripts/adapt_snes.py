@@ -69,6 +69,14 @@ def adapt(sources, boot):
             source = source.replace("GSUM = CLAMP16(SUM012 + SUM3);",
                                     "GSUM = CLAMP16(17'($signed(SUM012[15:0])) + SUM3);")
         if name == "src/ppu.v":
+            # Each H-512 sample has its own transparency bits. DOT_CLK selects
+            # the low sample; testing the high sample loses reversed stripes.
+            for bg, old, new, zero in [(1, "7:4", "3:0", "4'b0000"),
+                                       (2, "3:2", "1:0", "2'b00")]:
+                for priority in [0, 1]:
+                    source = source.replace(
+                        f"BG{bg}_PIX_DATA[{old}] != {zero} && BGPR{priority}EN[{bg - 1}] && DOT_CLK",
+                        f"BG{bg}_PIX_DATA[{new}] != {zero} && BGPR{priority}EN[{bg - 1}] && DOT_CLK")
             # Flipped screen coordinates are unsigned 255-X/Y, even though
             # the matrix multiplication consumes signed nine-bit operands.
             source = source.replace("9'(signed'(~M7_SCREEN_X[7:0]));    // signed extension",

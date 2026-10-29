@@ -19,6 +19,8 @@ the capture buffer starts at row 0.
 | `mode-0`…`mode-7` | Blue transparent dots and red opaque dots; modes 5/6 have one sample per dot, other modes have two. |
 | `reject-mode5-as0` | Deliberately boots Mode 0, compares against Mode 5, and must reject over 50,000 pixels. This detects the mode substitution missed by color totals. |
 | `depth-0`…`depth-6` | Planes `$55/$33/$0f/$ff` produce indices 0–3, 0–7 or 16–23 according to 2/4/8bpp. Each nonzero index has an explicitly calculated distinct palette color. |
+| `hires-5/6-bg1-low/high-normal/reverse`, `hires-5-bg2-low/high-normal/reverse` | Both map priorities render plane-zero `$55` and `$aa` stripes at every 512-wide sample. BG1 uses 4bpp; Mode 5 BG2 uses 2bpp. Each sample's own index controls transparency. |
+| `bus-no-sram-lorom/hirom`, `bus-sram-lorom/hirom` | CPU reads unmapped `$006000/$005000/$806000`, valid ROM aliases, and present SRAM aliases/mirrors, storing results in `$7e3100` onward before checking them. Absent LoROM SRAM at `$706000/$f06000` also retains open bus. |
 | `bg2`, `bg3`, `bg4`, `layers` | Separate Mode 0 palettes; BG2 offset by one dot interleaves green with BG1 red. |
 | `priority-low`, `priority-high`, `bg3-priority-low/high` | Coincident BG1/BG2 stripes distinguish map priority; Mode 1 BG3 high-priority stripes distinguish its priority-promotion bit. |
 | `sprite-low`, `sprite-high` | Green object occupies dots 16–23, rows 16–23. Low priority is hidden at opaque BG dots; high priority covers them. |
@@ -40,6 +42,21 @@ Every cartridge checks RDIO after WRIO writes `$ff/$00/$40/$80/$ff`. With standa
 pads, the programmable pins are undriven and pulled high when released, so these
 levels read back directly. Failure branches prevent the cartridge from enabling
 display/audio; the serial case also exposes each result through WRAM writes.
+
+The H-512 fixtures follow the independent
+[bsnes background renderer](https://github.com/bsnes-emu/bsnes/blob/master/bsnes/sfc/ppu-fast/background.cpp):
+each high-resolution sample tests its own color index for transparency. Reversed
+stripes must retain 57,344 red pixels at even X positions, while normal stripes
+place them at odd X positions. Both priority settings and Mode 5 BG2 are checked.
+
+Cartridge bus expectations follow the documented
+[SNES memory map](https://wiki.superfamicom.org/memory-mapping).
+Absolute unmapped loads retain the last operand byte (`$60/$50`); long loads
+retain the bank operand (`$80`, or `$70/$f0` for absent LoROM SRAM). ROM marker
+`$a6` at CPU `$009070` is read through banks `$00/$80/$40/$c0`, including LoROM
+lower-half aliases `$401070/$c01070`. With 2 KiB SRAM present, `$5a/$3c` writes
+are read through bank aliases and size mirrors. The assertions inspect CPU
+stores into WRAM, so cartridge trace data alone cannot satisfy them.
 
 HDMA write timestamps include CPU completion and DMA alignment, as modeled by
 the independent [bsnes timing implementation](https://github.com/bsnes-emu/bsnes/blob/master/bsnes/sfc/cpu/timing.cpp#L148).

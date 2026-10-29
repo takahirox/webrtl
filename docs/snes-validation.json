@@ -259,5 +259,85 @@
       "tests/static/snes.spec.js": "ba826df7d39dd7bb44ebedd8c381478b7ec7849e27dccb893b34c87b70f626e6"
     },
     "limits": "Scoped arithmetic revision. Other example regressions and the known native linker failure were not rerun; live Pages checks remain pending publication."
+  },
+  "transparencyAndBusReviewFixValidation": {
+    "date": "2026-10-30",
+    "commands": [
+      "python3 -m unittest discover -s tests -v",
+      "npm run build:demo",
+      "npx playwright test --config=playwright.static.config.js --workers=2"
+    ],
+    "pythonTestsPassed": 10,
+    "staticBrowserTestsPassed": 44,
+    "snesBrowserTestsPassed": 4,
+    "cartridgeVariantsPerBrowser": 100,
+    "highResolutionTransparencyFixturesPerBrowser": 12,
+    "cpuCartridgeBusFixturesPerBrowser": 4,
+    "pcmSamplesPerFixture": 256,
+    "adaptation": "Reproduced exactly from 39 hash-verified pinned upstream files.",
+    "preFixRejection": {
+      "browser": "chromium",
+      "source": "f954d5162190de76a31fb95286913e9da7669561",
+      "reversedStripeFixturesRejected": 6,
+      "pixelMismatchesPerReversedStripeFixture": 57344,
+      "normalStripeFixturesPassed": 6,
+      "unmappedCpuReadResults": {
+        "bus-no-sram-lorom": 203,
+        "bus-no-sram-hirom": 0,
+        "bus-sram-lorom": 203,
+        "bus-sram-hirom": 0
+      }
+    },
+    "measurements": [
+      {
+        "browser": "chromium",
+        "compileMs": 93915,
+        "wasmBytes": 268287,
+        "cxxrtlBytes": 1608196,
+        "newFixturePixelMismatches": 0,
+        "modeSubstitutionRejectedPixels": 57344,
+        "runtime": {
+          "cycles": 1671168,
+          "elapsedMs": 6440.800000190735,
+          "memoryBytes": 20578304,
+          "pcmHash": 2024722791,
+          "frameHashes": [
+            698101324,
+            698101324,
+            3470071505,
+            3371206625
+          ]
+        }
+      },
+      {
+        "browser": "firefox",
+        "compileMs": 77340,
+        "wasmBytes": 268287,
+        "cxxrtlBytes": 1608196,
+        "newFixturePixelMismatches": 0,
+        "modeSubstitutionRejectedPixels": 57344,
+        "runtime": {
+          "cycles": 1671168,
+          "elapsedMs": 7813,
+          "memoryBytes": 20578304,
+          "pcmHash": 2024722791,
+          "frameHashes": [
+            698101324,
+            698101324,
+            3470071505,
+            3371206625
+          ]
+        }
+      }
+    ],
+    "wasmSha256": "12d768232f118a2625d18bea1787f1a112fd401aaa1bb7adc721308cd4499405",
+    "artifacts": {
+      "examples/snes/snes.v": "0c707bd087c18279952a4a490045b954041475c8ec417f7dcaaa630e79fffec2",
+      "examples/snes/snes-core.v": "9c0f9b671e9e3db9aca9d7bdb1e1c4ce123cb481297bc313d09243d5904ff4a6",
+      "scripts/adapt_snes.py": "4d42fc18ead70762a0137152626db4806e0e03043b510579256e3f3aaae5442d",
+      "scripts/generate-snes-rom.py": "7ea5249d85b461c3c5ad4db83ff3ccb469ad35ed3c02766422a550e73280a3a2",
+      "tests/static/snes.spec.js": "b151afc76365f2adcc1c9cea301b6aee9ece84c9c4d1fd5eb113daaaea32b712"
+    },
+    "limits": "Scoped transparency and cartridge-bus revision. The known native linker failure was not rerun; live Pages checks remain pending publication."
   }
 }

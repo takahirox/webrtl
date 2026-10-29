@@ -34,16 +34,20 @@ module snes (
     wire [15:0] aa, va, vb;
     wire [7:0] wd, ad, vda, vdb;
     wire wce, wwe, ace, awe, vwea, vweb;
-    reg [7:0] wq, aq, vqa, vqb, cart_q;
+    reg [7:0] wq, aq, vqa, vqb, cart_memory_q;
     wire [21:0] rom_address = (cart_hirom ? ca[21:0] : {ca[22:16],ca[14:0]}) & cart_mask;
     wire sram_select = cart_ram_size != 0 && (cart_hirom
         ? !ca[22] && ca[15:13] == 3'b011 && ca[21]
         : ca[22:20] == 3'b111 && !ca[15] && ca[23:16] != 8'h7e && ca[23:16] != 8'h7f);
+    // LoROM's $70-$7d/$f0-$ff lower halves are SRAM or undriven, never ROM.
+    wire rom_select = !romsel_n && (cart_hirom || ca[15] || ca[22:20] != 3'b111);
+    // DO exposes the CPU memory data register, retaining the last bus value.
+    wire [7:0] cart_q = sram_select || rom_select ? cart_memory_q : data_out;
     wire [16:0] sram_mask = 17'((18'd1024 << cart_ram_size) - 1'b1);
     wire [16:0] sa = (cart_hirom ? {ca[19:16],ca[12:0]} : {ca[17:16],ca[14:0]}) & sram_mask;
     always @(posedge clk) begin
         if (cart_write) rom[cart_address] <= cart_data;
-        cart_q <= sram_select ? sram[sa] : rom[rom_address];
+        cart_memory_q <= sram_select ? sram[sa] : rom[rom_address];
         wq <= wram[wa]; aq <= aram[aa];
         vqa <= vram_a[va[14:0]]; vqb <= vram_b[vb[14:0]];
         if (!ready) begin
