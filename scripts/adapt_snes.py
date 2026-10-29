@@ -32,6 +32,10 @@ def adapt(sources, boot):
             source = source.replace(".TURBO()", ".TURBO(1'b0)")
             source = source.replace("endmodule", "assign DBG_PPU_DAT=0; assign DBG_WRAM_DAT=0; assign PPU_DBG_BRK=0;\nendmodule")
         if name == "src/cpu.v":
+            # Standard pads do not drive the programmable I/O pins. Their
+            # pull-ups read high when released, low when WRIO drives them low.
+            source = source.replace("P65_DI = 8'h00;                                  //RDIO",
+                                    "P65_DI = WRIO;                                   //RDIO (undriven pins pulled high)")
             source = source.replace("endmodule", "assign DBG_CPU_BRK=0;\nendmodule")
         if name == "src/65C816/mcode.sv":
             # STATE2 is a combinational temporary, not an asynchronously reset FF.
@@ -41,10 +45,44 @@ def adapt(sources, boot):
         if name == "src/dsp.v":
             source = source.replace(".IN_CLK(2147730)", ".IN_CLK(2147727)")
             source = source.replace("parameter ACLK_FREQ = 411904;", "parameter ACLK_FREQ = 409600;")
+            # The read pointer is latched before STEP 22. VS_ESA advances
+            # ECHO_POS at STEP 29, between the two stereo writes; both writes
+            # must still use the same latched address as the reads.
+            source = source.replace("RAM_A = {TESA,8'h00} + ECHO_POS +",
+                                    "RAM_A = ECHO_ADDR +")
+            # BRR rounding applies to the combined negative product, not to
+            # separately shifted positive terms. The difference feeds back
+            # into every subsequent decoded sample.
+            source = source.replace("(P0 >>> 1) - (P0 >>> 5)",
+                                    "(P0 >>> 1) + ((-P0) >>> 5)")
+            source = source.replace("+ P0 - (P0 >>> 6) - (P0 >>> 5)",
+                                    "+ P0 + ((-P0 * 32'sd3) >>> 6)")
+            source = source.replace("+ P0 - (P0 >>> 7) - (P0 >>> 5) - (P0 >>> 4)\n                    - P1 + (P1 >>> 4) + (P1 >>> 3)",
+                                    "+ P0 + ((-P0 * 32'sd13) >>> 7)\n                    - P1 + ((P1 * 32'sd3) >>> 4)")
+            source = source.replace("SR = (S << SCALE) >>> 1;",
+                                    "if (SCALE <= 12) SR = (S << SCALE) >>> 1;\n                else SR = S & 16'hf800;", 1)
+            # The DSP wraps the first three Gaussian terms to signed 16 bits
+            # before adding the fourth and saturating (the hardware glitch).
+            source = source.replace("GSUM = CLAMP16(SUM012 + SUM3);",
+                                    "GSUM = CLAMP16(17'($signed(SUM012[15:0])) + SUM3);")
         if name == "src/ppu.v":
             # Match the two long dots in the original VHDL; the translated AND
             # condition can never be true. The short-line exception stays intact.
             source = source.replace("H_CNT == 323 && H_CNT == 327", "H_CNT == 323 || H_CNT == 327")
+            # H-512's subscreen is the even (left) sample and main screen is
+            # the odd sample. COLOR_OUT selects sub when DOT_CLK is high.
+            source = source.replace("assign X_OUT = {OUT_X, DOT_CLK};",
+                                    "assign X_OUT = {OUT_X, ~DOT_CLK};")
+            # Inferred synchronous VRAM is sampled by SPR_GET_PIXEL at dot 16.
+            # Advance Mode 7's coordinate after that sample, not at dot 15.
+            source = re.sub(r"(parameter \[8:0\] M7_FETCH_START\s*= )9'b000001111;[^\n]*",
+                            r"\g<1>9'd16; // 16", source)
+            source = re.sub(r"(parameter \[8:0\] M7_FETCH_END\s*= )9'b100001110;[^\n]*",
+                            r"\g<1>9'd271; // (16+256)-1=271", source)
+            # Addition is halved before saturation. Clamping a six-bit sum
+            # first incorrectly turns (31+15)/2 into full intensity.
+            source = source.replace("if (temp[5])\n            temp = 6'b111111;",
+                                    "if (temp[5] && !half)\n            temp = 6'b111111;")
         if name == "src/smp.v":
             # Ship the independently authored GPL boot loader, not Sony ROM bytes.
             replacement = "localparam [7:0] IPLROM[0:63] = '{" + ",".join(f"8'h{b:02x}" for b in boot) + "};"

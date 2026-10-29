@@ -1093,7 +1093,7 @@ always @* begin : P4
             8'h12 :
                 P65_DI = {VBLANK,HBLANK,MDR[5:1],JOYRD_BUSY};    //HVBJOY
             8'h13 :
-                P65_DI = 8'h00;                                  //RDIO
+                P65_DI = WRIO;                                   //RDIO (undriven pins pulled high)
             8'h14 :
                 P65_DI = RDDIV[7:0];                             //RDDIVL
             8'h15 :
@@ -1797,8 +1797,8 @@ typedef logic [15:0] BgTileInfo_t [0:3];
 
 parameter [8:0] BG_FETCH_START		= 9'b000000000; 	// 0
 parameter [8:0] BG_FETCH_END		= 9'b100001111; 	// (256+16)-1=271
-parameter [8:0] M7_FETCH_START		= 9'b000001111; 	// 15
-parameter [8:0] M7_FETCH_END		= 9'b100001110; 	// (15+256)-1=270
+parameter [8:0] M7_FETCH_START		= 9'd16; // 16
+parameter [8:0] M7_FETCH_END		= 9'd271; // (16+256)-1=271
 parameter [8:0] M7_XY_LATCH			= 9'b000001011; 	// 11
 parameter [8:0] SPR_GET_PIX_START	= 9'b000010000; 	// 16
 parameter [8:0] SPR_GET_PIX_END	    = 9'b100001111; 	// (16+256)-1=271
@@ -1885,7 +1885,7 @@ function automatic logic [4:0] AddSub(logic [4:0] a, logic [4:0] b, logic add, l
     logic [5:0] temp;
     if (add) begin
         temp = {1'b0, a} + {1'b0, b};
-        if (temp[5])
+        if (temp[5] && !half)
             temp = 6'b111111;
     end else begin
         temp = {1'b0, a} - {1'b0, b};
@@ -4188,7 +4188,7 @@ assign VBLANK = IN_VBL;
 assign HIGH_RES = HIRES || (PSEUDOHIRES && ~BLEND);
 
 // assign FRAME_OUT = BG_OUT;
-assign X_OUT = {OUT_X, DOT_CLK};
+assign X_OUT = {OUT_X, ~DOT_CLK};
 assign Y_OUT = {FIELD, OUT_Y};
 assign V224 =  ~OVERSCAN;
 
@@ -4989,9 +4989,9 @@ always @* begin : ram_addrgen
             ADDR_INC = 2'b10;
 
         if (RS == RS_ECHORDL)
-            RAM_A = {TESA,8'h00} + ECHO_POS + 16'(ADDR_INC);
+            RAM_A = ECHO_ADDR + 16'(ADDR_INC);
         else
-            RAM_A = {TESA,8'h00} + ECHO_POS + 16'(ADDR_INC) + 16'd1;
+            RAM_A = ECHO_ADDR + 16'(ADDR_INC) + 16'd1;
 
         RAM_WE = 1'b0;
         RAM_OE = 1'b1;
@@ -5008,10 +5008,10 @@ always @* begin : ram_addrgen
         end
 
         if (RS == RS_ECHOWRL) begin
-            RAM_A = {TESA,8'h00} + ECHO_POS + 16'(ADDR_INC);
+            RAM_A = ECHO_ADDR + 16'(ADDR_INC);
             RAM_DO = EOUT[LR][7:0];
         end else begin
-            RAM_A = {TESA,8'h00} + ECHO_POS + 16'(ADDR_INC) + 16'd1;
+            RAM_A = ECHO_ADDR + 16'(ADDR_INC) + 16'd1;
             RAM_DO = EOUT[LR][15:8];
         end
 
@@ -5156,7 +5156,8 @@ always @(posedge CLK) begin : brr_decode
                 default: ;
                 endcase
 
-                SR = (S << SCALE) >>> 1;
+                if (SCALE <= 12) SR = (S << SCALE) >>> 1;
+                else SR = S & 16'hf800;
                 // if (SCALE <= 12)
                 //     SR = (S << SCALE) >>> 1;
                 // else
@@ -5194,19 +5195,19 @@ always @(posedge CLK) begin : brr_decode
             2'b01 :
                 // SR + P0*15/32
                 // output += output[now-1] * 15/16
-                SF = 17'(SR) + (P0 >>> 1) - (P0 >>> 5);
+                SF = 17'(SR) + (P0 >>> 1) + ((-P0) >>> 5);
             2'b10 :
                 // SR + P0*61/64 - P1*15/16
                 // output += output[now-1] * 61/32 - output[now-2] * 15/16;
                 SF = 17'(SR)
-                    + P0 - (P0 >>> 6) - (P0 >>> 5)
+                    + P0 + ((-P0 * 32'sd3) >>> 6)
                     - P1 + (P1 >>> 4);
             default :
                 // SR + P0*115/128 - P1*13/16
                 // output += output[now-1] * 115/64 - output[now-2] * 13/16;
                 SF = 17'(SR)
-                    + P0 - (P0 >>> 7) - (P0 >>> 5) - (P0 >>> 4)
-                    - P1 + (P1 >>> 4) + (P1 >>> 3);
+                    + P0 + ((-P0 * 32'sd13) >>> 7)
+                    - P1 + ((P1 * 32'sd3) >>> 4);
             endcase
 
             SOUT = CLAMP16(SF) << 1;
@@ -5588,7 +5589,7 @@ always @(posedge CLK) begin : main_process
         GS_BRR3: begin
             SUM3 = 17'(28'(GTBL_DO * BRR_BUF_GAUSS_DO) >> 11);
 
-            GSUM = CLAMP16(SUM012 + SUM3);
+            GSUM = CLAMP16(17'($signed(SUM012[15:0])) + SUM3);
             // nand2mario: the upstream code is probably wrong...  SUM012 is 17 bits
             // GSUM := CLAMP16( resize(SUM012(15)&SUM012(15 downto 0) + SUM3, 17) );
             // GSUM = CLAMP16(17'({SUM012[15],SUM012[15:0]} + SUM3));

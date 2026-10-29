@@ -9,9 +9,127 @@ cases += [('sprite-low',dict(sprite_priority=0)),('sprite-high',dict(sprite_prio
  ('overscan',dict(display=4)),('interlace',dict(display=1)),('window',dict(effect='window')),
  ('math',dict(effect='math')),('zoom',dict(mode=7,effect='zoom')),
  ('constant',dict(mode=7,effect='constant')),('auto',dict(autojoy=True))]
-print(json.dumps([dict(name=name,bytes=list(build(**args)[0])) for name,args in cases]))`], { maxBuffer: 4 * 1024 * 1024 }));
+cases += [(f'depth-{mode}',dict(mode=mode,effect='depth')) for mode in range(7)]
+cases += [(effect,dict(effect=effect)) for effect in ['bg2','bg3','bg4','layers','subscreen','scroll','mosaic','subtract','half',
+ 'priority-low','priority-high','window-or','window-and','window-xor','window-xnor']]
+cases += [('rotate',dict(mode=7,effect='rotate'))]
+cases += [(f'direct-{mode}',dict(mode=mode,effect='direct')) for mode in [3,4,7]]
+cases += [(f'offset-{mode}',dict(mode=mode,effect='offset')) for mode in [2,4,6]]
+cases += [(name,dict(mode=1,effect=name)) for name in ['bg3-priority-low','bg3-priority-high']]
+cases += [(name,dict(sprite_priority=3,effect=name)) for name in ['sprite-hflip','sprite-vflip']]
+cases += [('serial',dict(joycheck=0xa55)),('reverse',dict(transfer='reverse')),('indirect',dict(transfer='indirect'))]
+cases += [(f'dma-{mode}',dict(transfer=f'mode{mode}')) for mode in range(8)]
+cases += [(f'audio-{audio}',dict(audio=audio)) for audio in ['gain','mute','pitch','voices','adsr','ramp','keyoff','noise','echo','filter-1','filter-2','filter-3','range13','gauss-wrap']]
+cases += [('reject-mode5-as0',dict(mode=0))]
+print(json.dumps([dict(name=name,bytes=list(build(**args)[0])) for name,args in cases]))`], { maxBuffer: 16 * 1024 * 1024 }));
 
-test.setTimeout(600_000);
+test.setTimeout(1_200_000);
+
+// Expected pixels are specified from the cartridge data and SNES dot/bitplane,
+// transparency, layer and color arithmetic rules, never captured from the RTL.
+// See docs/snes-fixtures.md for register values and independent references.
+function pixel(name, x, y) {
+  if (name === "reject-mode5-as0") name = "mode-5";
+  const blue = [0, 0, 255, 255], red = [255, 0, 0, 255], green = [0, 255, 0, 255];
+  const hires = ["mode-5", "mode-6", "depth-5", "depth-6"].includes(name);
+  let dot = hires ? x : x >> 1;
+  if (name.startsWith("offset-")) return ((y + 1 + Number(x >= 16)) & 1) ? red : blue;
+  if (name.startsWith("depth-")) {
+    const mode = Number(name.at(-1));
+    const bpp = mode === 0 ? 2 : [1, 2, 5, 6].includes(mode) ? 4 : 8;
+    const index = (dot & 3) + (bpp >= 4 ? dot & 4 : 0) + (bpp === 8 ? 16 : 0);
+    const expand = (n) => (n << 3) | (n >> 2);
+    return index === 0 ? blue : index === 1 ? red :
+      [expand(index & 31), expand(index * 3 & 31), expand(index * 7 & 31), 255];
+  }
+  if (name === "scroll") dot++;
+  if (name === "mosaic" || name === "zoom") return blue;
+  if (name === "constant") return red;
+  if (name === "rotate") return (y + 1) & 1 ? red : blue;
+  if (name === "window" && dot >= 64 && dot <= 127) return blue;
+  if (name.startsWith("window-")) {
+    const a = dot >= 64 && dot <= 127, b = dot >= 96 && dot <= 159;
+    const mask = { "window-or": a || b, "window-and": a && b,
+      "window-xor": a !== b, "window-xnor": a === b }[name];
+    if (mask) return blue;
+  }
+  if (["sprite-low", "sprite-high"].includes(name) && dot >= 16 && dot < 24 && y >= 16 && y < 24 &&
+      (name === "sprite-high" || !(dot & 1))) return green;
+  if (["sprite-hflip", "sprite-vflip"].includes(name) && dot >= 16 && dot < 24 && y >= 16 && y < 24) {
+    const spriteX = name === "sprite-hflip" ? 7 - ((y - 16) >> 1) : (23 - y) >> 1;
+    if (dot - 16 === spriteX) return green;
+  }
+  if (name === "layers" && !(dot & 1)) return green;
+  if (!(dot & 1)) return blue;
+  if (name.startsWith("direct-")) return [33, 0, 0, 255];
+  return ({ auto: green, serial: green, bg2: green, "priority-high": green, "bg3-priority-high": green, bg3: [255, 255, 0, 255],
+    bg4: [0, 255, 255, 255], math: [255, 255, 0, 255],
+    subscreen: [255, 255, 0, 255], subtract: [132, 0, 0, 255], half: [189, 0, 0, 255] })[name] || red;
+}
+
+// An independent, restricted DSP oracle for these original BRR fixtures.
+// Only Gaussian phases 0 and 1/2 are needed. Coefficients and truncation rules
+// are cross-checked with snes_spc (see docs/snes-fixtures.md), not the RTL tables.
+function expectedPcm(name) {
+  if (["audio-mute", "audio-keyoff"].includes(name)) return [0];
+  const env = name === "audio-gain" ? 0x400 : name === "audio-ramp" ? 0x7ff :
+    name === "audio-adsr" ? 0x7ff : 0x7f0;
+  const volume = (sample) => {
+    const voice = ((sample * env) >> 11) & ~1;
+    return name === "audio-voices" ? ((8 * ((voice * 16) >> 7)) * 127) >> 7 :
+      ((((voice * 127) >> 7) * 127) >> 7);
+  };
+  if (name === "audio-noise") {
+    const wave = [];
+    let state = 0x4000;
+    do {
+      wave.push(volume((state << 17) >> 16));
+      state = (state >> 1) | (((state ^ (state >> 1)) & 1) << 14);
+    } while (state !== 0x4000);
+    return wave;
+  }
+  let decoded = Array.from({ length: 16 }, (_, i) => (i < 8 ? 7 : -7) << 11);
+  if (name === "audio-range13") decoded = decoded.map((v) => v < 0 ? -4096 : 0);
+  if (name === "audio-gauss-wrap") decoded.fill(-32768);
+  if (name.startsWith("audio-filter-")) {
+    const filter = Number(name.at(-1));
+    let previous = 0, older = 0;
+    const samples = [], seen = new Map();
+    for (let i = 0; i < 100000; i++) {
+      let value = (i % 16 < 8 ? 7 : -7) << 3;
+      if (filter === 1) value += (previous >> 1) + ((-previous) >> 5);
+      if (filter === 2) value += previous - (older >> 1) + (older >> 5) + ((-3 * previous) >> 6);
+      if (filter === 3) value += previous - (older >> 1) + ((-13 * previous) >> 7) + ((3 * (older >> 1)) >> 4);
+      value = (Math.max(-32768, Math.min(32767, value)) << 17) >> 16;
+      older = previous; previous = value; samples.push(value);
+      if (i % 16 === 15) {
+        const state = `${previous},${older}`;
+        if (seen.has(state)) { decoded = samples.slice(seen.get(state)); break; }
+        seen.set(state, samples.length);
+      }
+    }
+  }
+  const square = (i) => decoded[i % decoded.length];
+  const wave = Array.from({ length: name === "audio-pitch" ? 32 : decoded.length }, (_, n) => {
+    const pos = name === "audio-pitch" ? n / 2 : n;
+    const coefficients = pos % 1 ? [56, 965, 969, 58] : [370, 1305, 374, 0];
+    const terms = coefficients.map((c, i) => (square(Math.floor(pos) + i) * c) >> 11);
+    const partial = ((terms[0] + terms[1] + terms[2]) << 16) >> 16;
+    return Math.max(-32768, Math.min(32767, partial + terms[3])) & ~1;
+  });
+  if (name === "audio-echo") {
+    // EDL=1: 512 stereo samples; FIR tap 0 reads seven samples back.
+    // No feedback. FIR=$40, EVOL=$40, EON=1, echo writes clear bit 0.
+    const voice = wave.map((s) => (((s * env) >> 11) & ~1) * 127 >> 7);
+    return voice.map((v, i) => ((v * 127) >> 7) +
+      ((((voice[(i + 16 - 7) % 16] & ~1) >> 1) & ~1) >> 1));
+  }
+  return wave.map(volume);
+}
+
+function pcmMatches(actual, expected) {
+  return expected.some((_, phase) => actual.every((sample, i) => sample === expected[(phase + i) % expected.length]));
+}
 
 // Independent image specification: tile 0 is eight rows of plane0=$55,
 // plane1=$00, palette 0=blue, 1=red (green when B is held). Low-res dots
@@ -101,7 +219,8 @@ test("full SNES RTL boots a local cartridge, renders DMA tiles, produces DSP PCM
   // Reuse the newly browser-compiled circuit in an independent runtime worker.
   // Small startup batches retain the whole CPU/DMA bus trace. No test emulates
   // instructions, graphics or DSP operations.
-  const results = await page.evaluate(async ({ cartridge, modeCartridges }) => {
+  const results = await page.evaluate(async ({ cartridge, modeCartridges, pixelSource }) => {
+    const expectedPixel = new Function(`return (${pixelSource})`)();
     const worker = new Worker("./simulator-worker.js", { type: "module" });
     let id = 0;
     const call = (message) => new Promise((resolve, reject) => {
@@ -124,7 +243,7 @@ test("full SNES RTL boots a local cartridge, renders DMA tiles, produces DSP PCM
       const tail = [];
       const hashes = [], frameCycles = [], trace = [];
       const start = performance.now();
-      for (let i = 0; i < 64 + 80; ++i) {
+      for (let i = 0; i < 64 + 100; ++i) {
         const data = await call({ action: "batch", batchCycles: i < 64 ? 512 : 16384 });
         memoryBytes = Math.max(memoryBytes, data.memoryBytes);
         if (i < 64) trace.push(...data.trace);
@@ -144,7 +263,7 @@ test("full SNES RTL boots a local cartridge, renders DMA tiles, produces DSP PCM
       return { samples, nonzero, pcmHash, hashes, frameCycles, trace, hdmaWrites, nmiVectors, irqVectors,
         memoryBytes, pcmPeriod16: tail.every((value, i) => value === tail[i % 16]),
         pcmMin: Math.min(...tail), pcmMax: Math.max(...tail),
-        elapsedMs: performance.now() - start, cycles: 64 * 512 + 80 * 16384 };
+        elapsedMs: performance.now() - start, cycles: 64 * 512 + 100 * 16384 };
     }
     try {
       await call({ action: "init", wasm: window.compiled.wasm });
@@ -162,21 +281,36 @@ test("full SNES RTL boots a local cartridge, renders DMA tiles, produces DSP PCM
       for (const fixture of modeCartridges) {
         await load(new Uint8Array(fixture.bytes));
         let frame, height;
-        for (let i = 0; i < (fixture.name === "interlace" ? 120 : 70); i++) {
-          const output = await call({ action: "batch", batchCycles: 16384, buttons: fixture.name === "auto" ? 2048 : 0 });
+        const trace = [], pcm = [], hdma = [];
+        for (let i = 0; i < (fixture.name === "interlace" ? 224 : 164); i++) {
+          const output = await call({ action: "batch", batchCycles: i < 64 ? 512 : 16384,
+            buttons: fixture.name === "auto" ? 2048 : fixture.name === "serial" ? 0xa55 : 0 });
           if (output.frame) { frame = output.frame; height = output.height; }
+          if (output.audio) pcm.push(...output.audio);
+          if (i < 64) trace.push(...output.trace);
+          for (let j = 0; j < output.trace.length; j += 4) {
+            const [cycle, address, value, flags] = output.trace.slice(j, j + 4);
+            if (cycle > 1000000 && address === 0x2121 && (flags & 1)) hdma.push([cycle, value]);
+          }
         }
-        const colors = {};
-        for (let i = 0; i < frame.length; i += 4) {
-          const key = Array.from(frame.slice(i, i + 4)).join(",");
-          colors[key] = (colors[key] || 0) + 1;
+        let mismatches = 0;
+        const examples = [];
+        for (let y = 0; y < height; y++) for (let x = 0; x < 512; x++) {
+          const offset = (y * 512 + x) * 4, expected = expectedPixel(fixture.name, x, y);
+          if (expected.some((v, i) => v !== frame[offset + i])) {
+            mismatches++;
+            if (examples.length < 4) examples.push({ x, y, actual: Array.from(frame.slice(offset, offset + 4)), expected });
+          }
         }
-        modeResults.push({ name: fixture.name, height, colors });
+        const onset = pcm.findIndex((sample) => sample !== 0);
+        modeResults.push({ name: fixture.name, height, mismatches, examples,
+          trace, pcm: pcm.slice(-256), onset: pcm.slice(onset, onset + 768), hdma });
       }
       return { first, repeat, hi, modeResults, metrics: window.compiled.metrics,
         validWasm: WebAssembly.validate(window.compiled.wasm) };
     } finally { worker.terminate(); }
-  }, { cartridge: Array.from(rom), modeCartridges: modes });
+  }, { cartridge: Array.from(rom), modeCartridges: modes, pixelSource: pixel.toString() });
+  writeFileSync(info.outputPath("snes-fixture-results.json"), JSON.stringify(results.modeResults));
   expect(results.validWasm).toBe(true);
   expect(results.first.nonzero).toBeGreaterThan(500);
   expect(results.first.hdmaWrites).toBeGreaterThanOrEqual(2);
@@ -191,20 +325,49 @@ test("full SNES RTL boots a local cartridge, renders DMA tiles, produces DSP PCM
   expect(results.repeat.trace).toEqual(results.first.trace);
   expect(results.hi.hashes.at(-1)).toEqual(results.first.hashes.at(-1));
   expect(results.hi.nonzero).toBeGreaterThan(500);
-  for (const { name, height, colors } of results.modeResults) {
-    const expected = {
-      "sprite-low": { "0,0,255,255": 57280, "255,0,0,255": 57344, "0,255,0,255": 64 },
-      "sprite-high": { "0,0,255,255": 57280, "255,0,0,255": 57280, "0,255,0,255": 128 },
-      overscan: { "0,0,255,255": 61184, "255,0,0,255": 61184 },
-      interlace: { "0,0,255,255": 114688, "255,0,0,255": 114688 },
-      window: { "0,0,255,255": 71680, "255,0,0,255": 43008 },
-      math: { "0,0,255,255": 57344, "255,255,0,255": 57344 },
-      zoom: { "0,0,255,255": 114688 }, constant: { "255,0,0,255": 114688 },
-      auto: { "0,0,255,255": 57344, "0,255,0,255": 57344 },
-    }[name] || { "0,0,255,255": 57344, "255,0,0,255": 57344 };
-    expect(colors, name).toEqual(expected);
+  const fixtureEvidence = [];
+  for (const { name, height, mismatches, examples, trace, pcm, onset, hdma } of results.modeResults) {
+    fixtureEvidence.push({ name, height, mismatches, examples, pcm: pcm.slice(0, 32), hdma });
+    if (name.startsWith("reject-")) expect(mismatches, name).toBeGreaterThan(50000);
+    else expect.soft({ mismatches, examples }, name).toEqual({ mismatches: 0, examples: [] });
+    expect(pcm.length, `${name} retains the PCM sample clock`).toBe(256);
+    expect.soft(pcmMatches(pcm, expectedPcm(name)), `${name} independently calculated PCM`).toBe(true);
+    if (name === "audio-ramp") {
+      expect(Math.max(...onset.slice(0, 16).map(Math.abs))).toBeLessThan(6000);
+      expect(Math.max(...onset.slice(64, 96).map(Math.abs))).toBeGreaterThan(13000);
+    }
+    if (name === "audio-adsr") expect(Math.max(...onset.slice(0, 16).map(Math.abs))).toBeGreaterThan(13000);
+    if (name === "audio-keyoff") expect(onset.filter((sample) => sample !== 0).length).toBeGreaterThan(10);
+    if (name === "audio-echo") {
+      expect(onset.length).toBe(768);
+      expect(pcmMatches(onset.slice(64, 500), expectedPcm("mode-0")), "echo's 512-sample delay").toBe(true);
+      expect(pcmMatches(onset.slice(600, 768), expectedPcm("audio-echo"))).toBe(true);
+    }
     expect(height, name).toBe(name === "interlace" ? 448 : name === "overscan" ? 239 : 224);
+    const writes = Array.from({ length: trace.length / 4 }, (_, i) => trace.slice(i * 4, i * 4 + 4)).filter((t) => t[3] & 1);
+    if (name === "serial") {
+      expect(writes.filter((t) => t[1] >= 0x7e2000 && t[1] < 0x7e2018).map((t) => t[2])).toEqual(
+        Array.from({ length: 24 }, (_, i) => i < 12 ? (0xa55 >> (11 - i)) & 1 : Number(i >= 16)));
+    }
+    if (name.startsWith("dma-")) {
+      const offsets = [[0], [0, 1], [0, 0], [0, 0, 1, 1], [0, 1, 2, 3], [0, 1, 0, 1], [0, 0], [0, 0, 1, 1]][Number(name.at(-1))];
+      expect(writes.filter((t) => t[2] >= 0x21 && t[2] <= 0x28 && t[1] >= 0x210d && t[1] <= 0x2114)
+        .map((t) => [t[1], t[2]]), name).toEqual(Array.from({ length: 8 }, (_, i) => [0x210d + offsets[i % offsets.length], 0x21 + i]));
+    }
+    if (name === "reverse") expect(writes.filter((t) => t[1] >= 0x7e3000 && t[1] < 0x7e3010)
+      .map((t) => t[2])).toEqual(Array.from({ length: 16 }, (_, i) => i & 1 ? 0 : 0x55));
+    if (name === "indirect") {
+      const transfers = hdma.filter(([, value]) => value === 0x10 || value === 0x20);
+      expect(transfers.length).toBeGreaterThanOrEqual(2);
+      expect(transfers.map(([, value]) => value)).toEqual(transfers.map((_, i) => i % 2 ? 0x20 : 0x10));
+      // The CPU finishes its current 6/8-clock bus cycle, then DMA aligns
+      // to its eight-clock divider. Check the 127-line spacing with at most
+      // 16 master clocks of arbitration phase, not identical write phases.
+      expect(transfers.every(([cycle, value], i) => value !== 0x20 ||
+        Math.abs(cycle - transfers[i - 1][0] - 127 * 1364) <= 16)).toBe(true);
+    }
   }
+  await info.attach("snes-fixtures", { body: JSON.stringify(fixtureEvidence, null, 2), contentType: "application/json" });
   expect(results.first.hashes.at(-1)).toBe(await page.evaluate((data) => frameHash(data), expectedFrame()));
   const transactions = Array.from({ length: results.first.trace.length / 4 }, (_, i) => results.first.trace.slice(i * 4, i * 4 + 4));
   expect(transactions.some(([, address]) => address === 0xfffc)).toBe(true);

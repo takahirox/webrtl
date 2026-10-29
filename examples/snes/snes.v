@@ -67,7 +67,7 @@ module snes (
     always @(posedge clk) begin
         joyclk_old <= joyclk;
         if (!ready || strobe) joy <= {~buttons,4'b1111};
-        else if (joyclk_old && !joyclk) joy <= {joy[14:0],1'b1};
+        else if (joyclk_old && !joyclk) joy <= {joy[14:0],1'b0};
     end
 
     wire [14:0] rgb;

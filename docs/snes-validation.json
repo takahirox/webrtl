@@ -114,5 +114,95 @@
     "examples/snes/snes.v": "88ac714dc09811a6577b50daff87b37534b87ab51300d601509f1178e1d147f3",
     "examples/snes/test.sfc": "a9d262d9c00590987c597065e1c3b64057fbb6afd75e92c9fb1de3cc39941441",
     "examples/snes/boot/spc700-boot-rom.bin": "69ef17c3f4ff6f44ca3d86a344360e785fb1eb0ff0f51305e46c70d594a7fb65"
+  },
+  "reviewFixValidation": {
+    "date": "2026-10-29",
+    "checks": {
+      "pythonPassed": 10,
+      "browserRegressionsPassed": 42,
+      "snesBrowserTestsPassed": 4,
+      "romVariantsPerBrowser": 76,
+      "exactPixelFixturesPerBrowser": 75,
+      "pcmSamplesPerFixture": 256,
+      "modeSubstitutionRejectedPixels": {
+        "chromium": 57344,
+        "firefox": 57344
+      },
+      "adaptation": "Reproduced exactly from hash-verified pinned upstream inputs."
+    },
+    "configuration": "Committed static Playwright tests, Chromium and Firefox, two workers. Final SNES run isolated on port 18768; regressions used port 8766.",
+    "measurements": [
+      {
+        "browser": "chromium",
+        "compileMs": 103485.5999994278,
+        "wasmBytes": 268174,
+        "cxxrtlBytes": 1607174,
+        "runtime": {
+          "samples": 2489,
+          "nonzero": 1399,
+          "pcmHash": 2024722791,
+          "hashes": [
+            698101324,
+            698101324,
+            3470071505,
+            3371206625
+          ],
+          "frameCycles": [
+            311296,
+            671744,
+            1032192,
+            1392640
+          ],
+          "hdmaWrites": 10,
+          "nmiVectors": 2,
+          "irqVectors": 687,
+          "memoryBytes": 20578304,
+          "pcmPeriod16": true,
+          "pcmMin": -14011,
+          "pcmMax": 14005,
+          "elapsedMs": 6405.200000762939,
+          "cycles": 1671168,
+          "masterClocksPerSecond": 260908.01220897754,
+          "capturedFramesPerSecond": 0.624492599688308,
+          "realTimeRatio": 0.01214809946557349
+        }
+      },
+      {
+        "browser": "firefox",
+        "compileMs": 113293,
+        "wasmBytes": 268174,
+        "cxxrtlBytes": 1607174,
+        "runtime": {
+          "samples": 2489,
+          "nonzero": 1399,
+          "pcmHash": 2024722791,
+          "hashes": [
+            698101324,
+            698101324,
+            3470071505,
+            3371206625
+          ],
+          "frameCycles": [
+            311296,
+            671744,
+            1032192,
+            1392640
+          ],
+          "hdmaWrites": 10,
+          "nmiVectors": 2,
+          "irqVectors": 687,
+          "memoryBytes": 20578304,
+          "pcmPeriod16": true,
+          "pcmMin": -14011,
+          "pcmMax": 14005,
+          "elapsedMs": 8010,
+          "cycles": 1671168,
+          "masterClocksPerSecond": 208635.20599250938,
+          "capturedFramesPerSecond": 0.4993757802746567,
+          "realTimeRatio": 0.009714233046961247
+        }
+      }
+    ],
+    "limits": "Feature fixtures are not exhaustive conformance. Trusted-local native toolchain failure above was not rerun; live Pages checks remain pending publication."
   }
 }
