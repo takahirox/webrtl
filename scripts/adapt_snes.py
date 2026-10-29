@@ -43,6 +43,12 @@ def adapt(sources, boot):
             source = source.replace("STATE2 = STATE - 4'd1;", "")
             source = source.replace("STATE2[2:0]", "(STATE[2:0] - 3'd1)")
         if name == "src/dsp.v":
+            # DSPADDR bit 7 selects read-only mirrors, including the special
+            # KON/FLG/ENDX write paths outside the register RAM.
+            source = source.replace("~SMP_WE_N && SMP_A == 16'h00F3 && SUBSTEP == 3 && CE",
+                                    "~SMP_WE_N && !RI[7] && SMP_A == 16'h00F3 && SUBSTEP == 3 && CE")
+            source = source.replace("SMP_EN_INT && SMP_A == 16'h00F3 && ~SMP_WE_N",
+                                    "SMP_EN_INT && !RI[7] && SMP_A == 16'h00F3 && ~SMP_WE_N")
             # Previous-voice output is signed: a negative modulator reduces
             # pitch. A logical shift instead turns it into a positive value.
             source = source.replace("TOUT >> 5", "TOUT >>> 5")
@@ -101,10 +107,50 @@ def adapt(sources, boot):
             source = source.replace("if (temp[5])\n            temp = 6'b111111;",
                                     "if (temp[5] && !half)\n            temp = 6'b111111;")
         if name == "src/smp.v":
+            # Timer stage 2 is eight bits: target zero means 256 ticks.
+            for timer in range(3):
+                source = source.replace(f"T{timer}_CNT + 1 == T{timer}DIV",
+                                        f"T{timer}_CNT + 8'd1 == T{timer}DIV")
+            source, count = re.subn(r"4'hD:\s*\n                SPC700_D_IN",
+                                   "4'h8, 4'h9:\n                SPC700_D_IN = AUX[SPC700_A[0]];\n            4'hD:\n                SPC700_D_IN", source)
+            assert count == 1
             # Ship the independently authored GPL boot loader, not Sony ROM bytes.
             replacement = "localparam [7:0] IPLROM[0:63] = '{" + ",".join(f"8'h{b:02x}" for b in boot) + "};"
             source, count = re.subn(r"localparam \[7:0\] IPLROM\[0:63\] = '\{.*?\};", replacement, source, flags=re.S)
             assert count == 1
+        if name == "src/spc700/muldiv.v":
+            # Keep the existing nine shift/subtract steps. For Y >= 2*X,
+            # divide YA-512*X by 256-X, then complement the quotient and add
+            # X to the remainder (also defines division by zero). The shifted
+            # divisor needs 17 bits to hold 256<<8 when X is zero.
+            source = source.replace("reg [15:0] divt;", """reg [16:0] divt;
+reg divOverflow, divV, divH;
+reg [7:0] divX;""")
+            source = source.replace("reg [15:0] remainder;", """reg [15:0] remainder;
+wire [7:0] divQuotient = divOverflow ? ~quotient[7:0] : quotient[7:0];
+wire [7:0] divRemainder = remainder[7:0] + (divOverflow ? divX : 8'd0);""")
+            source = source.replace("divt <= {16{1'b0}};", """divt <= 17'b0;
+      divOverflow <= 1'b0;
+      divV <= 1'b0;
+      divH <= 1'b0;
+      divX <= 8'b0;""")
+            source = source.replace("divt <= {1'b0,divt[15:1]};", "divt <= {1'b0,divt[16:1]};")
+            source = source.replace("divt <= {X,8'b00000000};\n          remainder <= {Y,A};", """divOverflow <= {1'b0,Y} >= {X,1'b0};
+          divV <= Y >= X;
+          divH <= Y[3:0] >= X[3:0];
+          divX <= X;
+          if ({1'b0,Y} >= {X,1'b0}) begin
+            divt <= (17'd256 - {9'b0,X}) << 8;
+            remainder <= {Y,A} - {X,9'b0};
+          end else begin
+            divt <= {1'b0,X,8'b0};
+            remainder <= {Y,A};
+          end""")
+            source = source.replace("tResult = {remainder[7:0],quotient[7:0]};", "tResult = {divRemainder,divQuotient};")
+            source = source.replace("if(quotient[7:0] == 0)", "if(divQuotient == 0)")
+            source = source.replace("tV = quotient[8];", "tV = divV;")
+            source = source.replace("tS = quotient[7];", "tS = divQuotient[7];")
+            source = source.replace("assign HO = Y[3:0] >= X[3:0] ? 1'b1 : 1'b0;", "assign HO = divH;")
         text += f"\n// ---- upstream: {name} ----\n{source}\n"
     text += "`undef VERILATOR\n"
     return "\n".join(line.rstrip() for line in text.splitlines()) + "\n"

@@ -6,6 +6,8 @@ uploads its SPC700 driver through the IPL protocol. The browser test compiles th
 RTL once per browser and power-cycles it for each cartridge. Expected pixels and
 PCM are calculated in the test; they are not recordings of this core's output.
 Pixel comparisons cover every RGBA sample, including its position and alpha.
+The 115-cartridge sweep allows up to 30 minutes per browser, including client-side
+compilation, and logs bounded fixture progress during simulation.
 
 The register, bitplane, priority, window, transfer and controller expectations
 follow the [SNES development manual](https://floating.muncher.se/bot/manual/book1_text.pdf):
@@ -37,6 +39,10 @@ the capture buffer starts at row 0.
 | `reverse` | Mode 1 copies 16 VRAM bytes from `$2139/$213a` to `$7e3000`; both CPU readback and destination bus writes must match the cartridge's plane data. |
 | `indirect` | HDMA follows pointers in its table to alternating bytes `$10/$20`. Writes must occur 127 scanlines (127 × 1364 master clocks) apart, allowing 16 clocks for CPU/DMA arbitration phase. |
 | `serial`, `auto` | CPU records and checks all twelve buttons, four zero signature bits, eight one connection-detection bits and disconnected port 2; automatic reads separately affect the palette. |
+| `apu-timer-zero-0/1/2` | Each timer independently uses target zero (256 ticks); all three timer output ports must report ticks before the CPU enables display. |
+| `apu-aux`, `apu-aux-repeat` | Both AUX registers initially read zero, then independently retain `$5a/$a5` and `$c3/$3c`. Repeating after power reset reproduces the frame and PCM. |
+| `apu-dsp-mirror-volume/flg/kon` | Repeated writes through DSPADDR `$8c/$ec/$cc` leave mirrored readback and the normal PCM waveform intact, including KON/FLG side effects. |
+| `apu-div-normal/overflow/zero-divisor/nine-bit/boundary/zero-result/half-clear` | SPC700 machine code checks A, Y and N/V/H/Z after DIV, with carry both clear and set; carry must be preserved. |
 
 Every cartridge checks RDIO after WRIO writes `$ff/$00/$40/$80/$ff`. With standard
 pads, the programmable pins are undriven and pulled high when released, so these
@@ -96,6 +102,28 @@ and echo volume `$40`; its expected delayed waveform includes FIR history and
 integer rounding, and the initial 512-sample dry interval. Timer targets 1/2/3 must all report ticks through APU ports
 before the CPU enables display. Default playback also checks sample rate and
 exact frame/PCM replay after power reset.
+
+The APU register fixtures follow the independent bsnes
+[SMP I/O implementation](https://github.com/bsnes-emu/bsnes/blob/master/bsnes/sfc/smp/io.cpp)
+and [timer implementation](https://github.com/bsnes-emu/bsnes/blob/master/bsnes/sfc/smp/timing.cpp).
+The zero-target fixtures clear all three proof ports and poll each timer
+independently: sampling a faster timer only every 256 slow ticks can repeatedly
+observe zero after its four-bit output wraps.
+DSPADDR bit 7 selects read-only mirrors; it does not inhibit mirrored reads.
+The KON fixture repeatedly writes `$cc=1` during playback, which
+must not retrigger the voice. The CPU rechecks the APU's ready port each frame;
+an SPC700 self-check failure reports `$ff` and blanks video.
+
+DIV expectations follow the independent
+[SPC700 instruction implementation](https://github.com/bsnes-emu/bsnes/blob/master/bsnes/processor/spc700/instructions.cpp).
+For Y < 2X, A and Y receive the low quotient byte and remainder of YA/X.
+Otherwise A = 255 − (YA − 512X)/(256 − X) and
+Y = X + (YA − 512X) mod (256 − X). V tests the original Y >= X,
+H tests the original low nibbles, and N/Z test the resulting A. In particular,
+`$ff00/$10` produces A=`$12`, Y=`$e0`; `$1234/0` produces A=`$ed`, Y=`$34`.
+The remaining fixtures exercise ordinary division, a nine-bit quotient, the
+Y=2X boundary, zero quotient and clear H. These checks run before the APU reports
+ready, so a wrong result or flag prevents the expected frame from appearing.
 
 The `audio-negative-modulator` cartridge keys on two voices. Voice 0 loops
 constant range-11 −7 BRR nibbles at pitch `$1000` with zero stereo volume;

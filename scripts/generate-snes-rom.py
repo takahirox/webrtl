@@ -47,9 +47,48 @@ class Program:
 
 
 def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
-          joycheck=None, transfer=None, audio=None, bus=None):
+          joycheck=None, transfer=None, audio=None, bus=None, apu_check=None):
     assert mode in range(8)
     apu = Program(0x200)
+
+    def apu_expect(value):
+        apu.emit(f"CMP A,#${value:02x}; BEQ +3", 0x68, value, 0xf0, 3)
+        apu.jumps.append((len(apu.data) + 1, "apu_fail"))
+        apu.emit("JMP apu_fail", 0x5f, 0, 0)
+
+    if apu_check == "aux":
+        # Check reset before writes, independence, and a second pair of values.
+        for address in [0xf8, 0xf9]:
+            apu.emit(f"MOV A,${address:02x} (reset value)", 0xe4, address)
+            apu_expect(0)
+        for first, second in [(0x5a, 0xa5), (0xc3, 0x3c)]:
+            apu.emit("Write both AUX registers", 0x8f, first, 0xf8, 0x8f, second, 0xf9)
+            for address, value in [(0xf8, first), (0xf9, second)]:
+                apu.emit(f"MOV A,${address:02x}", 0xe4, address)
+                apu_expect(value)
+    if apu_check and apu_check.startswith("div-"):
+        # YA, X, A-result, Y-result, N/V/H/Z/C. Constants follow the independent
+        # SPC700 reference; both carry states must survive DIV unchanged.
+        divisions = {
+            "normal": (0x1234, 0x20, 0x91, 0x14, 0x88),
+            "overflow": (0xff00, 0x10, 0x12, 0xe0, 0x48),
+            "zero-divisor": (0x1234, 0, 0xed, 0x34, 0xc8),
+            "nine-bit": (0x1010, 0x10, 1, 0, 0x48),
+            "boundary": (0x2010, 0x10, 0xff, 0x20, 0xc8),
+            "zero-result": (0x0000, 0x10, 0, 0, 0x0a),
+            "half-clear": (0x0100, 0x0f, 0x11, 1, 0),
+        }
+        ya, x, result_a, result_y, flags = divisions[apu_check[4:]]
+        for carry in [0, 1]:
+            apu.emit("MOV A,#A; MOV Y,#Y; MOV X,#X", 0xe8, ya & 255, 0x8d, ya >> 8, 0xcd, x)
+            apu.emit("SETC" if carry else "CLRC", 0x80 if carry else 0x60)
+            apu.emit("DIV YA,X; PUSH PSW; MOV $10,A; MOV $11,Y; POP A",
+                     0x9e, 0x0d, 0xc4, 0x10, 0xcb, 0x11, 0xae)
+            apu.emit("AND A,#$cb (N/V/H/Z/C)", 0x28, 0xcb)
+            apu_expect(flags | carry)
+            for address, value in [(0x10, result_a), (0x11, result_y)]:
+                apu.emit(f"MOV A,${address:02x}", 0xe4, address)
+                apu_expect(value)
     # Disable echo, release reset/mute, configure voice 0 with direct gain.
     registers = [(0x6c, 0x20), (0x0c, 0x7f), (0x1c, 0x7f),
                        (0x00, 0x7f), (0x01, 0x7f), (0x02, 0), (0x03, 0x10),
@@ -81,19 +120,39 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
     registers += [(0x4c, 0xff if audio == "voices" else 3 if audio == "negative-modulator" else 1)]
     for reg, value in registers:
         apu.emit(f"MOV $f2,#${reg:02x}; MOV $f3,#${value:02x}", 0x8f, reg, 0xf2, 0x8f, value, 0xf3)
-    apu.emit("Enable all timers, targets 1/2/3", 0x8f, 1, 0xfa, 0x8f, 2, 0xfb, 0x8f, 3, 0xfc, 0x8f, 7, 0xf1)
+    targets = [1, 2, 3]
+    if apu_check and apu_check.startswith("timer-zero-"):
+        targets[int(apu_check[-1])] = 0
+    apu.emit(f"Enable all timers, targets {targets}",
+             0x8f, targets[0], 0xfa, 0x8f, targets[1], 0xfb, 0x8f, targets[2], 0xfc, 0x8f, 7, 0xf1)
+    zero_timer = apu_check and apu_check.startswith("timer-zero-")
+    if zero_timer:
+        apu.emit("Clear all timer proof ports", 0x8f, 0, 0xf6, 0x8f, 0, 0xf7)
     apu.emit("MOV $f5,#0; MOV $f4,#$5a (driver ready)", 0x8f, 0, 0xf5, 0x8f, 0x5a, 0xf4)
     apu.label("idle")
-    apu.emit("MOV A,$fd (timer 0 read-and-clear)", 0xe4, 0xfd)
-    apu.branch(0xf0, "idle")
-    apu.emit("MOV $f5,A (timer tick proof)", 0xc4, 0xf5)
-    for timer, port in [(0xfe, 0xf6), (0xff, 0xf7)]:
-        apu.emit(f"MOV A,${timer:02x}", 0xe4, timer)
-        apu.branch(0xf0, "idle")
-        apu.emit(f"MOV ${port:02x},A", 0xc4, port)
+    if apu_check and apu_check.startswith("dsp-mirror-"):
+        reg, value, expected = {
+            "volume": (0x8c, 0, 0x7f), "flg": (0xec, 0x60, 0x20),
+            "kon": (0xcc, 1, 1),
+        }[apu_check[11:]]
+        apu.emit(f"MOV $f2,#${reg:02x}", 0x8f, reg, 0xf2)
+        apu.emit(f"Read-only mirror write; MOV A,$f3", 0x8f, value, 0xf3, 0xe4, 0xf3)
+        apu_expect(expected)
+    # Zero-target fixtures poll independently: waiting for timer 0's 256
+    # ticks before reading timer 1 can alias its four-bit output back to zero.
+    for index, (timer, port) in enumerate([(0xfd, 0xf5), (0xfe, 0xf6), (0xff, 0xf7)]):
+        apu.emit(f"MOV A,${timer:02x} (timer read-and-clear)", 0xe4, timer)
+        apu.branch(0xf0, f"next_timer{index}" if zero_timer else "idle")
+        apu.emit(f"MOV ${port:02x},A (timer tick proof)", 0xc4, port)
+        if zero_timer: apu.label(f"next_timer{index}")
     if audio == "keyoff":
         apu.emit("KOFF voice 0 after timer ticks", 0x8f, 0x5c, 0xf2, 0x8f, 1, 0xf3)
     apu.branch(0x2f, "idle")
+    if apu_check:
+        apu.label("apu_fail")
+        # Report a persistent failure to the CPU even if playback began.
+        apu.emit("MOV $f4,#$ff (self-check failed)", 0x8f, 0xff, 0xf4)
+        apu.branch(0x2f, "apu_fail")
     payload = bytearray(0x500)
     assert len(apu.finish()) < 0x300
     payload[:len(apu.finish())] = apu.data
@@ -432,6 +491,11 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
         cpu.label(f"timer{port}")
         load(port)
         cpu.branch(0xf0, f"timer{port}")
+    if apu_check:
+        # Mirror checks continue during playback. Recheck the APU's ready port
+        # each frame so failures blank video instead of leaving a stale pass.
+        load(0x2140)
+        check(0x5a)
     write(0x2100, 0x0f)
     # Channel 1 HDMA reselects CGRAM at rows 0 and 127, changing no palette data.
     # The indirect variant fetches distinct address values from its pointer table.
@@ -446,6 +510,9 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
     write(0x4200, 0x91 if autojoy else 0x90)
     cpu.emit("CLI (enable horizontal timer IRQ)", 0x58)
     cpu.label("frame")
+    if apu_check:
+        load(0x2140)
+        check(0x5a)
     load(0x10)
     cpu.branch(0xf0, "frame")
     stz(0x10)

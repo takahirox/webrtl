@@ -26,10 +26,16 @@ cases += [(name,dict(sprite_priority=3,effect=name)) for name in ['sprite-hflip'
 cases += [('serial',dict(joycheck=0xa55)),('reverse',dict(transfer='reverse')),('indirect',dict(transfer='indirect'))]
 cases += [(f'dma-{mode}',dict(transfer=f'mode{mode}')) for mode in range(8)]
 cases += [(f'audio-{audio}',dict(audio=audio)) for audio in ['gain','mute','pitch','voices','adsr','ramp','keyoff','noise','echo','filter-1','filter-2','filter-3','range13','gauss-wrap','negative-modulator']]
+cases += [(f'apu-{check}',dict(apu_check=check)) for check in
+ ['timer-zero-0','timer-zero-1','timer-zero-2','aux','div-normal','div-overflow',
+  'div-zero-divisor','div-nine-bit','div-boundary','div-zero-result','div-half-clear',
+  'dsp-mirror-volume','dsp-mirror-flg','dsp-mirror-kon']]
+cases += [('apu-aux-repeat',dict(apu_check='aux'))]
 cases += [('reject-mode5-as0',dict(mode=0))]
-print(json.dumps([dict(name=name,bytes=list(build(**args)[0])) for name,args in cases]))`], { maxBuffer: 16 * 1024 * 1024 }));
+print(json.dumps([dict(name=name,bytes=list(build(**args)[0])) for name,args in cases]))`], { maxBuffer: 24 * 1024 * 1024 }));
 
-test.setTimeout(1_200_000);
+// Browser compilation plus 115 cartridge power cycles can exceed 20 minutes.
+test.setTimeout(1_800_000);
 
 // Expected pixels are specified from the cartridge data and SNES dot/bitplane,
 // transparency, layer and color arithmetic rules, never captured from the RTL.
@@ -183,6 +189,9 @@ async function frameMismatch(page, green = false) {
 
 test("full SNES RTL boots a local cartridge, renders DMA tiles, produces DSP PCM, handles input and repeats reset", async ({ page }, info) => {
   const requests = [];
+  page.on("console", (message) => {
+    if (message.text().startsWith("SNES fixture ")) console.log(info.project.name, message.text());
+  });
   page.on("request", (request) => requests.push({ method: request.method(), url: request.url() }));
   await page.addInitScript(() => {
     window.compiled = null;
@@ -299,10 +308,16 @@ test("full SNES RTL boots a local cartridge, renders DMA tiles, produces DSP PCM
       const hi = await run();
       const modeResults = [];
       for (const fixture of modeCartridges) {
+        if (modeResults.length % 10 === 0 || fixture.name.startsWith("apu-")) {
+          console.log("SNES fixture", `${modeResults.length + 1}/${modeCartridges.length}`, fixture.name);
+        }
         await load(new Uint8Array(fixture.bytes));
         let frame, height;
         const trace = [], pcm = [], hdma = [];
-        for (let i = 0; i < (fixture.name === "interlace" ? 224 : 164); i++) {
+        // Zero targets need a full 256 timer ticks before display is enabled,
+        // followed by a complete frame, rather than the short-target window.
+        const batches = fixture.name === "interlace" || fixture.name.startsWith("apu-timer-zero-") ? 224 : 164;
+        for (let i = 0; i < batches; i++) {
           const output = await call({ action: "batch", batchCycles: i < 64 ? 512 : 16384,
             buttons: fixture.name === "auto" ? 2048 : fixture.name === "serial" ? 0xa55 : 0 });
           if (output.frame) { frame = output.frame; height = output.height; }
@@ -323,7 +338,7 @@ test("full SNES RTL boots a local cartridge, renders DMA tiles, produces DSP PCM
           }
         }
         const onset = pcm.findIndex((sample) => sample !== 0);
-        modeResults.push({ name: fixture.name, height, mismatches, examples,
+        modeResults.push({ name: fixture.name, height, mismatches, examples, frameHash: frame && frameHash(frame),
           trace, pcm: pcm.slice(-256), onset: pcm.slice(onset, onset + 768), hdma });
       }
       return { first, repeat, hi, modeResults, metrics: window.compiled.metrics,
@@ -345,6 +360,10 @@ test("full SNES RTL boots a local cartridge, renders DMA tiles, produces DSP PCM
   expect(results.repeat.trace).toEqual(results.first.trace);
   expect(results.hi.hashes.at(-1)).toEqual(results.first.hashes.at(-1));
   expect(results.hi.nonzero).toBeGreaterThan(500);
+  const aux = results.modeResults.find((r) => r.name === "apu-aux");
+  const auxRepeat = results.modeResults.find((r) => r.name === "apu-aux-repeat");
+  expect(auxRepeat.frameHash, "AUX checks repeat after power reset").toBe(aux.frameHash);
+  expect(auxRepeat.pcm).toEqual(aux.pcm);
   const fixtureEvidence = [];
   for (const { name, height, mismatches, examples, trace, pcm, onset, hdma } of results.modeResults) {
     fixtureEvidence.push({ name, height, mismatches, examples, pcm: pcm.slice(0, 32), hdma });

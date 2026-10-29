@@ -339,5 +339,84 @@
       "tests/static/snes.spec.js": "b151afc76365f2adcc1c9cea301b6aee9ece84c9c4d1fd5eb113daaaea32b712"
     },
     "limits": "Scoped transparency and cartridge-bus revision. The known native linker failure was not rerun; live Pages checks remain pending publication."
+  },
+  "apuReviewFixValidation": {
+    "date": "2026-10-30",
+    "scope": "APU timer zero targets, read-only DSP mirrors, AUX readback/reset and SPC700 DIV overflow/zero-divisor results and flags (#22).",
+    "checks": {
+      "pythonPassed": 10,
+      "existingStaticBrowserChecksPassed": 40,
+      "snesBrowserChecksPassed": 4,
+      "romVariantsPerBrowser": 115,
+      "newApuFixturesPerBrowser": 15,
+      "pcmSamplesComparedPerFixture": 256,
+      "pinnedInputRegeneration": "byte-identical",
+      "nativeDivInputCombinationsPassed": 16777216,
+      "nativeDivFlagsChecked": [
+        "N",
+        "V",
+        "H",
+        "Z"
+      ]
+    },
+    "additionalProbe": {
+      "observation": "An exploratory ROM polling ENDX bit 0 during looping BRR playback did not observe it set after 3,178,496 master clocks; it stalled before the mirror write. This probe is excluded from passed fixture counts and needs separate review outside the supplied findings."
+    },
+    "browserValidation": {
+      "regressionPort": 8766,
+      "snesPort": 18776,
+      "snesWorkers": 2,
+      "testTimeoutMinutes": 30
+    },
+    "measurements": [
+      {
+        "browser": "chromium",
+        "compileMs": 109802.89999961853,
+        "wasmBytes": 268719,
+        "cxxrtlBytes": 1617889,
+        "newFixturePixelMismatches": 0,
+        "runtime": {
+          "cycles": 1671168,
+          "elapsedMs": 6444.199999809265,
+          "memoryBytes": 20578304,
+          "pcmHash": 2024722791,
+          "hashes": [
+            698101324,
+            698101324,
+            3470071505,
+            3371206625
+          ]
+        }
+      },
+      {
+        "browser": "firefox",
+        "compileMs": 115009,
+        "wasmBytes": 268719,
+        "cxxrtlBytes": 1617889,
+        "newFixturePixelMismatches": 0,
+        "runtime": {
+          "cycles": 1671168,
+          "elapsedMs": 8129,
+          "memoryBytes": 20578304,
+          "pcmHash": 2024722791,
+          "hashes": [
+            698101324,
+            698101324,
+            3470071505,
+            3371206625
+          ]
+        }
+      }
+    ],
+    "artifacts": {
+      "examples/snes/snes.v": "0c707bd087c18279952a4a490045b954041475c8ec417f7dcaaa630e79fffec2",
+      "examples/snes/snes-core.v": "d924e94f8f1aaea470e12b305523edd782688f08508b797bc7ded3428a11a2d8",
+      "scripts/adapt_snes.py": "59c75af7a8c1e2cc96dfea1be589d58f69c2e16f45f476b004c6456700ccffac",
+      "scripts/generate-snes-rom.py": "b204e37bfa251ed204b5269dda61716ea8ae11af4f401c1521aa1093454f434a",
+      "tests/static/snes.spec.js": "b71d67581144e7e32e40b10f69da7fd573276ae0136c82e2bbeea41d24daaff3",
+      "examples/snes/test-listing.txt": "982d76c135cb84d501581b0800a787f8313c6e6099f8244592037f4ff4c6bf83"
+    },
+    "wasmSha256": "5e703889f13f368698128ca6d342c3322fa2352d6c7fb11eeb88c6655e9b4263",
+    "limits": "Scoped APU revision. The full trusted-local suite with its documented linker failure was not rerun; the native MulDiv unit was checked separately. Live Pages checks remain pending publication."
   }
 }

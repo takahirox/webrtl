@@ -4860,7 +4860,7 @@ assign REGS_DI = /*ENABLE == 1'b0 ? DBG_DAT_IN :*/ SUBSTEP == 3 ? SMP_DO :
                 REGN_WR[3:0] == 4'h9 ? OUTX_OUT :
                 SMP_DO;
 assign REGS_WE = /*ENABLE == 1'b0 && DBG_REG[7] == 1'b0 ? DBG_DAT_WR : */
-                ~SMP_WE_N && SMP_A == 16'h00F3 && SUBSTEP == 3 && CE ? 1'b1 :
+                ~SMP_WE_N && !RI[7] && SMP_A == 16'h00F3 && SUBSTEP == 3 && CE ? 1'b1 :
                 REGN_WR[3:1] == 3'b100 && SUBSTEP == 0 && CE ? 1'b1 :
                 1'b0;
 
@@ -5308,7 +5308,7 @@ always @(posedge CLK) begin : main_process
                 TESA <= DBG_DAT_IN;
             end
         end else if (CE) begin
-            if (SMP_EN_INT && SMP_A == 16'h00F3 && ~SMP_WE_N) begin
+            if (SMP_EN_INT && !RI[7] && SMP_A == 16'h00F3 && ~SMP_WE_N) begin
                 // $fdisplay(32'h80000002, "SMP reg[%08x] <= %08x", RI, SMP_DO);
                 if (RI[6:0] == 7'b1001100) begin            // $4C: KON
                     WKON <= SMP_DO & ~MUTE_MASK;
@@ -5964,14 +5964,14 @@ always @(posedge CLK) begin : spc_timers
                 TM01_CNT <= NEW_TM01_CNT & 9'b001111111;
                 if (TM_EN[0] && TIMERS_ENABLE && ~TIMERS_DISABLE) begin
                     T0_CNT <= T0_CNT + 1;
-                    if (T0_CNT + 1 == T0DIV) begin
+                    if (T0_CNT + 8'd1 == T0DIV) begin
                         T0_CNT <= 0;
                         T0OUT  <= T0OUT + 1;
                     end
                 end
                 if (TM_EN[1] && TIMERS_ENABLE && ~TIMERS_DISABLE) begin
                     T1_CNT <= T1_CNT + 1;
-                    if (T1_CNT + 1 == T1DIV) begin
+                    if (T1_CNT + 8'd1 == T1DIV) begin
                         T1_CNT <= 0;
                         T1OUT  <= T1OUT + 1;
                     end
@@ -5984,7 +5984,7 @@ always @(posedge CLK) begin : spc_timers
                 TM2_CNT <= NEW_TM2_CNT & 6'b001111;
                 if (TM_EN[2] && TIMERS_ENABLE && ~TIMERS_DISABLE) begin
                     T2_CNT <= T2_CNT + 1;
-                    if (T2_CNT + 1 == T2DIV) begin
+                    if (T2_CNT + 8'd1 == T2DIV) begin
                         T2_CNT <= 0;
                         T2OUT  <= T2OUT + 1;
                     end
@@ -6002,6 +6002,8 @@ always @* begin
                 SPC700_D_IN = DI;
             4'h4, 4'h5, 4'h6, 4'h7:
                 SPC700_D_IN = CPUI[SPC700_A[1:0]];
+            4'h8, 4'h9:
+                SPC700_D_IN = AUX[SPC700_A[0]];
             4'hD:
                 SPC700_D_IN = {4'h0, T0OUT};
             4'hE:
@@ -13575,16 +13577,24 @@ reg tV, tZ, tS;
 reg [15:0] mulRes, mulTemp;
 reg [15:0] mulA;
 reg [7:0] mulY;
-reg [15:0] divt;
+reg [16:0] divt;
+reg divOverflow, divV, divH;
+reg [7:0] divX;
 reg [8:0] quotient;
 reg [15:0] remainder;
+wire [7:0] divQuotient = divOverflow ? ~quotient[7:0] : quotient[7:0];
+wire [7:0] divRemainder = remainder[7:0] + (divOverflow ? divX : 8'd0);
 
 always @(posedge CLK) begin
     if(RST_N == 1'b0) begin
       mulA <= {16{1'b0}};
       mulY <= {8{1'b0}};
       mulRes <= {16{1'b0}};
-      divt <= {16{1'b0}};
+      divt <= 17'b0;
+      divOverflow <= 1'b0;
+      divV <= 1'b0;
+      divH <= 1'b0;
+      divX <= 8'b0;
       remainder <= {16{1'b0}};
       quotient <= {9{1'b0}};
     end else begin
@@ -13602,14 +13612,23 @@ always @(posedge CLK) begin
           else begin
             quotient <= {quotient[7:0],1'b0};
           end
-          divt <= {1'b0,divt[15:1]};
+          divt <= {1'b0,divt[16:1]};
         end
         else begin
           mulA <= {8'b00000000,A};
           mulY <= Y;
           mulRes <= {16{1'b0}};
-          divt <= {X,8'b00000000};
-          remainder <= {Y,A};
+          divOverflow <= {1'b0,Y} >= {X,1'b0};
+          divV <= Y >= X;
+          divH <= Y[3:0] >= X[3:0];
+          divX <= X;
+          if ({1'b0,Y} >= {X,1'b0}) begin
+            divt <= (17'd256 - {9'b0,X}) << 8;
+            remainder <= {Y,A} - {X,9'b0};
+          end else begin
+            divt <= {1'b0,X,8'b0};
+            remainder <= {Y,A};
+          end
           quotient <= {9{1'b0}};
         end
       end
@@ -13636,15 +13655,15 @@ always @* begin
       tS = mulTemp[15];
     end
     else if(CTRL.secOp == 4'b1111) begin
-      tResult = {remainder[7:0],quotient[7:0]};
-      if(quotient[7:0] == 0) begin
+      tResult = {divRemainder,divQuotient};
+      if(divQuotient == 0) begin
         tZ = 1'b1;
       end
       else begin
         tZ = 1'b0;
       end
-      tV = quotient[8];
-      tS = quotient[7];
+      tV = divV;
+      tS = divQuotient[7];
     end
     else begin
       tResult = {16{1'b0}};
@@ -13658,7 +13677,7 @@ assign RES = tResult;
 assign ZO = tZ;
 assign VO = tV;
 assign SO = tS;
-assign HO = Y[3:0] >= X[3:0] ? 1'b1 : 1'b0;
+assign HO = divH;
 
 endmodule
 
