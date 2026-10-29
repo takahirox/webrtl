@@ -17,6 +17,10 @@ static void tick(bool capture = true) {
     model.step();
     model.p_clk.set(true);
     model.step();
+    // CXXRTL can report convergence before committed registers propagate to
+    // combinational/flattened output aliases. Re-evaluate at the same clock
+    // level before capture; this does not create another rising edge.
+    model.step();
     if (capture) ++cycle_count;
 #ifdef BOARD_CPU816
     if (capture && (model.p_trace__flags.get<unsigned>() & 8) && trace_count < 128) {

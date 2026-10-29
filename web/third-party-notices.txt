@@ -6,6 +6,8 @@ Copyright (c) 2026 Alan Steremberg, from Apple-IIgs_MiSTer commit
 Adapted source, original notices and full license ship in examples/cpu816/;
 see examples/cpu816/LICENSE and examples/cpu816/UPSTREAM.md. Source and build
 instructions: https://github.com/takahirox/webrtl (docs/cpu816.md).
+The original CPU-to-PPU backdrop board and ROM in examples/cpu816-backdrop/
+are also GPL-3.0-or-later; see docs/cpu816-backdrop.md in the repository.
 Compiled circuits containing that core are subject to its GPL license.
 
 Pinned packages: @yowasp/yosys 0.70.1258; @yowasp/clang 22.0.0-git20542-10.

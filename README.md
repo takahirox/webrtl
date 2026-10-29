@@ -51,6 +51,15 @@ ROM bytes, memory/timing contracts, fault edits, measured browser performance,
 automated checks and the pending post-merge Pages check. This is a small RTL
 board example; it contains no JavaScript CPU emulator or SNES console devices.
 
+Choose **65C816 CPU → PPU backdrop · 64 × 48** to connect the real CPU to a
+minimal SNES-inspired PPU. Compile and Run to show a solid red backdrop. Edit
+`backdrop-rom.v` color bytes at `$800C / $8011` from `1F / 00` to `E0 / 03`,
+recompile and Run to turn it green. The CPU performs the actual register writes;
+the existing Video worker/Canvas path draws the RTL pixels. See the
+[backdrop guide](docs/cpu816-backdrop.md) for the three-register subset, original
+GPL ROM, frame timing, automated pixel/bus tests, performance and pending public
+site verification. This example uses the existing source and runtime bounds.
+
 Invalid names, duplicate imports/renames, or imports exceeding the size limit are
 rejected without replacing existing files. Import batches are atomic: if any file
 fails validation, none are added. Compilation errors retain all sources and the
@@ -388,6 +397,8 @@ reset, edited ROM/RAM failures, address decoding/protection, and compiler recove
 The 65C816 suite compiles the existing RTL CPU, checks instruction/vector/bus
 observations and PASS, instruction/branch/RAM mutations, reset, timeout and
 24-bit memory decoding, and reports compilation/simulation measurements.
+The CPU-to-PPU backdrop suite additionally checks actual register writes, CGRAM
+latch/address behavior, ROM-driven Canvas colors, brightness/blanking and reset.
 These checks run before merge without a live Pages deployment. To run either mode separately:
 
 ```sh
