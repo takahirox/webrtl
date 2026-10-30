@@ -168,6 +168,20 @@ assign DMA_A_INVALID = DMA_ACTIVE && !INT_A[22] &&
                 source = source.replace(f"17'({product})",
                                         f"17'(shortint'({product}))")
         if name == "src/ppu.v":
+            # Hires packs the even/odd samples into separate nibbles (BG1)
+            # or bit pairs (BG2). Mosaic samples the first, even half-dot for
+            # BOTH phases and holds it for MOSAIC_SIZE+1 low-resolution dots.
+            # Override only the odd sample when latching a new mosaic block.
+            for bg, width, first_plane in [(1, 4, 0), (2, 2, 8)]:
+                last_plane = first_plane + width - 1
+                marker = f"BG_TILES_PLANES[N{bg}[3:3]][{first_plane}][N{bg}[2:0]]}};"
+                assert source.count(marker) == 1
+                planes = ",\n                                                       ".join(
+                    f"BG_TILES_PLANES[N{bg}[3:3]][{plane}][N{bg}[2:0]]"
+                    for plane in range(last_plane, first_plane - 1, -1))
+                source = source.replace(marker, marker +
+                    f"\n                        if (HIRES && BG_MOSAIC_EN[BG{bg}])\n"
+                    f"                            BG{bg}_PIX_DATA[{2 * width - 1}:{width}] <= {{{planes}}};")
             # WRIO.7 enables software counter capture; its falling edge still
             # captures independently, including when software reads are gated.
             source = source.replace(

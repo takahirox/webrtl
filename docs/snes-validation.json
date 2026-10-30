@@ -1,5 +1,5 @@
 {
-  "latestValidation": "emulationStackBoundaryReviewFixValidation",
+  "latestValidation": "highResolutionMosaicReviewFixValidation",
   "historyNote": "Top-level checks and measurements are the initial 2026-10-29 snapshot. Named review entries retain historical evidence; latestValidation identifies the latest validation and its scope.",
   "issue": 22,
   "date": "2026-10-29",
@@ -6841,5 +6841,392 @@
       "examples/snes/test.sfc": "1f8ec0ba8bbc51e917c5104f771003e97705c8f2491258593f8181013da35fdb"
     },
     "limits": "Focused 36-cartridge selection plus all 42 other static checks. The full 246-cartridge sweep and unchanged trusted-local service tests were not rerun. Compiler peak memory, optional broad benchmarks and live Pages verification were not measured/performed. Publication remains pending."
+  },
+  "highResolutionMosaicReviewFixValidation": {
+    "date": "2026-10-31",
+    "issue": 22,
+    "host": "Darwin arm64",
+    "tools": {
+      "node": "v26.12.1",
+      "playwright": "1.64.1"
+    },
+    "scope": "Fix Mode 5/6 mosaic half-dot sampling in the reproducible PPU adaptation and complete the unfiltered static browser sweep on the final RTL.",
+    "checks": {
+      "pythonPassed": 10,
+      "staticBuild": "passed",
+      "rtlLint": "passed; retained upstream warnings",
+      "pinnedUpstreamReproduction": "All manifest hashes verified; adapted RTL byte-identical",
+      "retainedCartridgesByteIdentical": 246,
+      "retainedCartridgeManifestSha256": "e38d92f2ee0291655eb2218a74b270a7c883bffedbd256b6bfeaa7321b62c2e5",
+      "harnessNote": "Adding the new fixtures exceeded the previous 40 MiB generator-output buffer during initial test discovery (ENOBUFS); raised to 48 MiB before executing the negative control and final suite.",
+      "fullStatic": {
+        "command": "env -u WEBRTL_SNES_FIXTURES -u WEBRTL_PUBLIC_URL PLAYWRIGHT_JSON_OUTPUT_NAME=\"$PWD/.build/mosaic-validation/full.json\" npx playwright test --config=playwright.static.config.js --fully-parallel --workers=4 --output=.build/mosaic-validation/full --reporter=line,json",
+        "stats": {
+          "startTime": "2026-10-30T15:30:48.227Z",
+          "duration": 2389597.6950000003,
+          "expected": 68,
+          "skipped": 0,
+          "unexpected": 0,
+          "flaky": 0
+        },
+        "reportSha256": "7275543b4302aca09481e6b400d7801b755da8ac4f7d3bfabd3286fae67f060c",
+        "existingExampleChecksPassed": 42,
+        "snesBatchesPassed": 26
+      }
+    },
+    "commands": [
+      "python3 -m unittest discover -s tests -v",
+      "verilator --lint-only --top-module snes -Wno-fatal examples/snes/snes.v examples/snes/snes-core.v",
+      "python3 scripts/adapt_snes.py /tmp/webrtl-22-upstream/console /tmp/webrtl-22-upstream/boot",
+      "npm run build:demo"
+    ],
+    "negativeControl": {
+      "method": "New regression assertions against the reviewed core packaged in the static build, using the browser compiler and cartridge interface.",
+      "command": "WEBRTL_SNES_FIXTURES='^(mosaic(-[56])?|mode-0)$' npx playwright test --config=playwright.static.config.js --grep 'full SNES RTL' --workers=2",
+      "reviewedCoreSha256": "ba1f92653dafc221c78690bd76c849a4279af3f08ae95485bfd062fbdad60948",
+      "expectedFailedTests": 2,
+      "pixelMismatches": {
+        "chromium": {
+          "mode-0": 0,
+          "mosaic": 0,
+          "mosaic-5": 57344,
+          "mosaic-6": 57344
+        },
+        "firefox": {
+          "mode-0": 0,
+          "mosaic": 0,
+          "mosaic-5": 57344,
+          "mosaic-6": 57344
+        }
+      },
+      "reportSha256": "4b5eb036a506909d597b0c682e34a8633dd556fa6e32226bf0eed06b3f3667ce"
+    },
+    "browsers": {
+      "chromium": {
+        "snesBatchesPassed": 13,
+        "cartridges": 260,
+        "cpuAndIrqResetReplays": 29,
+        "runtimeExecutions": 289,
+        "positivePixelComparisons": 34184704,
+        "positivePixelMismatches": 0,
+        "checkedTailPcmSamples": 73984,
+        "negativeFrameControlMismatches": 57344,
+        "newMosaicCartridges": {
+          "mosaic-5": {
+            "height": 224,
+            "cycles": 1671168,
+            "mismatches": 0,
+            "frameHash": 902165132
+          },
+          "mosaic-6": {
+            "height": 224,
+            "cycles": 1671168,
+            "mismatches": 0,
+            "frameHash": 902165132
+          },
+          "hires-5-bg1-low-mosaic-normal": {
+            "height": 224,
+            "cycles": 1671168,
+            "mismatches": 0,
+            "frameHash": 902165132
+          },
+          "hires-5-bg1-low-mosaic-reverse": {
+            "height": 224,
+            "cycles": 1671168,
+            "mismatches": 0,
+            "frameHash": 2397327876
+          },
+          "hires-5-bg1-high-mosaic-normal": {
+            "height": 224,
+            "cycles": 1671168,
+            "mismatches": 0,
+            "frameHash": 902165132
+          },
+          "hires-5-bg1-high-mosaic-reverse": {
+            "height": 224,
+            "cycles": 1671168,
+            "mismatches": 0,
+            "frameHash": 2397327876
+          },
+          "hires-6-bg1-low-mosaic-normal": {
+            "height": 224,
+            "cycles": 1671168,
+            "mismatches": 0,
+            "frameHash": 902165132
+          },
+          "hires-6-bg1-low-mosaic-reverse": {
+            "height": 224,
+            "cycles": 1671168,
+            "mismatches": 0,
+            "frameHash": 2397327876
+          },
+          "hires-6-bg1-high-mosaic-normal": {
+            "height": 224,
+            "cycles": 1671168,
+            "mismatches": 0,
+            "frameHash": 902165132
+          },
+          "hires-6-bg1-high-mosaic-reverse": {
+            "height": 224,
+            "cycles": 1671168,
+            "mismatches": 0,
+            "frameHash": 2397327876
+          },
+          "hires-5-bg2-low-mosaic-normal": {
+            "height": 224,
+            "cycles": 1671168,
+            "mismatches": 0,
+            "frameHash": 902165132
+          },
+          "hires-5-bg2-low-mosaic-reverse": {
+            "height": 224,
+            "cycles": 1671168,
+            "mismatches": 0,
+            "frameHash": 2397327876
+          },
+          "hires-5-bg2-high-mosaic-normal": {
+            "height": 224,
+            "cycles": 1671168,
+            "mismatches": 0,
+            "frameHash": 902165132
+          },
+          "hires-5-bg2-high-mosaic-reverse": {
+            "height": 224,
+            "cycles": 1671168,
+            "mismatches": 0,
+            "frameHash": 2397327876
+          }
+        }
+      },
+      "firefox": {
+        "snesBatchesPassed": 13,
+        "cartridges": 260,
+        "cpuAndIrqResetReplays": 29,
+        "runtimeExecutions": 289,
+        "positivePixelComparisons": 34184704,
+        "positivePixelMismatches": 0,
+        "checkedTailPcmSamples": 73984,
+        "negativeFrameControlMismatches": 57344,
+        "newMosaicCartridges": {
+          "mosaic-5": {
+            "height": 224,
+            "cycles": 1671168,
+            "mismatches": 0,
+            "frameHash": 902165132
+          },
+          "mosaic-6": {
+            "height": 224,
+            "cycles": 1671168,
+            "mismatches": 0,
+            "frameHash": 902165132
+          },
+          "hires-5-bg1-low-mosaic-normal": {
+            "height": 224,
+            "cycles": 1671168,
+            "mismatches": 0,
+            "frameHash": 902165132
+          },
+          "hires-5-bg1-low-mosaic-reverse": {
+            "height": 224,
+            "cycles": 1671168,
+            "mismatches": 0,
+            "frameHash": 2397327876
+          },
+          "hires-5-bg1-high-mosaic-normal": {
+            "height": 224,
+            "cycles": 1671168,
+            "mismatches": 0,
+            "frameHash": 902165132
+          },
+          "hires-5-bg1-high-mosaic-reverse": {
+            "height": 224,
+            "cycles": 1671168,
+            "mismatches": 0,
+            "frameHash": 2397327876
+          },
+          "hires-6-bg1-low-mosaic-normal": {
+            "height": 224,
+            "cycles": 1671168,
+            "mismatches": 0,
+            "frameHash": 902165132
+          },
+          "hires-6-bg1-low-mosaic-reverse": {
+            "height": 224,
+            "cycles": 1671168,
+            "mismatches": 0,
+            "frameHash": 2397327876
+          },
+          "hires-6-bg1-high-mosaic-normal": {
+            "height": 224,
+            "cycles": 1671168,
+            "mismatches": 0,
+            "frameHash": 902165132
+          },
+          "hires-6-bg1-high-mosaic-reverse": {
+            "height": 224,
+            "cycles": 1671168,
+            "mismatches": 0,
+            "frameHash": 2397327876
+          },
+          "hires-5-bg2-low-mosaic-normal": {
+            "height": 224,
+            "cycles": 1671168,
+            "mismatches": 0,
+            "frameHash": 902165132
+          },
+          "hires-5-bg2-low-mosaic-reverse": {
+            "height": 224,
+            "cycles": 1671168,
+            "mismatches": 0,
+            "frameHash": 2397327876
+          },
+          "hires-5-bg2-high-mosaic-normal": {
+            "height": 224,
+            "cycles": 1671168,
+            "mismatches": 0,
+            "frameHash": 902165132
+          },
+          "hires-5-bg2-high-mosaic-reverse": {
+            "height": 224,
+            "cycles": 1671168,
+            "mismatches": 0,
+            "frameHash": 2397327876
+          }
+        }
+      }
+    },
+    "measurementRanges": {
+      "chromium": {
+        "compilations": 13,
+        "compileMs": {
+          "min": 72479.79999999702,
+          "max": 117323.29999999702
+        },
+        "wasmBytes": {
+          "min": 270944,
+          "max": 270944
+        },
+        "cxxrtlBytes": {
+          "min": 1638004,
+          "max": 1638004
+        },
+        "runtime": {
+          "cycles": {
+            "min": 1671168,
+            "max": 1671168
+          },
+          "elapsedMs": {
+            "min": 6395.10000000149,
+            "max": 6460.69999999553
+          },
+          "memoryBytes": {
+            "min": 20578304,
+            "max": 20578304
+          },
+          "samples": {
+            "min": 2489,
+            "max": 2489
+          },
+          "nonzero": {
+            "min": 1399,
+            "max": 1399
+          },
+          "masterClocksPerSecond": {
+            "min": 258666.70794204285,
+            "max": 261320.07318096835
+          },
+          "estimatedNtscFieldsPerSecond": {
+            "min": 0.7238104921034979,
+            "max": 0.7312352342150622
+          },
+          "realTimeRatio": {
+            "min": 0.012043742428252886,
+            "max": 0.012167285375700373
+          }
+        }
+      },
+      "firefox": {
+        "compilations": 13,
+        "compileMs": {
+          "min": 75136,
+          "max": 87058
+        },
+        "wasmBytes": {
+          "min": 270944,
+          "max": 270944
+        },
+        "cxxrtlBytes": {
+          "min": 1638004,
+          "max": 1638004
+        },
+        "runtime": {
+          "cycles": {
+            "min": 1671168,
+            "max": 1671168
+          },
+          "elapsedMs": {
+            "min": 7796,
+            "max": 8166
+          },
+          "memoryBytes": {
+            "min": 20578304,
+            "max": 20578304
+          },
+          "samples": {
+            "min": 2489,
+            "max": 2489
+          },
+          "nonzero": {
+            "min": 1399,
+            "max": 1399
+          },
+          "masterClocksPerSecond": {
+            "min": 204649.52240999264,
+            "max": 214362.23704463826
+          },
+          "estimatedNtscFieldsPerSecond": {
+            "min": 0.5726576593595192,
+            "max": 0.599836127030507
+          },
+          "realTimeRatio": {
+            "min": 0.009528656221670288,
+            "max": 0.009980888494889633
+          }
+        }
+      }
+    },
+    "artifacts": {
+      "snesWasmCompilations": 26,
+      "snesWasmSha256": "3bd23feeae078fa811b4a9f29a7ca3e5287967851af345151a7de741b4bba060",
+      "crossBrowserFramesPcmObservationsSha256": "146f7d026b8814bce3616b4d3719cce2cc53768b2dbd41d9a0758cc8c77db1fa"
+    },
+    "newCartridgeSha256": {
+      "mosaic-5": "f4c98225927120544121479a29ba1f5a89e80bd8a75d8636a1c8dd931ad0f159",
+      "mosaic-6": "00889f2acac23ed8017c70e482f4420e05e92bb34886e9637aef145c04790135",
+      "hires-5-bg1-low-mosaic-normal": "f4c98225927120544121479a29ba1f5a89e80bd8a75d8636a1c8dd931ad0f159",
+      "hires-5-bg1-low-mosaic-reverse": "917b3a90f1cf4f0adf1951c72e0027f900728db185e745c616eca6e60a2dbe75",
+      "hires-5-bg1-high-mosaic-normal": "3da6f54ed87b2de77b658cc48ab6f6232a39553fb6b4f2987c1470c777633ee5",
+      "hires-5-bg1-high-mosaic-reverse": "db7cc18283c0b8dea00352b4adc31d42e496c1bb14d638c996da6aabaa5a3b45",
+      "hires-6-bg1-low-mosaic-normal": "00889f2acac23ed8017c70e482f4420e05e92bb34886e9637aef145c04790135",
+      "hires-6-bg1-low-mosaic-reverse": "412a98a02e7816960f9e5dbe5ddb024aef4f02c1a44edb50a1a049e6a4d3025b",
+      "hires-6-bg1-high-mosaic-normal": "653eb60e00abda6ee0db4787ff3113b24254e4683998b77c019b8f11d9351d2d",
+      "hires-6-bg1-high-mosaic-reverse": "be0a44b96469c1b718c49f01b3720801756f152a701949951f2b3d31f0f35dcd",
+      "hires-5-bg2-low-mosaic-normal": "b4f6c2237cb539ef9b62eb2e777643a0eb085af52fb2016f3f235223a1c61a26",
+      "hires-5-bg2-low-mosaic-reverse": "ca1faaa2ab38db781fff961856529eb177324b73a9c94c737f1aeeba83d24d48",
+      "hires-5-bg2-high-mosaic-normal": "813908cc0181b282dea1ef9381548b37ebc9b6100ce1a95aea209e285f6103ac",
+      "hires-5-bg2-high-mosaic-reverse": "36f057c15446955f0735d1b45c43f2e11770ce477b1910517d099fad4d3df5cc"
+    },
+    "sourceSha256": {
+      "scripts/adapt_snes.py": "d47556f66a0186ede3505c1f190a7200eb895ef3a4cd5dbe3b2875bbb938ae86",
+      "scripts/generate-snes-rom.py": "d81d23c3b82bc74ab3a2210ab5cc86ad5721002cc509f9f81f83308e6fe374dc",
+      "examples/snes/snes-core.v": "b62476e2e16e6577a3fb06bbbecfbac8304d52e16be1da73995a0a59add56d4c",
+      "examples/snes/snes.v": "0c707bd087c18279952a4a490045b954041475c8ec417f7dcaaa630e79fffec2",
+      "examples/snes/upstream.json": "6118fd887337ebb9e17c431e023732833a3370029686187aed238722d9e9650e",
+      "examples/snes/test.sfc": "1f8ec0ba8bbc51e917c5104f771003e97705c8f2491258593f8181013da35fdb",
+      "tests/static/snes.spec.js": "d534d85007b14e76fa4d7656154ab7968b81811789df1bf5171154562c84ee50",
+      "playwright.static.config.js": "8068db8aebfe9a627f5856e8c7db7091df49dc2f07d3f3ce25168d9c921d3de4",
+      "package-lock.json": "541217566bd0ba90e22dd1c5358fd3b362853d705ac75d9c1f1e36139ef9e597"
+    },
+    "limits": "Complete static suite passed without fixture filters, skips, failures or retries. Four concurrent browser workers affect timings. These bounded fixtures do not establish exhaustive hardware conformance or real-time playability. Unchanged trusted-local tests were not rerun for this correction. Compiler peak memory, optional broad benchmarks and post-merge Pages checks were not measured/performed; publication remains pending."
   }
 }

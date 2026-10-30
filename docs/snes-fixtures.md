@@ -34,7 +34,10 @@ Large-tile expectations also follow the independent bsnes
 the right quadrant adds one character, the lower adds sixteen, and flips apply
 to both quadrant selection and the eight-pixel character interior. In modes 5/6,
 the map cell spans sixteen capture samples and large size selects sixteen source
-rows. Pseudo-hires sample order follows its
+rows. Its mosaic counter reloads with `size << hires`: each block repeats its
+first sample, including transparency, for twice as many capture samples in modes
+5/6. The main and subscreen therefore use the same sampled index. Pseudo-hires
+sample order follows its
 [line renderer](https://github.com/bsnes-emu/bsnes/blob/master/bsnes/sfc/ppu-fast/line.cpp).
 EXTBG color/transparent-index expectations follow its
 [Mode 7 renderer](https://github.com/bsnes-emu/bsnes/blob/master/bsnes/sfc/ppu-fast/mode7.cpp),
@@ -52,6 +55,7 @@ rules; the oracle never reads the generated ROM or RTL tables.
 | `reject-mode5-as0` | Deliberately boots Mode 0, compares against Mode 5, and must reject over 50,000 pixels. This detects the mode substitution missed by color totals. |
 | `depth-0`…`depth-6` | Planes `$55/$33/$0f/$ff` produce indices 0–3, 0–7 or 16–23 according to 2/4/8bpp. Each nonzero index has an explicitly calculated distinct palette color. |
 | `hires-5/6-bg1-low/high-normal/reverse`, `hires-5-bg2-low/high-normal/reverse` | Both map priorities render plane-zero `$55` and `$aa` stripes at every 512-wide sample. BG1 uses 4bpp; Mode 5 BG2 uses 2bpp. Each sample's own index controls transparency. |
+| `mosaic-5/6`, `hires-5/6-bg1-low/high-mosaic-normal/reverse`, `hires-5-bg2-low/high-mosaic-normal/reverse` | MOSAIC=`$31` (BG1) or `$32` (BG2) selects four-dot blocks spanning eight capture samples. Plane-zero `$55` starts transparent, so the entire 512×224 frame is blue; `$aa` starts opaque, so it is red. Both sample phases must repeat that first index at both map priorities. The unchanged Mode 0 `mosaic` and non-mosaic high-resolution fixtures are controls. |
 | `large-0-bg1/2/3/4`, `large-1-bg1`, `large-3-bg1`, `large-5-bg1/2`, `large-6-bg1` | BGMODE bits 4–7 select large tiles. Characters 0/1/16/17 contain red/green/white/transparent quadrants and an asymmetric pixel at local (1,2). Every map row repeats no/H/V/HV flips at both priorities. Exact positions check quadrant selection, internal flips, map-cell boundaries, all four size bits, 2/4/8bpp addressing and high-resolution layouts. |
 | `pseudo-hires`, `pseudo-hires-swap` | SETINI=`$08` with Mode 0: BG1 red stripes on main, BG2 green stripes scrolled one dot on sub; the second ROM exchanges TM/TS. Even capture samples are sub, odd are main, so every dot's pair must be green/blue or blue/red (reversed in the second ROM), with no color math. |
 | `extbg-bg2`, `extbg-bg12`, `extbg-off`, `extbg-bg12-obj-0/1/2/3`, `extbg-bg2-obj-0/1` | Identity Mode 7 repeats pixel bytes `$00,$01,$81,$80,$02,$82,$03,$83`. SETINI=`$40` enables BG2's seven-bit color and bit-7 priority; `$80` stays transparent on BG2 but is opaque white on BG1. BG1's high palette entries are distinct yellow/magenta/cyan; BG2's low entries are red/green/white. Green objects at (16,16), with a separate OBJ palette, check priority against both BG layers. The disabled control retains BG1's full eight-bit colors. |

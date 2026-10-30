@@ -3540,6 +3540,11 @@ always @(posedge CLK) begin : bg_pixel_gen
                                             BG_TILES_PLANES[N1[3:3]][2][N1[2:0]],
                                             BG_TILES_PLANES[N1[3:3]][1][N1[2:0]],
                                             BG_TILES_PLANES[N1[3:3]][0][N1[2:0]]};
+                        if (HIRES && BG_MOSAIC_EN[BG1])
+                            BG1_PIX_DATA[7:4] <= {BG_TILES_PLANES[N1[3:3]][3][N1[2:0]],
+                                                       BG_TILES_PLANES[N1[3:3]][2][N1[2:0]],
+                                                       BG_TILES_PLANES[N1[3:3]][1][N1[2:0]],
+                                                       BG_TILES_PLANES[N1[3:3]][0][N1[2:0]]};
                     end else
                         BG1_PIX_DATA <= {4'b0, M7_PIX_DATA};
                 end
@@ -3552,6 +3557,9 @@ always @(posedge CLK) begin : bg_pixel_gen
                                             BG_TILES_PLANES[N2[3:3]][10][N2[2:0]],
                                             BG_TILES_PLANES[N2[3:3]][9][N2[2:0]],
                                             BG_TILES_PLANES[N2[3:3]][8][N2[2:0]]};
+                        if (HIRES && BG_MOSAIC_EN[BG2])
+                            BG2_PIX_DATA[3:2] <= {BG_TILES_PLANES[N2[3:3]][9][N2[2:0]],
+                                                       BG_TILES_PLANES[N2[3:3]][8][N2[2:0]]};
                     end else
                         BG2_PIX_DATA <= M7_PIX_DATA;
                 end

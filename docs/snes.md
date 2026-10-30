@@ -88,7 +88,7 @@ and CPU paths; it does not replace devices with host implementations.
 | System I/O | Multiply/divide, H/V timers, NMI/IRQ flags, refresh, CPU speed control | ROM checks `$0011`, `$7E0011`, `$800011`, multiply `$12*3=$36`, divide `$1234/3=$0611` remainder 1, RDIO driven/released levels; NMI service and H-only, V-only and combined H/V timer target positions, recurrence, TIMEUP acknowledgement, disabling and deterministic reset replay. Exact interrupt latency and timer reprogramming corner cases remain unverified. |
 | Memory | 128 KiB WRAM, two 32 KiB VRAM lanes, 256×15-bit CGRAM, 512+32-byte OAM, 64 KiB ARAM | DMA tiles, palette/OAM writes, CPU CGRAM readback with PPU1/PPU2 latch isolation, CPU WRAM checks and reset replay. Power-up memory is deliberately zeroed. |
 | Cartridge | Runtime-loaded LoROM/HiROM, mirroring via mask, up to 4 MiB ROM and 128 KiB SRAM | Both mappings boot the fixture; CPU checks cover unmapped reads, 256 KiB images with distinct bank signatures, ROM aliases, bank boundaries, size-mask wrapping, and 2 KiB SRAM bank/size mirrors. Only power-of-two ROM sizes, optional 512-byte copier header, header types 0–2. SRAM persistence/export and exhaustive map boundaries remain unverified. |
-| BG modes | Modes 0–7, planar 2/4/8bpp, affine Mode 7, BG layers/tilemaps/scroll/mosaic | Exact pixels in all eight modes, higher bitplanes, BG2/3/4, 16×16 quadrants and internal/map flips on all four size bits, 2/4/8bpp and high-resolution large-tile layouts, both high-resolution stripe phases and BG1/BG2 priorities, scroll/mosaic, offset-per-tile in modes 2/4/6, direct color in modes 3/4/7, and identity/doubled/constant/rotated/flipped Mode 7 with fractional scaling. Screen-over modes 2/3 and signed origin clipping have bounded fixtures. Exhaustive affine boundary cases remain unverified. |
+| BG modes | Modes 0–7, planar 2/4/8bpp, affine Mode 7, BG layers/tilemaps/scroll/mosaic | Exact pixels in all eight modes, higher bitplanes, BG2/3/4, 16×16 quadrants and internal/map flips on all four size bits, 2/4/8bpp and high-resolution large-tile layouts, both high-resolution stripe phases and BG1/BG2 priorities, scroll/mosaic including both high-resolution sample phases, offset-per-tile in modes 2/4/6, direct color in modes 3/4/7, and identity/doubled/constant/rotated/flipped Mode 7 with fractional scaling. Screen-over modes 2/3 and signed origin clipping have bounded fixtures. Exhaustive affine boundary cases remain unverified. |
 | Objects | OAM/high OAM, sizes/flips, sprite fetch, priorities, sprite line buffer | Exact pixels for an original green 8×8 object at priority 0 and 3, BG occlusion, asymmetric horizontal/vertical flips, 16×16 left/right edge clipping and both interlaced fields with distinct source rows. Boundary fixtures additionally check 32/33-object range overflow, 34/35-tile time overflow with partial OBJ culling and CPU-visible STAT77 flags; small rectangular objects in size modes 6/7 are checked with interlace and vertical flip. Asymmetric 32×32, 64×64 and 32×64 large-object fixtures additionally check high-OAM size selection, character row/column wrap, all four flip combinations, partial left/right tiles, one surviving left pixel, bottom clipping and both interlace fields. Exhaustive size/mode/position combinations remain unverified. |
 | PPU composition | Windows, main/subscreen, priority, color math, brightness/blanking | Exact pixels for all four two-window Boolean operators, BG1/BG2 priorities, Mode 1 BG3 priority promotion, pseudo-hires main/subscreen alternation in both screen assignments, Mode 7 EXTBG seven-bit color/transparency and priority against BG1 and all four OBJ priorities, subscreen addition, fixed-color addition/subtraction and halving, and all sixteen CGWSEL color-window clipping/math-gating combinations. Exhaustive layer/window combinations remain unverified. |
 | Video timing | H/V counters, blanking, two long dots, NTSC short-line exception, overscan/interlace | 224/239/448-line captures and exact pixel positions tested; 357,368/357,364 master-clock noninterlaced field periods observed natively. No PAL board clock selector. |
@@ -144,7 +144,9 @@ original MiSTer VHDL long-dot condition. RDIO reflects released/driven WRIO leve
 H-512 captures place subscreen/main samples in even/odd columns and test each
 sample's own transparency bits for BG1/BG2 at both priorities. Mode 7 advances
 its source coordinate after the synchronous VRAM sample, and color addition is
-halved before saturation. Sprite fetching distinguishes wrapped negative X from
+halved before saturation. High-resolution mosaic repeats the first half-dot's
+index in both packed sample phases for BG1/BG2 at each mosaic-block latch.
+Sprite fetching distinguishes wrapped negative X from
 the visible right edge. Interlaced sprite range evaluation uses half height while
 tile addressing retains the source-height mask. Small rectangular objects in
 size modes 6/7 use the hardware's 16-row interlace source-height exception. Vertical flip includes the
@@ -630,9 +632,53 @@ Four browser compilations took 65.70–84.91 seconds, producing 270,675-byte Was
 0.00978–0.01230 of real time); circuit linear memory was 20,578,304 bytes.
 Commands, hashes, negative controls and per-browser evidence are recorded in
 `emulationStackBoundaryReviewFixValidation` in [snes-validation.json](snes-validation.json).
-This is a focused rerun; the full 246-cartridge sweep and unchanged trusted-local
-service tests were not rerun. Compiler peak memory, optional broad benchmarks
+This was a focused rerun; the full 246-cartridge sweep and unchanged trusted-local
+service tests were not rerun at that revision. The complete sweep below supersedes
+that static-validation gap. Compiler peak memory, optional broad benchmarks
 and live Pages verification remain unmeasured/unperformed.
+
+### High-resolution mosaic and complete sweep review fix (2026-10-31)
+
+The reproducible PPU adaptation now repeats the first, even half-dot index in
+both high-resolution sample phases for each BG1/BG2 mosaic block. Fourteen
+original cartridges cover the reported Mode 5/6 cases, both stripe phases and
+map priorities, and Mode 5 BG2. Their independent expectations follow the bsnes
+mosaic sampling rule documented in [the fixture guide](snes-fixtures.md).
+The unchanged Mode 0 mosaic and non-mosaic high-resolution fixtures remain
+controls. All 246 retained cartridge byte arrays match their original generator.
+The enlarged fixture payload requires a 48 MiB generator-output buffer in the
+test harness; the prior 40 MiB buffer failed initial discovery with `ENOBUFS`.
+
+Against the reviewed RTL, both browsers reproduce exactly 57,344 incorrect
+pixels in each reported high-resolution case, while both Mode 0 controls have
+zero mismatches. All fourteen new mosaic cartridges pass on the corrected RTL.
+
+The complete unfiltered static suite passed all 68 checks in 39.8 minutes:
+26 SNES batches plus all 42 existing checks, without failures, skips or retries.
+Each browser ran all 260 named cartridges and 29 additional CPU/IRQ reset
+replays, compared 34,184,704 positive-frame pixels with zero mismatches, retained
+the negative frame control and checked 73,984 PCM tail samples. Every batch
+retained baseline keyboard/gamepad effects during RTL audio, LoROM/HiROM boot
+and deterministic reset. Frames, PCM and recorded CPU observations match
+exactly across Chromium and Firefox. All ten Python tests, the static build,
+RTL lint and hash-verified upstream reproduction also pass.
+
+All 26 browser compilations produced byte-identical 270,944-byte Wasm (269 bytes
+larger than the reviewed circuit). Each generated CXXRTL source was 1,638,004
+bytes. With four concurrent workers, compilation took 72.48–117.32 seconds;
+baseline simulation measured 204,650–261,320 master clocks/s,
+0.573–0.731 estimated NTSC fields/s and
+0.00953–0.01217 of real time. Circuit linear memory was
+20,578,304 bytes; compiler peak memory was not measured.
+
+Commands, source/cartridge/artifact hashes, negative controls, per-browser
+results and measurement ranges are recorded under `highResolutionMosaicReviewFixValidation` in
+[snes-validation.json](snes-validation.json), now the latest validation entry.
+This supersedes the previous outstanding complete-sweep gap. The unchanged
+trusted-local tests were not rerun for this correction. Exhaustive hardware
+conformance, real-time playability and optional broad benchmarks are not
+established by these bounded checks; post-merge live Pages verification remains
+pending publication.
 
 ## Validation limits and publication
 

@@ -76,7 +76,11 @@ cases += [(f'cpu-{kind}-{mode}-{alignment}',dict(cpu_check=f'{kind}-{mode}-{alig
 cases += [(f'bus-multibank-{mapping}',dict(bus=f'multibank-{mapping}')) for mapping in ['lorom','hirom']]
 cases += [(f'obj-geometry-{size}{suffix}',dict(sprite_priority=3,display=display,effect=f'obj-geometry-{size}{suffix}'))
  for size in ['32x32','64x64','32x64'] for suffix,display in [('',0),('-interlace',3)]]
-print(json.dumps([dict(name=name,bytes=list(build(**args)[0])) for name,args in cases]))`], { maxBuffer: 40 * 1024 * 1024 }));
+cases += [(f'mosaic-{mode}',dict(mode=mode,effect='mosaic')) for mode in [5,6]]
+cases += [(f'hires-{mode}-{bg}-{priority}-mosaic-{stripe}',dict(mode=mode,effect=f'hires-{bg}-{priority}-mosaic-{stripe}'))
+ for mode,bg in [(5,'bg1'),(6,'bg1'),(5,'bg2')]
+ for priority in ['low','high'] for stripe in ['normal','reverse']]
+print(json.dumps([dict(name=name,bytes=list(build(**args)[0])) for name,args in cases]))`], { maxBuffer: 48 * 1024 * 1024 }));
 
 // Optional focused reruns still exercise browser compilation and the baseline
 // cartridge's input, audio, LoROM/HiROM and deterministic reset checks.
@@ -193,7 +197,12 @@ function pixel(name, x, y) {
     if (tiled && dot >= 112 && dot < (name === "obj-limit-34tiles" || y >= 24 ? 128 : 120) && y >= 16 && y < 32) return green;
     if (["obj-limit-32", "obj-limit-35tiles"].includes(name) && dot >= 80 && dot < 88 && y >= 16 && y < 24) return green;
   }
-  if (name.startsWith("hires-")) return (x & 1) ^ Number(name.endsWith("reverse")) ? red : blue;
+  if (name.startsWith("hires-")) {
+    // Four low-resolution dots span eight hires samples. Both phases repeat
+    // the first sample, including its transparency; reverse stripes start red.
+    if (name.includes("-mosaic-")) return name.endsWith("reverse") ? red : blue;
+    return (x & 1) ^ Number(name.endsWith("reverse")) ? red : blue;
+  }
   if (name.includes("flip") && !name.startsWith("sprite-")) {
     // bsnes Mode 7: flip unsigned screen coordinates before signed 8.8
     // matrix multiplication; the vertical product discards six low bits.
@@ -212,7 +221,7 @@ function pixel(name, x, y) {
       [expand(index & 31), expand(index * 3 & 31), expand(index * 7 & 31), 255];
   }
   if (name === "scroll") dot++;
-  if (name === "mosaic" || name === "zoom") return blue;
+  if (name === "mosaic" || name.startsWith("mosaic-") || name === "zoom") return blue;
   if (name === "constant") return red;
   if (name === "rotate") return (y + 1) & 1 ? red : blue;
   if (name === "window" && dot >= 64 && dot <= 127) return blue;

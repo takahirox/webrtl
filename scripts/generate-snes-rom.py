@@ -1134,7 +1134,8 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
     if effect == "scroll":
         write(0x210d, 1)
         stz(0x210d)
-    if effect == "mosaic": write(0x2106, 0x31)  # 4-dot mosaic on BG1
+    if effect == "mosaic" or effect and "-mosaic-" in effect:
+        write(0x2106, 0x32 if effect.startswith("hires-bg2-") else 0x31)  # 4-dot mosaic
     if display:
         write(0x2133, display)
     if effect == "window":
