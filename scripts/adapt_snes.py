@@ -76,10 +76,25 @@ assign DMA_A_INVALID = DMA_ACTIVE && !INT_A[22] &&
             # An unaligned direct page costs a cycle in both CPU modes.
             source = source.replace("DLNoZero == 1'b1 & EF == 1'b0",
                                     "DLNoZero == 1'b1")
+            # Ordinary indirect pointers wrap only for E && D.l == 0.
+            # (dp,X) also wraps its high-byte fetch with unaligned D;
+            # [dp], [dp],Y and stack-relative pointers never page-wrap.
+            source = source.replace(
+                "ADDR_BUS[23:0] = {8'h00, (DX + ADDR_INC)};",
+                """if (EF && ((D[7:0] == 0 &&
+                    (IR[4:0] == 5'h01 || IR[4:0] == 5'h11 || IR[4:0] == 5'h12)) ||
+                    IR[4:0] == 5'h01))
+               ADDR_BUS[23:0] = {8'h00, DX[15:8], (DX[7:0] + ADDR_INC[7:0])};
+            else
+               ADDR_BUS[23:0] = {8'h00, (DX + ADDR_INC)};""")
         if name == "src/65C816/AddrGen.v":
             # E does not clear D.l: D+operand uses the full direct register
             # in both CPU modes.
             source = source.replace("(e6502 == 1'b0) ? D :\n                    {D[15:8], 8'h00}", "D")
+            # Indexed direct addresses retain carry when D is unaligned,
+            # including the base address of (dp,X). E still limits X/Y to 8 bits.
+            source = source.replace("NewAAH = {1'b0, DH};",
+                                    "NewAAH = {1'b0, DH} + (D[7:0] != 0 ? {8'b0, NewAAL[8]} : 9'd0);")
         if name == "src/dsp.v":
             # TEST controls only SMP ARAM writes. Keep the raw SMP write
             # strobe for DSPADDR/DSPDATA, and leave DSP sample/echo slots alone.

@@ -1,4 +1,6 @@
 {
+  "latestValidation": "indexedDirectPageAndPointerReviewFixValidation",
+  "historyNote": "Top-level checks and measurements are the initial 2026-10-29 snapshot. Named review entries retain historical evidence; latestValidation identifies the current complete sweep.",
   "issue": 22,
   "date": "2026-10-29",
   "host": "macOS arm64, Apple M4 Max",
@@ -678,7 +680,6 @@
     },
     "limits": "Local two-worker browser measurements do not establish Ubuntu CI performance or exhaustive base-console conformance. Compiler peak memory was not measured. Native trusted-local check remains failed; live Pages verification remains pending."
   },
-  "latestValidation": "ppuPathReviewFixValidation",
   "baseFeatureReviewFixValidation": {
     "date": "2026-10-30",
     "sourceHashes": {
@@ -5966,5 +5967,726 @@
       "examples/snes/snes.v": "0c707bd087c18279952a4a490045b954041475c8ec417f7dcaaa630e79fffec2"
     },
     "limits": "Focused CPU/bus selection: 13 cartridges plus seven CPU reset replays per browser, retaining baseline keyboard/gamepad, frame, PCM, LoROM/HiROM and reset checks. The complete 230-cartridge sweep, unrelated static/native suites and live Pages checks were not rerun. Coverage uses 256 KiB cartridge bank/mask boundaries, not every supported size or decoder; direct-page cases cover unindexed loads/stores. Compiler peak memory was not measured."
+  },
+  "indexedDirectPageAndPointerReviewFixValidation": {
+    "date": "2026-10-30",
+    "issue": 22,
+    "reviewedPrHead": "2e9f82a88adcb24bbec0827988f66a224f691f84",
+    "fixes": [
+      "Preserve indexed direct-page carry in emulation mode when D.l is nonzero.",
+      "Use mode-specific pointer increment wrapping: ordinary indirect wraps with aligned D in emulation; indexed indirect wraps in emulation even with unaligned D; long indirect never page-wraps."
+    ],
+    "independentReferences": [
+      "https://github.com/ares-emulator/ares/blob/master/ares/component/processor/wdc65816/memory.cpp",
+      "https://github.com/ares-emulator/ares/blob/master/ares/component/processor/wdc65816/instructions-read.cpp"
+    ],
+    "host": {
+      "system": "Darwin",
+      "machine": "arm64",
+      "cpu": "Apple M4 Max",
+      "python": "3.13.13",
+      "chromium": "Google Chrome for Testing 156.0.8078.4",
+      "firefox": "Mozilla Firefox 157.0",
+      "node": "v26.12.1",
+      "playwright": "1.64.1"
+    },
+    "checks": {
+      "pythonPassed": 10,
+      "staticBuild": "passed",
+      "rtlLint": "passed with upstream warnings",
+      "pinnedUpstreamReproduction": "All manifest hashes verified; generated RTL byte-identical",
+      "retainedCartridges": {
+        "count": 230,
+        "comparison": "All complete named ROM byte arrays retain their pre-fix SHA-256",
+        "manifestSha256": "35ca0b9986883655f08edc1111e0c31b78c3580ab164d097501466aba4c722f8"
+      },
+      "totalCartridges": 238,
+      "newCartridges": 8,
+      "fullStatic": {
+        "command": "env -u WEBRTL_SNES_FIXTURES PLAYWRIGHT_JSON_OUTPUT_NAME=\"$PWD/.build/addressing-validation/full.json\" npx playwright test --config=playwright.static.config.js --fully-parallel --workers=4 --reporter=line,json --output=.build/addressing-validation/full",
+        "stats": {
+          "startTime": "2026-10-30T14:00:02.311Z",
+          "duration": 2202880.565,
+          "expected": 66,
+          "skipped": 0,
+          "unexpected": 0,
+          "flaky": 0
+        },
+        "reportSha256": "8e6ebe91baa8c8b7c173de919ec5693b6689f29fa2546b8e6e8ebdb5eb2c07df",
+        "existingExampleChecksPassed": 42,
+        "snesBatchesPassed": 24
+      },
+      "focused": {
+        "stats": {
+          "startTime": "2026-10-30T13:55:03.071Z",
+          "duration": 278487.482,
+          "expected": 2,
+          "skipped": 0,
+          "unexpected": 0,
+          "flaky": 0
+        },
+        "reportSha256": "98c89b926bb59a881a164b29bfbff9037f549ab2e77b3a73405150076fe8eef4"
+      }
+    },
+    "browserResults": {
+      "chromium": {
+        "cartridges": 238,
+        "runtimeExecutions": 259,
+        "cpuAndIrqResetReplays": 21,
+        "positivePixelComparisons": 30744064,
+        "positivePixelMismatches": 0,
+        "independentlyCheckedPcmSamples": 66304,
+        "newCpuObservationBytes": {
+          "cpu-indexed-native-aligned": [
+            105,
+            150,
+            1,
+            195,
+            150,
+            1
+          ],
+          "cpu-indexed-native-unaligned": [
+            195,
+            150,
+            1,
+            195,
+            150,
+            1
+          ],
+          "cpu-indexed-emulation-aligned": [
+            105,
+            150,
+            1,
+            49,
+            150,
+            1
+          ],
+          "cpu-indexed-emulation-unaligned": [
+            195,
+            150,
+            1,
+            195,
+            150,
+            1
+          ],
+          "cpu-pointer-native-aligned": [
+            165,
+            150,
+            195,
+            150,
+            165,
+            150,
+            165,
+            150,
+            195,
+            150
+          ],
+          "cpu-pointer-native-unaligned": [
+            165,
+            150,
+            195,
+            150,
+            165,
+            150,
+            165,
+            150,
+            195,
+            150
+          ],
+          "cpu-pointer-emulation-aligned": [
+            90,
+            150,
+            60,
+            150,
+            90,
+            150,
+            165,
+            150,
+            195,
+            150
+          ],
+          "cpu-pointer-emulation-unaligned": [
+            165,
+            150,
+            195,
+            150,
+            90,
+            150,
+            165,
+            150,
+            195,
+            150
+          ]
+        },
+        "resultSha256": {
+          "snes-full-SNES-RTL-batch-1-20785-les-input-and-repeats-reset-chromium": "d607a13938f742b48168c4582269dd98c7991891986ef81eaca744afad1d7ea1",
+          "snes-full-SNES-RTL-batch-1-21989-les-input-and-repeats-reset-chromium": "21a8d9d4b991f1c83d67133917d65b77c752c59f55b103981168d45afce5b53c",
+          "snes-full-SNES-RTL-batch-1-887f1-les-input-and-repeats-reset-chromium": "5288dd996769348edf8ecd39e8e6ececeb5287919313365411c623f6f2d31a1b",
+          "snes-full-SNES-RTL-batch-1-eeacd-les-input-and-repeats-reset-chromium": "6ba455176963c59794bc209f91a94225f011713284a7727120828377d73617dc",
+          "snes-full-SNES-RTL-batch-2-9e758-les-input-and-repeats-reset-chromium": "875d041160effb8dad563fc9acb7b2a8fa2e05bf340c59fed6772eef47d9731e",
+          "snes-full-SNES-RTL-batch-3-aa3e3-les-input-and-repeats-reset-chromium": "e5cf81c5844533ef03febbccdc9deb76f5ce42afb5b083f6f1f6e754651a5acc",
+          "snes-full-SNES-RTL-batch-4-2da01-les-input-and-repeats-reset-chromium": "73f0665ca238168e51bcb6914079ed97249584cafee85a4dfef95ad12c2b34e6",
+          "snes-full-SNES-RTL-batch-5-29584-les-input-and-repeats-reset-chromium": "d1873d5049e8947f6aac9905edba7e6af7b4643a8f9f6d9a76cbdbe692f02d87",
+          "snes-full-SNES-RTL-batch-6-aa9ea-les-input-and-repeats-reset-chromium": "6e4b273346e0ec388444f57f2c118348ef0ab91619cdc4a870be1583f19729c5",
+          "snes-full-SNES-RTL-batch-7-07a27-les-input-and-repeats-reset-chromium": "0aa3838be7d4325ab18c0857ade46a5aa1c8969d6f49115b7331163d6555d049",
+          "snes-full-SNES-RTL-batch-8-f92ae-les-input-and-repeats-reset-chromium": "443545a64ebc5ebe1da0c374e1a17e5fbd757c5c412f6b56018beaac4679c76f",
+          "snes-full-SNES-RTL-batch-9-f4675-les-input-and-repeats-reset-chromium": "db4ce740b2949a4c0f93ff0f2103437a0fa27e3b8866958c18d85db31998c4d8"
+        }
+      },
+      "firefox": {
+        "cartridges": 238,
+        "runtimeExecutions": 259,
+        "cpuAndIrqResetReplays": 21,
+        "positivePixelComparisons": 30744064,
+        "positivePixelMismatches": 0,
+        "independentlyCheckedPcmSamples": 66304,
+        "newCpuObservationBytes": {
+          "cpu-indexed-native-aligned": [
+            105,
+            150,
+            1,
+            195,
+            150,
+            1
+          ],
+          "cpu-indexed-native-unaligned": [
+            195,
+            150,
+            1,
+            195,
+            150,
+            1
+          ],
+          "cpu-indexed-emulation-aligned": [
+            105,
+            150,
+            1,
+            49,
+            150,
+            1
+          ],
+          "cpu-indexed-emulation-unaligned": [
+            195,
+            150,
+            1,
+            195,
+            150,
+            1
+          ],
+          "cpu-pointer-native-aligned": [
+            165,
+            150,
+            195,
+            150,
+            165,
+            150,
+            165,
+            150,
+            195,
+            150
+          ],
+          "cpu-pointer-native-unaligned": [
+            165,
+            150,
+            195,
+            150,
+            165,
+            150,
+            165,
+            150,
+            195,
+            150
+          ],
+          "cpu-pointer-emulation-aligned": [
+            90,
+            150,
+            60,
+            150,
+            90,
+            150,
+            165,
+            150,
+            195,
+            150
+          ],
+          "cpu-pointer-emulation-unaligned": [
+            165,
+            150,
+            195,
+            150,
+            90,
+            150,
+            165,
+            150,
+            195,
+            150
+          ]
+        },
+        "resultSha256": {
+          "snes-full-SNES-RTL-batch-1-20785-les-input-and-repeats-reset-firefox": "d607a13938f742b48168c4582269dd98c7991891986ef81eaca744afad1d7ea1",
+          "snes-full-SNES-RTL-batch-1-21989-les-input-and-repeats-reset-firefox": "21a8d9d4b991f1c83d67133917d65b77c752c59f55b103981168d45afce5b53c",
+          "snes-full-SNES-RTL-batch-1-887f1-les-input-and-repeats-reset-firefox": "5288dd996769348edf8ecd39e8e6ececeb5287919313365411c623f6f2d31a1b",
+          "snes-full-SNES-RTL-batch-1-eeacd-les-input-and-repeats-reset-firefox": "6ba455176963c59794bc209f91a94225f011713284a7727120828377d73617dc",
+          "snes-full-SNES-RTL-batch-2-9e758-les-input-and-repeats-reset-firefox": "875d041160effb8dad563fc9acb7b2a8fa2e05bf340c59fed6772eef47d9731e",
+          "snes-full-SNES-RTL-batch-3-aa3e3-les-input-and-repeats-reset-firefox": "e5cf81c5844533ef03febbccdc9deb76f5ce42afb5b083f6f1f6e754651a5acc",
+          "snes-full-SNES-RTL-batch-4-2da01-les-input-and-repeats-reset-firefox": "73f0665ca238168e51bcb6914079ed97249584cafee85a4dfef95ad12c2b34e6",
+          "snes-full-SNES-RTL-batch-5-29584-les-input-and-repeats-reset-firefox": "d1873d5049e8947f6aac9905edba7e6af7b4643a8f9f6d9a76cbdbe692f02d87",
+          "snes-full-SNES-RTL-batch-6-aa9ea-les-input-and-repeats-reset-firefox": "6e4b273346e0ec388444f57f2c118348ef0ab91619cdc4a870be1583f19729c5",
+          "snes-full-SNES-RTL-batch-7-07a27-les-input-and-repeats-reset-firefox": "0aa3838be7d4325ab18c0857ade46a5aa1c8969d6f49115b7331163d6555d049",
+          "snes-full-SNES-RTL-batch-8-f92ae-les-input-and-repeats-reset-firefox": "443545a64ebc5ebe1da0c374e1a17e5fbd757c5c412f6b56018beaac4679c76f",
+          "snes-full-SNES-RTL-batch-9-f4675-les-input-and-repeats-reset-firefox": "db4ce740b2949a4c0f93ff0f2103437a0fa27e3b8866958c18d85db31998c4d8"
+        }
+      }
+    },
+    "measurements": [
+      {
+        "browser": "chromium",
+        "compileMs": 88091,
+        "wasmBytes": 270621,
+        "cxxrtlBytes": 1632058,
+        "runtime": {
+          "cycles": 1671168,
+          "elapsedMs": 6392,
+          "memoryBytes": 20578304
+        },
+        "masterClocksPerSecond": 261446.8085106383,
+        "realTimeRatio": 0.012173186280688296,
+        "videoFramesPerSecond": 0.7315898695760066,
+        "capturedFramesPerSecond": 0.6257822277847309
+      },
+      {
+        "browser": "chromium",
+        "compileMs": 88463.20000000298,
+        "wasmBytes": 270621,
+        "cxxrtlBytes": 1632058,
+        "runtime": {
+          "cycles": 1671168,
+          "elapsedMs": 6518.80000000447,
+          "memoryBytes": 20578304
+        },
+        "masterClocksPerSecond": 256361.29348942352,
+        "realTimeRatio": 0.011936400366034581,
+        "videoFramesPerSecond": 0.7173593984056309,
+        "capturedFramesPerSecond": 0.6136098668462381
+      },
+      {
+        "browser": "chromium",
+        "compileMs": 88203.5,
+        "wasmBytes": 270621,
+        "cxxrtlBytes": 1632058,
+        "runtime": {
+          "cycles": 1671168,
+          "elapsedMs": 6386.19999999553,
+          "memoryBytes": 20578304
+        },
+        "masterClocksPerSecond": 261684.2566786461,
+        "realTimeRatio": 0.01218424206980897,
+        "videoFramesPerSecond": 0.7322543055859677,
+        "capturedFramesPerSecond": 0.6263505684135793
+      },
+      {
+        "browser": "chromium",
+        "compileMs": 88817.60000000149,
+        "wasmBytes": 270621,
+        "cxxrtlBytes": 1632058,
+        "runtime": {
+          "cycles": 1671168,
+          "elapsedMs": 6395.29999999702,
+          "memoryBytes": 20578304
+        },
+        "masterClocksPerSecond": 261311.9009273652,
+        "realTimeRatio": 0.012166904868605981,
+        "videoFramesPerSecond": 0.7312123663208939,
+        "capturedFramesPerSecond": 0.6254593216896571
+      },
+      {
+        "browser": "chromium",
+        "compileMs": 87103,
+        "wasmBytes": 270621,
+        "cxxrtlBytes": 1632058,
+        "runtime": {
+          "cycles": 1671168,
+          "elapsedMs": 6392.39999999851,
+          "memoryBytes": 20578304
+        },
+        "masterClocksPerSecond": 261430.44865784206,
+        "realTimeRatio": 0.012172424551995764,
+        "videoFramesPerSecond": 0.7315440908470878,
+        "capturedFramesPerSecond": 0.6257430698956468
+      },
+      {
+        "browser": "chromium",
+        "compileMs": 88255.89999999851,
+        "wasmBytes": 270621,
+        "cxxrtlBytes": 1632058,
+        "runtime": {
+          "cycles": 1671168,
+          "elapsedMs": 6395.39999999851,
+          "memoryBytes": 20578304
+        },
+        "masterClocksPerSecond": 261307.8149920864,
+        "realTimeRatio": 0.012166714623976251,
+        "videoFramesPerSecond": 0.7312009329097356,
+        "capturedFramesPerSecond": 0.6254495418583563
+      },
+      {
+        "browser": "chromium",
+        "compileMs": 87910.70000000298,
+        "wasmBytes": 270621,
+        "cxxrtlBytes": 1632058,
+        "runtime": {
+          "cycles": 1671168,
+          "elapsedMs": 6366.5999999940395,
+          "memoryBytes": 20578304
+        },
+        "masterClocksPerSecond": 262489.86900410964,
+        "realTimeRatio": 0.012221752066445579,
+        "videoFramesPerSecond": 0.7345085989907033,
+        "capturedFramesPerSecond": 0.6282788301454064
+      },
+      {
+        "browser": "chromium",
+        "compileMs": 91150.30000000447,
+        "wasmBytes": 270621,
+        "cxxrtlBytes": 1632058,
+        "runtime": {
+          "cycles": 1671168,
+          "elapsedMs": 6412.19999999553,
+          "memoryBytes": 20578304
+        },
+        "masterClocksPerSecond": 260623.18704986823,
+        "realTimeRatio": 0.012134837763359507,
+        "videoFramesPerSecond": 0.7292851823606709,
+        "capturedFramesPerSecond": 0.623810860547517
+      },
+      {
+        "browser": "chromium",
+        "compileMs": 78160.39999999851,
+        "wasmBytes": 270621,
+        "cxxrtlBytes": 1632058,
+        "runtime": {
+          "cycles": 1671168,
+          "elapsedMs": 6449.70000000298,
+          "memoryBytes": 20578304
+        },
+        "masterClocksPerSecond": 259107.86548199572,
+        "realTimeRatio": 0.01206428309938813,
+        "videoFramesPerSecond": 0.7250449550099497,
+        "capturedFramesPerSecond": 0.6201838845214741
+      },
+      {
+        "browser": "chromium",
+        "compileMs": 82091.70000000298,
+        "wasmBytes": 270621,
+        "cxxrtlBytes": 1632058,
+        "runtime": {
+          "cycles": 1671168,
+          "elapsedMs": 6423.79999999702,
+          "memoryBytes": 20578304
+        },
+        "masterClocksPerSecond": 260152.55767626254,
+        "realTimeRatio": 0.012112924858525434,
+        "videoFramesPerSecond": 0.7279682503085406,
+        "capturedFramesPerSecond": 0.6226843924159929
+      },
+      {
+        "browser": "chromium",
+        "compileMs": 84946.39999999851,
+        "wasmBytes": 270621,
+        "cxxrtlBytes": 1632058,
+        "runtime": {
+          "cycles": 1671168,
+          "elapsedMs": 6458.60000000149,
+          "memoryBytes": 20578304
+        },
+        "masterClocksPerSecond": 258750.81286960247,
+        "realTimeRatio": 0.01204765842537727,
+        "videoFramesPerSecond": 0.7240458375389024,
+        "capturedFramesPerSecond": 0.619329266404341
+      },
+      {
+        "browser": "chromium",
+        "compileMs": 82425,
+        "wasmBytes": 270621,
+        "cxxrtlBytes": 1632058,
+        "runtime": {
+          "cycles": 1671168,
+          "elapsedMs": 6462.80000000447,
+          "memoryBytes": 20578304
+        },
+        "masterClocksPerSecond": 258582.6576714186,
+        "realTimeRatio": 0.012039828976002006,
+        "videoFramesPerSecond": 0.7235752996110972,
+        "capturedFramesPerSecond": 0.6189267809613841
+      },
+      {
+        "browser": "firefox",
+        "compileMs": 87316,
+        "wasmBytes": 270621,
+        "cxxrtlBytes": 1632058,
+        "runtime": {
+          "cycles": 1671168,
+          "elapsedMs": 7707,
+          "memoryBytes": 20578304
+        },
+        "masterClocksPerSecond": 216837.6800311405,
+        "realTimeRatio": 0.010096147230590317,
+        "videoFramesPerSecond": 0.6067630006915574,
+        "capturedFramesPerSecond": 0.5190086933956144
+      },
+      {
+        "browser": "firefox",
+        "compileMs": 88216,
+        "wasmBytes": 270621,
+        "cxxrtlBytes": 1632058,
+        "runtime": {
+          "cycles": 1671168,
+          "elapsedMs": 7791,
+          "memoryBytes": 20578304
+        },
+        "masterClocksPerSecond": 214499.8074701579,
+        "realTimeRatio": 0.009987293891176946,
+        "videoFramesPerSecond": 0.6002210815466351,
+        "capturedFramesPerSecond": 0.5134129123347452
+      },
+      {
+        "browser": "firefox",
+        "compileMs": 88084,
+        "wasmBytes": 270621,
+        "cxxrtlBytes": 1632058,
+        "runtime": {
+          "cycles": 1671168,
+          "elapsedMs": 7742,
+          "memoryBytes": 20578304
+        },
+        "masterClocksPerSecond": 215857.40118832342,
+        "realTimeRatio": 0.01005050461200718,
+        "videoFramesPerSecond": 0.6040199491513606,
+        "capturedFramesPerSecond": 0.5166623611469905
+      },
+      {
+        "browser": "firefox",
+        "compileMs": 81998,
+        "wasmBytes": 270621,
+        "cxxrtlBytes": 1632058,
+        "runtime": {
+          "cycles": 1671168,
+          "elapsedMs": 7888,
+          "memoryBytes": 20578304
+        },
+        "masterClocksPerSecond": 211862.06896551725,
+        "realTimeRatio": 0.009864478537799136,
+        "videoFramesPerSecond": 0.5928400667253846,
+        "capturedFramesPerSecond": 0.5070993914807302
+      },
+      {
+        "browser": "firefox",
+        "compileMs": 87539,
+        "wasmBytes": 270621,
+        "cxxrtlBytes": 1632058,
+        "runtime": {
+          "cycles": 1671168,
+          "elapsedMs": 7698,
+          "memoryBytes": 20578304
+        },
+        "masterClocksPerSecond": 217091.192517537,
+        "realTimeRatio": 0.010107950988069573,
+        "videoFramesPerSecond": 0.6074723884554213,
+        "capturedFramesPerSecond": 0.5196154845414394
+      },
+      {
+        "browser": "firefox",
+        "compileMs": 89089,
+        "wasmBytes": 270621,
+        "cxxrtlBytes": 1632058,
+        "runtime": {
+          "cycles": 1671168,
+          "elapsedMs": 7706,
+          "memoryBytes": 20578304
+        },
+        "masterClocksPerSecond": 216865.81884246043,
+        "realTimeRatio": 0.01009745739763296,
+        "videoFramesPerSecond": 0.6068417397261658,
+        "capturedFramesPerSecond": 0.5190760446405398
+      },
+      {
+        "browser": "firefox",
+        "compileMs": 88148,
+        "wasmBytes": 270621,
+        "cxxrtlBytes": 1632058,
+        "runtime": {
+          "cycles": 1671168,
+          "elapsedMs": 7704,
+          "memoryBytes": 20578304
+        },
+        "masterClocksPerSecond": 216922.1183800623,
+        "realTimeRatio": 0.010100078752097558,
+        "videoFramesPerSecond": 0.6069992791186181,
+        "capturedFramesPerSecond": 0.5192107995846313
+      },
+      {
+        "browser": "firefox",
+        "compileMs": 80604,
+        "wasmBytes": 270621,
+        "cxxrtlBytes": 1632058,
+        "runtime": {
+          "cycles": 1671168,
+          "elapsedMs": 7780,
+          "memoryBytes": 20578304
+        },
+        "masterClocksPerSecond": 214803.0848329049,
+        "realTimeRatio": 0.010001414743722311,
+        "videoFramesPerSecond": 0.6010697231786418,
+        "capturedFramesPerSecond": 0.5141388174807198
+      },
+      {
+        "browser": "firefox",
+        "compileMs": 81703,
+        "wasmBytes": 270621,
+        "cxxrtlBytes": 1632058,
+        "runtime": {
+          "cycles": 1671168,
+          "elapsedMs": 7874,
+          "memoryBytes": 20578304
+        },
+        "masterClocksPerSecond": 212238.76047752096,
+        "realTimeRatio": 0.0098820176157175,
+        "videoFramesPerSecond": 0.5938941384721659,
+        "capturedFramesPerSecond": 0.508001016002032
+      },
+      {
+        "browser": "firefox",
+        "compileMs": 83368,
+        "wasmBytes": 270621,
+        "cxxrtlBytes": 1632058,
+        "runtime": {
+          "cycles": 1671168,
+          "elapsedMs": 7796,
+          "memoryBytes": 20578304
+        },
+        "masterClocksPerSecond": 214362.23704463828,
+        "realTimeRatio": 0.009980888494889633,
+        "videoFramesPerSecond": 0.5998361270305071,
+        "capturedFramesPerSecond": 0.513083632632119
+      },
+      {
+        "browser": "firefox",
+        "compileMs": 84352,
+        "wasmBytes": 270621,
+        "cxxrtlBytes": 1632058,
+        "runtime": {
+          "cycles": 1671168,
+          "elapsedMs": 8538,
+          "memoryBytes": 20578304
+        },
+        "masterClocksPerSecond": 195732.95853829937,
+        "realTimeRatio": 0.009113493406671303,
+        "videoFramesPerSecond": 0.5477070094085071,
+        "capturedFramesPerSecond": 0.4684937924572499
+      },
+      {
+        "browser": "firefox",
+        "compileMs": 78546,
+        "wasmBytes": 270621,
+        "cxxrtlBytes": 1632058,
+        "runtime": {
+          "cycles": 1671168,
+          "elapsedMs": 7755,
+          "memoryBytes": 20578304
+        },
+        "masterClocksPerSecond": 215495.5512572534,
+        "realTimeRatio": 0.01003365657074914,
+        "videoFramesPerSecond": 0.6030074076505266,
+        "capturedFramesPerSecond": 0.5157962604771116
+      }
+    ],
+    "measurementNotes": "videoFramesPerSecond is master clocks/s divided by the nominal 357368-clock NTSC field; capturedFramesPerSecond counts actual captured baseline frames over measured runtime. Four browser workers ran concurrently.",
+    "negativeControls": {
+      "method": "Same new ROMs and unchanged assertions, but a temporary page route supplies the reviewed snes-core.v; expected assertion failure in Chromium.",
+      "reviewedCoreSha256": "60f37d5e1e46d7278b97414cc2346e1507a62940b22a2ea59f1a621a0c717758",
+      "observations": {
+        "cpu-indexed-emulation-unaligned": [
+          49
+        ],
+        "cpu-indexed-emulation-unaligned-repeat": [
+          49
+        ],
+        "cpu-pointer-emulation-aligned": [
+          165
+        ],
+        "cpu-pointer-emulation-aligned-repeat": [
+          165
+        ]
+      },
+      "reportSha256": "ed77727eaed957347679c55acda8843039e6f88b42cbf14b223b0773275b4fa0"
+    },
+    "trustedLocal": {
+      "status": "passed",
+      "referenceVerilator": "5.020",
+      "source": "https://github.com/verilator/verilator/tree/5c5314b39cd888f427807d626e1502cbf222c292",
+      "upstreamFilesCompared": 5777,
+      "upstreamFilesChanged": 0,
+      "emscripten": "6.0.13-git",
+      "buildConfiguration": "With local GNU Flex/Autoconf/M4 on PATH: autoconf; ./configure CPPFLAGS=-I<local-prefix>/include; make -C src -j4 ../bin/verilator_bin",
+      "setup": "Built the unmodified v5.020 source archive locally with Autoconf 2.72, GNU M4 1.4.19, GNU Flex 2.6.4 and matching Flex headers. No system tools or application sources changed.",
+      "sourceDownloads": [
+        {
+          "name": "verilator",
+          "url": "https://codeload.github.com/verilator/verilator/tar.gz/refs/tags/v5.020",
+          "sha256": "41ca9abfadf8d2413efbff7f8277379733d0095957fe7769dc38f8fd1bc899a6"
+        },
+        {
+          "name": "m4",
+          "url": "https://ftp.gnu.org/gnu/m4/m4-1.4.19.tar.gz",
+          "sha256": "3be4a26d825ffdfda52a56fc43246456989a3630093cced3fbddf4771ee58a70"
+        },
+        {
+          "name": "autoconf",
+          "url": "https://ftp.gnu.org/gnu/autoconf/autoconf-2.72.tar.gz",
+          "sha256": "afb181a76e1ee72832f6581c0eddf8df032b83e2e0239ef79ebedc4467d92d6e"
+        },
+        {
+          "name": "flex",
+          "url": "https://github.com/westes/flex/releases/download/v2.6.4/flex-2.6.4.tar.gz",
+          "sha256": "e87aae032bf07c26f85ac0ed3250998c37621d95f8bd748b31f15b33c45ee995"
+        }
+      ],
+      "selection": "export VERILATOR_ROOT=\"$PWD/.build/toolchains/verilator-5.020\"; export PATH=\"$VERILATOR_ROOT/bin:$PATH\"",
+      "directBuild": "python3 build.py examples/counter.v .build/addressing-validation/native-counter",
+      "wasmBytes": 186868,
+      "wasmSha256": "193f734a62b6a575cf702f7a9407fd08710c145a6df94c6ddad8796627bd0cad",
+      "browserCommand": "PLAYWRIGHT_JSON_OUTPUT_NAME=\"$PWD/.build/addressing-validation/local.json\" npm run test:local -- --config=.build/addressing-validation/local.config.cjs --reporter=line,json --output=.build/addressing-validation/local",
+      "configuration": "Original test and assertions unchanged; temporary config changes service and baseURL to unused port 18765, with repository cwd and absolute testDir. Existing service on 8765 untouched.",
+      "stats": {
+        "startTime": "2026-10-30T13:58:14.408Z",
+        "duration": 16650.359,
+        "expected": 1,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "reportSha256": "c345f497e58fc46258d9bc116fcdd13ee09dedabfd0536d26c0732e2e1c5357d"
+    },
+    "newCartridgeSha256": {
+      "cpu-indexed-native-aligned": "81f3a52d54e6d8ae8a28fab6ea81bed1c4e1515359861db3979dbc3a42684174",
+      "cpu-indexed-native-unaligned": "45268d6caa5a421d8d5e9f99f0a19aee08966b1007b129a7787477f49f69e216",
+      "cpu-indexed-emulation-aligned": "a28fa5fa6ecf0ac21b87b704f029e714c5d15f74e49a7b37e8381b36df311d2f",
+      "cpu-indexed-emulation-unaligned": "9d6e5bc82e9738a065c956bfaaea7bd7727e495dbee76406980b230da8cfa668",
+      "cpu-pointer-native-aligned": "f705988b0249da98ef13fa1ae3d5b2d329ba48f1e111e029cd2448565be8e006",
+      "cpu-pointer-native-unaligned": "562c1cc1d5eb59670d1c8c79bdfd4de1b5bf39a0496fbec3f5220a9cf4dbd521",
+      "cpu-pointer-emulation-aligned": "b3dc5e42b7ee440ff82141a58101cd8d3086b259349755fd4ed883fceaf92485",
+      "cpu-pointer-emulation-unaligned": "db3cfc54e769674bee851a53c4eda8ef78f5cf74ec1196c72a6ccc57fb0d7282"
+    },
+    "sourceSha256": {
+      "examples/snes/snes-core.v": "8d9c730e138ec9be0bb89952873b20f5399b3ffedc3af0c3dad8fb026a1a4e54",
+      "examples/snes/snes.v": "0c707bd087c18279952a4a490045b954041475c8ec417f7dcaaa630e79fffec2",
+      "scripts/adapt_snes.py": "b38a70912acbeea272a08ea17a72d269a3eb5352235e66651020fdd5136f9187",
+      "scripts/generate-snes-rom.py": "91daf763971a4f72bcfd048613ff0e821431276080116c8737f92f1a7d67b69c",
+      "tests/static/snes.spec.js": "8cabeb076925700e502cd47dc99a9a3e307aaf3c75c278bd7ae522a2bad01cc0",
+      "web/browser-simulator.cpp": "7f01a21f91241c8fd3dc0e15588bb61c64f3525d92a593ba37979db81da09fc4",
+      "web/compiler.js": "1694755644332981d93a73ac0550697e608c07b668f7100d74fa45a4407c3a1d",
+      "package-lock.json": "541217566bd0ba90e22dd1c5358fd3b362853d705ac75d9c1f1e36139ef9e597"
+    },
+    "limits": "Complete retained suite plus new regressions passed on the corrected implementation. Fixtures remain bounded hardware-path coverage, not exhaustive CPU/console conformance or proof of complete Issue #22 acceptance. Timings are concurrent desktop-browser measurements, not a real-time playability guarantee. Circuit linear memory is measured; compiler peak memory is not. Safari/mobile and optional broader benchmarks were not run. Live Pages verification remains pending publication; no push or merge performed."
   }
 }

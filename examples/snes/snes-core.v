@@ -7053,7 +7053,12 @@ module P65C816(
             else
                ADDR_BUS[23:0] = {8'h00, 8'h01, SP[7:0]};
          3'b011 :
-            ADDR_BUS[23:0] = {8'h00, (DX + ADDR_INC)};
+            if (EF && ((D[7:0] == 0 &&
+                    (IR[4:0] == 5'h01 || IR[4:0] == 5'h11 || IR[4:0] == 5'h12)) ||
+                    IR[4:0] == 5'h01))
+               ADDR_BUS[23:0] = {8'h00, DX[15:8], (DX[7:0] + ADDR_INC[7:0])};
+            else
+               ADDR_BUS[23:0] = {8'h00, (DX + ADDR_INC)};
          3'b100 :
             begin
                ADDR_BUS[23:4] = {8'h00, 11'b11111111111, EF};
@@ -9765,7 +9770,7 @@ module AddrGen(CLK, RST_N, EN, LOAD_PC, PCDec, GotInterrupt, ADDR_CTRL, IND_CTRL
          if (AAHCtrl[2] == 1'b0)
             NewAAH = {1'b0, AAH};
          else
-            NewAAH = {1'b0, DH};
+            NewAAH = {1'b0, DH} + (D[7:0] != 0 ? {8'b0, NewAAL[8]} : 9'd0);
    end
 
    assign InnerDS = (ABSCtrl == 2'b11 & (AALCtrl[2] == 1'b1 | AAHCtrl[2] == 1'b1)) ? S :

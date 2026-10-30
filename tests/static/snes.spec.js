@@ -69,6 +69,8 @@ cases += [(f'irq-{name}',dict(irq_check=args)) for name,args in [
 cases += [(f'cpu-{check}',dict(cpu_check=check)) for check in ['width','binary','decimal']]
 cases += [(f'cpu-dp-{mode}-{alignment}',dict(cpu_check=f'dp-{mode}-{alignment}'))
  for mode in ['native','emulation'] for alignment in ['aligned','unaligned']]
+cases += [(f'cpu-{kind}-{mode}-{alignment}',dict(cpu_check=f'{kind}-{mode}-{alignment}'))
+ for kind in ['indexed','pointer'] for mode in ['native','emulation'] for alignment in ['aligned','unaligned']]
 cases += [(f'bus-multibank-{mapping}',dict(bus=f'multibank-{mapping}')) for mapping in ['lorom','hirom']]
 cases += [(f'obj-geometry-{size}{suffix}',dict(sprite_priority=3,display=display,effect=f'obj-geometry-{size}{suffix}'))
  for size in ['32x32','64x64','32x64'] for suffix,display in [('',0),('-interlace',3)]]
@@ -648,7 +650,18 @@ test(`full SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: boots a lo
       // Literal result/NVZC expectations from WDC's programming model and
       // independent 65816 arithmetic, not generator data or RTL ALU outputs.
       const kind = name.split("-")[1];
-      if (kind === "dp") {
+      if (["indexed", "pointer"].includes(kind)) {
+        const emulation = name.includes("emulation"), unaligned = name.includes("unaligned");
+        // Independent literal WRAM sentinels and the ares readDirect /
+        // readDirectX / readDirectN rules; never derive results from RTL.
+        const expected = kind === "indexed" ?
+          [unaligned ? 0xc3 : 0x69, 0x96, 1, emulation && !unaligned ? 0x31 : 0xc3, 0x96, 1] :
+          [emulation && !unaligned ? 0x5a : 0xa5, 0x96,
+            emulation && !unaligned ? 0x3c : 0xc3, 0x96,
+            emulation ? 0x5a : 0xa5, 0x96, 0xa5, 0x96, 0xc3, 0x96];
+        expect(observations.map(([, address, value]) => [address, value]), `${name} indexed data and pointer-boundary loads/stores`)
+          .toEqual(expected.map((value, i) => [0x7e3700 + i, value]));
+      } else if (kind === "dp") {
         const unaligned = name.includes("unaligned");
         const expected = unaligned ? [1,0x5a,0x5a,0xc3,0x96] : [0,0xa5,0xa5,0x69,0x96];
         expect(observations.map(([, address, value]) => [address, value]), `${name} D+operand loads, carry and store`)

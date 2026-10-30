@@ -326,7 +326,67 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
     cpu.emit("SEI; CLD; CLC; XCE; REP #$10; LDX #$1fff; TXS", 0x78, 0xd8, 0x18, 0xfb, 0xc2, 0x10, 0xa2, 0xff, 0x1f, 0x9a)
     stz(0x4200)
     stz(0x420c)
-    if cpu_check and cpu_check.startswith("dp-"):
+    if cpu_check and cpu_check.startswith(("indexed-", "pointer-")):
+        emulation = "emulation" in cpu_check
+        unaligned = cpu_check.endswith("unaligned")
+        direct = 0x1201 if unaligned else 0x1200
+        indexed = cpu_check.startswith("indexed-")
+        # These are ordinary WRAM bytes; the cartridge never patches RTL.
+        for address, value in [(0x1200, 0x31), (0x12ff, 0x69), (0x1300, 0xc3)]:
+            write(address, value)
+        cpu.emit("REP #$20; LDA #D; TCD; SEP #$30; LDX #1; LDY #1",
+                 0xc2, 0x20, 0xa9, direct & 255, direct >> 8, 0x5b,
+                 0xe2, 0x30, 0xa2, 1, 0xa0, 1)
+        if emulation:
+            cpu.emit("SEC; XCE", 0x38, 0xfb)
+        observation = 0
+        def observe(expected):
+            nonlocal observation
+            cpu.emit("STA CPU observation", 0x8f, observation, 0x37, 0x7e)
+            observation += 1
+            check(expected)
+        if indexed:
+            # $fe+X and $ff+X distinguish index carry from operand carry.
+            # STX dp,Y exercises the second index path as well as LDA/STA dp,X.
+            for operand, expected, target in [
+                    (0xfe, 0xc3 if unaligned else 0x69, 0x1300 if unaligned else 0x12ff),
+                    (0xff, 0xc3 if unaligned or not emulation else 0x31,
+                     0x1301 if unaligned else 0x1300 if not emulation else 0x1200)]:
+                write(target, expected)
+                cpu.emit("LDA dp,X", 0xb5, operand)
+                observe(expected)
+                cpu.emit("LDA #$96; STA dp,X", 0xa9, 0x96, 0x95, operand)
+                load(target)
+                observe(0x96)
+                cpu.emit("STX dp,Y", 0x96, operand)
+                load(target)
+                observe(1)
+        else:
+            # Make the pointer itself end at $12ff for both D alignments.
+            # Wrapped and carried pointers lead to distinct real WRAM bytes.
+            operand = 0xfe if unaligned else 0xff
+            for address, value in [(0x12ff, 0x10), (0x1200, 0x10),
+                                   (0x1300, 0x11), (0x1301, 0),
+                                   (0x1010, 0x5a), (0x1110, 0xa5),
+                                   (0x1011, 0x3c), (0x1111, 0xc3)]:
+                write(address, value)
+            wrap = emulation and not unaligned
+            for opcode, argument, expected, target in [
+                    (0xb2, operand, 0x5a if wrap else 0xa5, 0x1010 if wrap else 0x1110),
+                    (0xb1, operand, 0x3c if wrap else 0xc3, 0x1011 if wrap else 0x1111),
+                    (0xa1, operand - 1, 0x5a if emulation else 0xa5, 0x1010 if emulation else 0x1110),
+                    # Long indirect must carry even in aligned E mode.
+                    (0xa7, operand, 0xa5, 0x1110),
+                    (0xb7, operand, 0xc3, 0x1111)]:
+                cpu.emit("LDA indirect pointer", opcode, argument)
+                observe(expected)
+                cpu.emit("LDA #$96; STA indirect pointer", 0xa9, 0x96, opcode - 0x20, argument)
+                load(target)
+                observe(0x96)
+                write(target, expected)
+        cpu.emit("CLC; XCE; REP #$30; LDA #0; TCD; LDX #$1fff; TXS; SEP #$20",
+                 0x18, 0xfb, 0xc2, 0x30, 0xa9, 0, 0, 0x5b, 0xa2, 0xff, 0x1f, 0x9a, 0xe2, 0x20)
+    elif cpu_check and cpu_check.startswith("dp-"):
         emulation = "emulation" in cpu_check
         direct = 0x1201 if cpu_check.endswith("unaligned") else 0x1200
         # Distinct sentinels expose a discarded D.l and carry into D.h.

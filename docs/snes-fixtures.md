@@ -6,7 +6,7 @@ uploads its SPC700 driver through the IPL protocol. The browser test compiles th
 RTL once per batch and power-cycles it for each cartridge. Expected pixels and
 PCM are calculated in the test; they are not recordings of this core's output.
 Pixel comparisons cover every RGBA sample, including its position and alpha.
-The 230-cartridge sweep runs in twelve batches per browser, each with at most
+The 238-cartridge sweep runs in twelve batches per browser, each with at most
 20 cartridges plus the AUX reset repeat. Each batch retains the baseline
 input/audio, LoROM/HiROM and deterministic-reset checks, compiles client-side,
 and has a 30-minute deadline. This replaces the single 120-cartridge test that
@@ -433,6 +433,23 @@ Markers immediately before each load also verify the extra internal cycle when
 D's low byte is nonzero. With slow ROM/WRAM accesses, the interval covering
 `LDA dp; STA long` is 64 master clocks when aligned and 70 when unaligned.
 Every CPU observation, final frame and PCM must replay after power reset.
+
+Eight `cpu-indexed-*` and `cpu-pointer-*` cartridges additionally cross page
+boundaries in native/emulation modes with D=`$1200/$1201`. The indexed cases
+execute `LDA/STA dp,X` and `STX dp,Y`, with X=Y=1 and operands `$fe/$ff`.
+An aligned emulation direct page wraps `$ff+1` to `$1200`; an unaligned
+direct page retains carry, so `$1201+$fe+1` reaches `$1300`.
+
+Pointer cases place `$10` at `$12ff`, `$10` at `$1200`, and `$11` at `$1300`.
+The targets `$1010/$1110` contain `$5a/$a5`; `$1011/$1111` contain `$3c/$c3`.
+They load and store through `(dp)`, `(dp),Y`, `(dp,X)`, `[dp]` and `[dp],Y`.
+The ordinary indirect high byte wraps only with aligned D in emulation mode.
+Indexed indirect wraps its high-byte fetch in emulation mode even with unaligned
+D; long indirect always carries and reads its bank byte from `$1301` (zero).
+Absolute readback checks each store, and the complete observation sequence,
+frame and PCM repeat exactly after power reset. Expectations follow the independent
+[ares direct-memory helpers](https://github.com/ares-emulator/ares/blob/master/ares/component/processor/wdc65816/memory.cpp)
+and [indirect instruction sequences](https://github.com/ares-emulator/ares/blob/master/ares/component/processor/wdc65816/instructions-read.cpp).
 
 The two multi-bank cartridges keep the original code/data in bank zero and add
 seven 32 KiB LoROM banks or three 64 KiB HiROM banks. At marker offset `$1070`

@@ -84,7 +84,7 @@ and CPU paths; it does not replace devices with host implementations.
 
 | Area | Integrated hardware | Automated coverage / limits |
 | --- | --- | --- |
-| CPU | P65C816 with 5A22 system timing, 24-bit bus, WRAM mirrors, reset/vector fetches | Original native-mode program, long reads, branches, stack/interrupts; accumulator-width transitions with hidden-B retention, 16-bit absolute/long loads/stores across pages and binary/decimal ADC/SBC results and N/V/Z/C, with CPU-observed deterministic reset replay. Aligned/unaligned direct-page loads, stores, page carry and the extra internal cycle are checked in native/emulation modes. Existing CPU instruction examples retained. No exhaustive 65C816 instruction conformance suite. |
+| CPU | P65C816 with 5A22 system timing, 24-bit bus, WRAM mirrors, reset/vector fetches | Original native-mode program, long reads, branches, stack/interrupts; accumulator-width transitions with hidden-B retention, 16-bit absolute/long loads/stores across pages and binary/decimal ADC/SBC results and N/V/Z/C, with CPU-observed deterministic reset replay. Aligned/unaligned direct-page loads, stores, X/Y indexing, indirect pointer page wrapping and the extra internal cycle are checked in native/emulation modes, including long-indirect carry controls. Existing CPU instruction examples retained. No exhaustive 65C816 instruction conformance suite. |
 | System I/O | Multiply/divide, H/V timers, NMI/IRQ flags, refresh, CPU speed control | ROM checks `$0011`, `$7E0011`, `$800011`, multiply `$12*3=$36`, divide `$1234/3=$0611` remainder 1, RDIO driven/released levels; NMI service and H-only, V-only and combined H/V timer target positions, recurrence, TIMEUP acknowledgement, disabling and deterministic reset replay. Exact interrupt latency and timer reprogramming corner cases remain unverified. |
 | Memory | 128 KiB WRAM, two 32 KiB VRAM lanes, 256×15-bit CGRAM, 512+32-byte OAM, 64 KiB ARAM | DMA tiles, palette/OAM writes, CPU CGRAM readback with PPU1/PPU2 latch isolation, CPU WRAM checks and reset replay. Power-up memory is deliberately zeroed. |
 | Cartridge | Runtime-loaded LoROM/HiROM, mirroring via mask, up to 4 MiB ROM and 128 KiB SRAM | Both mappings boot the fixture; CPU checks cover unmapped reads, 256 KiB images with distinct bank signatures, ROM aliases, bank boundaries, size-mask wrapping, and 2 KiB SRAM bank/size mirrors. Only power-of-two ROM sizes, optional 512-byte copier header, header types 0–2. SRAM persistence/export and exhaustive map boundaries remain unverified. |
@@ -552,6 +552,55 @@ that discard every bank bit. Both browser compilations produced identical
 are recorded under `directPageAndBankReviewFixValidation` in
 [snes-validation.json](snes-validation.json). The complete 230-cartridge sweep
 and unrelated static/native suites were not rerun for this focused revision.
+
+### Indexed direct-page and indirect-pointer review fixes (2026-10-30)
+
+The reproducible CPU adaptation preserves indexed carry in emulation mode when
+D's low byte is nonzero. Ordinary indirect pointer fetches wrap within the direct
+page only in emulation mode with aligned D. Indexed indirect also wraps its
+high-byte fetch with unaligned D in emulation mode; long indirect retains carry.
+Eight original cartridges check loads and store readback for X/Y indexing and
+all five direct-page indirect forms, with aligned/unaligned native/emulation
+controls and exact power-reset replay. The independent addressing rules and
+literal sentinel values are documented in [the fixture guide](snes-fixtures.md#direct-page-addressing-and-cartridge-banks).
+All 230 retained cartridges remain byte-identical; the suite now contains 238.
+
+The focused Chromium/Firefox run passed all eight cartridges and eight CPU reset
+replays per browser, with exact frames and PCM. The same tests against the
+reviewed RTL reproduce both defects: `$31` instead of `$c3` for indexed load,
+and `$a5` instead of `$5a` for an aligned emulation indirect pointer. Neither
+negative control reaches the normal frame/audio program; the corrected RTL does.
+
+The complete unfiltered static suite passed all 66 checks in 36.7 minutes:
+24 SNES batches plus all 42 existing checks, without failures, skips or retries.
+Each browser ran all 238 cartridges and 21 additional CPU/IRQ reset replays,
+compared 30,744,064 positive-frame pixels with zero mismatches, retained the
+negative frame control and checked 66,304 exact PCM samples. Every batch retained
+baseline keyboard/gamepad effects during RTL audio, LoROM/HiROM boot and reset.
+All 24 SNES compilations produced 270,621-byte Wasm and 1,632,058-byte CXXRTL source.
+Concurrent compilation took 78.16–91.15 seconds; simulation measured
+195,733–262,490 master clocks/s, about 0.548–0.735 estimated NTSC video fields/s and
+0.00911–0.01222 of real time. The baseline capture rate, including startup, was
+0.468–0.628 frames/s. Circuit linear memory was 20,578,304 bytes;
+compiler peak memory was not measured. These desktop measurements do not
+establish real-time playability or exhaustive console conformance.
+
+All ten Python tests, the static build, RTL lint and hash-verified upstream
+reproduction passed. The direct native counter build and unchanged trusted-local
+browser test also passed with unmodified reference Verilator 5.020 and
+Emscripten 6.0.13; the browser test took 16.7 seconds. Verilator was built locally
+with GNU Flex 2.6.4 and matching headers, Autoconf 2.72 and GNU M4 1.4.19.
+All 5,777 upstream archive files remained byte-identical. Only the build/test
+shell selected that toolchain through `VERILATOR_ROOT` and `PATH`. The isolated
+test service used port 18765 because 8765 was occupied.
+
+Source and cartridge hashes, per-browser observations, commands, report hashes,
+toolchain provenance and measurements are recorded under
+`indexedDirectPageAndPointerReviewFixValidation` in
+[snes-validation.json](snes-validation.json), also identified by its
+`latestValidation` field. This supersedes the outstanding complete-sweep and
+native-toolchain validation gaps. Optional broad benchmarks and live Pages
+checks remain unperformed; publication verification is still pending.
 
 ## Validation limits and publication
 
