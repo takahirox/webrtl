@@ -2529,7 +2529,7 @@ always @(posedge CLK) begin : register_access
         EXTLATCHr <= EXTLATCH;
         PARD_Nr <= PARD_N;
 
-        if (~EXTLATCH && EXTLATCHr || ~PARD_N && PARD_Nr && PA == 8'h37) begin  // SLHV
+        if ((~EXTLATCH && EXTLATCHr) || (EXTLATCH && ~PARD_N && PARD_Nr && PA == 8'h37)) begin  // SLHV
             OPHCT <= H_CNT;
             OPVCT <= V_CNT;
             F_LATCH <= 1;
@@ -2557,7 +2557,7 @@ always @(posedge CLK) begin
         case (PA)
         8'h04, 8'h05, 8'h06, 8'h08, 8'h09, 8'h0A,
             8'h14, 8'h15, 8'h16, 8'h18, 8'h19, 8'h1A,
-            8'h24, 8'h25, 8'h26, 8'h28, 8'h29:
+            8'h24, 8'h25, 8'h26, 8'h28, 8'h29, 8'h2A:
             D_OUT <= MDR1;
         8'h34:      // MPYL
             D_OUT <= MPY[7:0];

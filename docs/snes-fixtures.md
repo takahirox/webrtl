@@ -43,6 +43,8 @@ the capture buffer starts at row 0.
 | `sprite-interlace-vflip` | Same cartridge with OAM vertical flip set: colored rows move to capture rows 40–47, white on even rows and green on odd rows. Rows 32–39 must show the background. This checks the flipped field bit in both fields. |
 | `sprite-rect`, `sprite-rect-vflip` | OBSEL=`$c1` selects a 16×32 object at (16,16). Only the first eight source rows have alternating green/white pixels. Unflipped output occupies rows 16–23; vertical flip occupies rows 24–31, white on even rows and green on odd rows. Rows 32–47 remain background: each 16-row section flips independently. |
 | `cgram-latch` | CPU reads entries `$40`–`$42` and stores `$00,$00,$80,$92,$5a,$23` in WRAM. Interposed OAM reads with opposite bit 7 update PPU1 open bus while leaving the CGRAM high byte's PPU2 bit 7 intact, in both directions. |
+| `wbglog-open-bus` | Separate cartridge repeats the CGRAM/OAM latch-isolation checks using `$212a` for PPU1 open bus. CPU stores at `$7e3208/$7e320c` must be `$80/$00`, retaining the last OAM read even after other CPU and PPU2 accesses. |
+| `slhv-latch` | Six CPU snapshots at `$7e3400`–`$7e3417` contain all nine bits of H/V. With 128 NOPs between captures, enabled `$2137` reads advance V; WRIO.7's falling edge captures again; a disabled `$2137` read and the rising edge retain that snapshot; re-enabled `$2137` captures again. |
 | `scroll`, `mosaic` | One-dot scroll reverses the stripes; four-dot mosaic samples transparent dot 0 and makes all pixels blue. |
 | `offset-2/4/6` | Alternating solid/transparent tile rows. BG3 offset data enables a one-line vertical offset after the first eight screen dots; mode 4 uses the combined offset selector. |
 | `direct-3/4/7` | Nontransparent index 1 gives direct-color red value 4/31, expanded to 33/255, independently of CGRAM. |
@@ -187,6 +189,16 @@ For a focused rerun of these PPU regressions:
 ```sh
 npm run build:demo
 WEBRTL_SNES_FIXTURES='^(sprite-edges|sprite-interlace(-vflip)?|sprite-rect(-vflip)?|cgram-latch)$' npx playwright test --config=playwright.static.config.js --grep 'full SNES RTL'
+```
+
+The SLHV and WBGLOG expectations also follow the independent PPU register
+implementation linked above: WRIO bit 7 gates software counter capture, and
+`$212a` returns PPU1 MDR. The additional cartridges preserve all existing fixture
+bytes. Run them together with the original CGRAM control:
+
+```sh
+npm run build:demo
+WEBRTL_SNES_FIXTURES='^(slhv-latch|wbglog-open-bus|cgram-latch)$' npx playwright test --config=playwright.static.config.js --grep 'full SNES RTL'
 ```
 
 

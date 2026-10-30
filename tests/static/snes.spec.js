@@ -46,6 +46,7 @@ cases += [(name,dict(sprite_priority=3,effect=name)) for name in ['obj-limit-32'
 cases += [('multi',dict(transfer='multi'))]
 cases += [(f'audio-{audio}',dict(audio=audio)) for audio in ['feedback','decay-sustain','sustain','adsr-release']]
 cases += [('reject-mode5-as0',dict(mode=0))]
+cases += [(name,dict(effect=name)) for name in ['slhv-latch','wbglog-open-bus']]
 print(json.dumps([dict(name=name,bytes=list(build(**args)[0])) for name,args in cases]))`], { maxBuffer: 32 * 1024 * 1024 }));
 
 // Optional focused reruns still exercise browser compilation and the baseline
@@ -552,11 +553,31 @@ test(`full SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: boots a lo
         .map((t) => [t[1], t[2]]), `${name} CPU read results`).toEqual(
           expected.map((value, i) => [0x7e3100 + i, value]));
     }
-    if (name === "cgram-latch") {
+    if (["cgram-latch", "wbglog-open-bus"].includes(name)) {
       const expected = [0, 0, 0x80, 0x92, 0x5a, 0x23, 0, 0x80, 0x80, 0, 0x80, 0, 0, 0x92];
       expect(writes.filter((t) => t[1] >= 0x7e3200 && t[1] < 0x7e3200 + expected.length)
-        .map((t) => [t[1], t[2]]), "CPU CGRAM readback and PPU1/PPU2 latch isolation").toEqual(
+        .map((t) => [t[1], t[2]]), `${name} CPU CGRAM readback and PPU1/PPU2 latch isolation`).toEqual(
           expected.map((value, i) => [0x7e3200 + i, value]));
+    }
+    if (name === "slhv-latch") {
+      const snapshots = writes.filter((t) => t[1] >= 0x7e3400 && t[1] < 0x7e3418);
+      expect(snapshots.map((t) => t[1]), "six complete CPU counter snapshots").toEqual(
+        Array.from({ length: 24 }, (_, i) => 0x7e3400 + i));
+      const counters = Array.from({ length: 6 }, (_, i) => {
+        const bytes = snapshots.slice(i * 4, i * 4 + 4).map((t) => t[2]);
+        expect([bytes[1], bytes[3]].every((value) => value <= 1)).toBe(true);
+        return { h: bytes[0] | bytes[1] << 8, v: bytes[2] | bytes[3] << 8 };
+      });
+      for (const { h, v } of counters) {
+        expect(h).toBeLessThan(341);
+        expect(v).toBeLessThan(262);
+      }
+      expect(counters[1].v, "enabled SLHV advances the captured counters").toBeGreaterThan(counters[0].v);
+      expect(counters[2].v, "WRIO.7 falling edge still captures").toBeGreaterThan(counters[1].v);
+      expect(counters[3], "disabled SLHV retains the falling-edge capture").toEqual(counters[2]);
+      expect(counters[4], "WRIO.7 rising edge does not capture").toEqual(counters[2]);
+      expect(counters[5].v, "re-enabled SLHV captures again").toBeGreaterThan(counters[2].v);
+      fixtureEvidence.at(-1).counters = counters;
     }
     if (name.startsWith("obj-limit-")) {
       const flag = {"obj-limit-32": 0, "obj-limit-33": 0x40, "obj-limit-34tiles": 0, "obj-limit-35tiles": 0x80}[name];

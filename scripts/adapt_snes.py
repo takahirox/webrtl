@@ -85,6 +85,14 @@ def adapt(sources, boot):
                 source = source.replace(f"17'({product})",
                                         f"17'(shortint'({product}))")
         if name == "src/ppu.v":
+            # WRIO.7 enables software counter capture; its falling edge still
+            # captures independently, including when software reads are gated.
+            source = source.replace(
+                "if (~EXTLATCH && EXTLATCHr || ~PARD_N && PARD_Nr && PA == 8'h37)",
+                "if ((~EXTLATCH && EXTLATCHr) || (EXTLATCH && ~PARD_N && PARD_Nr && PA == 8'h37))")
+            # WBGLOG is a write-only register on the PPU1 open bus.
+            source = source.replace("8'h24, 8'h25, 8'h26, 8'h28, 8'h29:",
+                                    "8'h24, 8'h25, 8'h26, 8'h28, 8'h29, 8'h2A:")
             # CGRAM reads update PPU2 MDR; OAM reads update only PPU1 MDR.
             source = source.replace("PA == 8'h38 || PA == 8'h3C || PA == 8'h3D || PA == 8'h3F",
                                     "PA == 8'h3B || PA == 8'h3C || PA == 8'h3D || PA == 8'h3F")

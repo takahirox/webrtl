@@ -307,7 +307,39 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
     check(1)
     write(0x1e, 1)
     write(0x2100, 0x80)
-    if effect == "cgram-latch":
+    if effect == "slhv-latch":
+        # Capture all nine bits of H/V through CPU loads. The browser compares
+        # snapshots: high software reads and falling WRIO.7 capture; low reads
+        # and the rising edge retain the previous snapshot.
+        def snapshot(index):
+            load(0x213f)  # reset both counter read toggles
+            for offset, address in enumerate([0x213c, 0x213c, 0x213d, 0x213d]):
+                load(address)
+                if offset & 1:
+                    cpu.emit("AND #1 (counter high bit)", 0x29, 1)
+                cpu.emit(f"STA $7e3400+{index * 4 + offset}", 0x8f, index * 4 + offset, 0x34, 0x7e)
+
+        def wait_counter():
+            cpu.emit("128 NOP (advance H and V)", *([0xea] * 128))
+
+        load(0x2137)  # WRIO is still $ff: software capture enabled
+        snapshot(0)
+        wait_counter()
+        load(0x2137)
+        snapshot(1)
+        wait_counter()
+        write(0x4201, 0x7f)  # falling edge captures even though pin is now low
+        snapshot(2)
+        wait_counter()
+        load(0x2137)  # disabled: retain the falling-edge snapshot
+        snapshot(3)
+        wait_counter()
+        write(0x4201, 0xff)  # rising edge alone must not capture
+        snapshot(4)
+        wait_counter()
+        load(0x2137)  # re-enabled: capture the current counters
+        snapshot(5)
+    if effect in ["cgram-latch", "wbglog-open-bus"]:
         # CGRAM high reads inherit bit 7 from PPU2 MDR. Low reads update it;
         # OAM reads update only PPU1 MDR. Record actual CPU results in WRAM.
         observations = []
@@ -334,7 +366,7 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
             write(0x2121, entry)
             observe_ppu(0x213b, low)
             observe_ppu(0x2138, oam)
-            observe_ppu(0x2104, oam)  # PPU1 open bus retains the OAM read
+            observe_ppu(0x212a if effect == "wbglog-open-bus" else 0x2104, oam)
             observe_ppu(0x213b, high)
     write(0x2105, mode)
     stz(0x2107)

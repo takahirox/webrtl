@@ -148,7 +148,9 @@ tile addressing retains the source-height mask. Small rectangular objects in
 size modes 6/7 use the hardware's 16-row interlace source-height exception. Vertical flip includes the
 interlace field bit and flips rectangular objects within each width-sized square.
 CGRAM reads update PPU2 MDR;
-OAM reads update only PPU1 MDR. Flipped Mode 7 coordinates are zero-extended before
+OAM reads update only PPU1 MDR; WBGLOG (`$212a`) reads return that latch.
+SLHV (`$2137`) captures counters only while WRIO bit 7 is high; the falling edge
+of that pin still captures independently. Flipped Mode 7 coordinates are zero-extended before
 signed matrix multiplication; negative DSP pitch modulators use an arithmetic
 shift. DSP echo accesses
 use one latched stereo address, BRR filters preserve signed rounding, out-of-range
@@ -298,6 +300,15 @@ are recorded under `baseFeatureReviewFixValidation` in
 These ranges cover the eight standard cartridge batches per browser, including
 startup. All compilations produced 1,618,010 CXXRTL bytes; observed model linear
 memory remained 20,578,304 bytes. Compiler peak memory was not measured.
+
+The SLHV/WBGLOG correction on 2026-10-30 passed all 10 Python checks and both
+focused SNES browser tests (Chromium/Firefox). Each browser compiled the corrected
+RTL and ran the two new cartridges plus the original CGRAM control, with exact
+frame/PCM checks and baseline input, LoROM/HiROM and deterministic reset checks.
+The new cartridges first reproduced both defects against the previous RTL.
+All 156 existing cartridge variants remain byte-identical; the full sweep and
+the unrelated static browser regressions were not repeated for this correction.
+Pinned-input regeneration reproduces the corrected core exactly.
 
 The opt-in Slang source limit is 2 MiB and its compile timeout 300 seconds; legacy
 projects retain 128 KiB and 120 seconds. Each simulation/ROM-write request retains
