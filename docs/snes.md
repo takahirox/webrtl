@@ -275,8 +275,8 @@ failure below. Results, batch timings and source hashes are recorded under
 
 Earlier trusted-local runs failed with Verilator 5.052 and Emscripten 6.0.13:
 `pthread_getaffinity_np`, `sched_getcpu` and `pthread_setaffinity_np` did not link,
-as recorded in the [setup guide](../README.md#local-setup). The final revision
-passed the complete trusted-local Chromium test in 15.1 seconds using the
+as recorded in the [setup guide](../README.md#local-setup). The base-feature
+review revision passed the complete trusted-local Chromium test in 15.1 seconds using the
 reference Verilator 5.020 version, built unmodified on this macOS arm64 host,
 with Emscripten 6.0.13. Its scoped PATH and VERILATOR_ROOT selected that build;
 port 18765 avoided the existing service on 8765. This supersedes the earlier
@@ -327,6 +327,23 @@ for the identical 269,147-byte Wasm builds are recorded under
 164-cartridge sweep was not rerun. Trusted-local validation failed with the
 installed Verilator 5.052 / Emscripten 6.0.13 linker incompatibility; this run
 does not infer a result from the earlier Verilator 5.020 validation.
+
+The final implementation review ran the unfiltered 60-check static suite in
+Chromium and Firefox. It passed 59 checks; Firefox's first SNES batch exceeded
+the existing five-second ROM-loaded status wait before its fixture loop. That
+unchanged 20-cartridge batch passed in an isolated recheck, completing all 60
+unique checks. Each browser exercised all 164 cartridges, including 163 exact
+positive frames, the retained negative control, and 256 independently checked
+PCM samples per cartridge. All original fixtures and assertions remain unchanged.
+The 18 passing SNES batches produced identical 269,147-byte Wasm artifacts.
+
+The same revision passed the direct native counter build and `npm run test:local`
+using unmodified reference Verilator 5.020 and Emscripten 6.0.13. The browser
+regression took 23.6 seconds. Its isolated service used port 18765 because 8765
+was occupied, with the original test and assertions unchanged. Source selection,
+build prerequisites, full-run and recheck results, current performance ranges,
+and source/artifact hashes are recorded under `finalImplementationValidation`
+in [snes-validation.json](snes-validation.json), now the latest validation entry.
 
 The opt-in Slang source limit is 2 MiB and its compile timeout 300 seconds; legacy
 projects retain 128 KiB and 120 seconds. Each simulation/ROM-write request retains

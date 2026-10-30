@@ -678,7 +678,7 @@
     },
     "limits": "Local two-worker browser measurements do not establish Ubuntu CI performance or exhaustive base-console conformance. Compiler peak memory was not measured. Native trusted-local check remains failed; live Pages verification remains pending."
   },
-  "latestValidation": "baseFeatureReviewFixValidation",
+  "latestValidation": "finalImplementationValidation",
   "baseFeatureReviewFixValidation": {
     "date": "2026-10-30",
     "sourceHashes": {
@@ -1444,5 +1444,300 @@
       ]
     },
     "limits": "The complete 164-cartridge sweep was not rerun. Native toolchain remains incompatible. Compiler peak memory and real-time playability unverified. No Issue completion claim; post-merge live Pages verification remains pending. No push or merge performed."
+  },
+  "finalImplementationValidation": {
+    "date": "2026-10-30",
+    "scope": "Final implementation validation for the two agent-fixable review findings on Issue #22.",
+    "reviewedPrHead": "09e876c2e6909f56c76add7e06d4220ef2d5cc20",
+    "checkpoint": "5f30e752d46bebe99467e68d28f8f6e0707a04a2",
+    "host": "macOS arm64, Apple M4 Max",
+    "versions": {
+      "node": "v26.12.1",
+      "playwright": "1.64.1",
+      "chromium": "Google Chrome for Testing 156.0.8078.4",
+      "firefox": "Mozilla Firefox 157.0"
+    },
+    "python": {
+      "command": "python3 -m unittest discover -s tests -v",
+      "passed": 10
+    },
+    "staticBuild": {
+      "command": "npm run build:demo",
+      "passed": true
+    },
+    "staticBrowsers": {
+      "status": "passed across the unfiltered run and one unchanged Firefox batch recheck",
+      "command": "env -u WEBRTL_SNES_FIXTURES PLAYWRIGHT_JSON_OUTPUT_NAME=.build/final-validation/static-results.json npx playwright test --config=playwright.static.config.js --workers=2 --output=.build/final-validation/static-artifacts --reporter=line,json",
+      "firefoxBatchRecheck": {
+        "command": "env -u WEBRTL_SNES_FIXTURES PLAYWRIGHT_JSON_OUTPUT_NAME=$PWD/.build/final-validation/recheck-results.json npx playwright test --config=.build/final-validation/recheck.config.cjs --project=firefox --grep 'full SNES RTL batch 1/9:' --workers=1 --output=.build/final-validation/recheck-artifacts --reporter=line,json",
+        "configuration": "Original static config and test contents; temporary config changes only service/base URL port to 18766 and resolves cwd/test paths. Separate output directory.",
+        "stats": {
+          "startTime": "2026-10-30T08:36:52.971Z",
+          "duration": 329289.865,
+          "expected": 1,
+          "skipped": 0,
+          "unexpected": 0,
+          "flaky": 0
+        },
+        "reportSha256": "cebdd332e4f2c47b32ce941b82d7d9759def84a53df1faaedbcda51aeb6cada7",
+        "reason": "The unfiltered run exceeded the five-second ROM-loaded status wait in Firefox batch 1 before its fixture loop. This unchanged 20-cartridge batch passed in the recheck."
+      },
+      "initialStats": {
+        "startTime": "2026-10-30T07:48:08.335Z",
+        "duration": 3548554.864,
+        "expected": 59,
+        "skipped": 0,
+        "unexpected": 1,
+        "flaky": 0
+      },
+      "initialReportSha256": "92d5076e2c134bb97cd4f36934d059167bea147caa509447f23f587e0cc86d19",
+      "initialFailure": "Firefox batch 1 exceeded the existing five-second ROM-loaded status assertion before the fixture loop; no hardware fixture assertion failed. The unchanged batch passed in the isolated recheck.",
+      "uniqueChecksPassed": 60,
+      "checksPerBrowser": 30,
+      "passedSnesBatches": 18,
+      "fixtureFiltering": false,
+      "fixturesAndAssertionsModified": false,
+      "cartridgeManifestSha256": "1a867a447e6b0a8ec7d4261e2dbb949b7824ae139f17eabbad4d39c7c7faf800",
+      "cartridgeVariantsPerBrowser": 164,
+      "sameFrameHashesAcrossBrowsers": true,
+      "wasmSha256": "11f035b30dc9376378cd660bac91a03b0db8ba6a9fa9badab07e08eb153bc3d6",
+      "identicalWasmCapturesInPassedBatches": 18,
+      "browsers": {
+        "chromium": {
+          "passedSnesBatches": 9,
+          "cartridges": 164,
+          "exactPositiveFrames": 163,
+          "positivePixelMismatches": 0,
+          "negativeControlRejectedPixels": 57344,
+          "pcmSamplesComparedPerCartridge": 256,
+          "frameAndPcmResultsSha256": "c7aaaf070ac2718bff7761bd3e1e4139622619ee0085a01d7675a61ae37b8feb",
+          "batches": [
+            {
+              "batch": 1,
+              "cartridges": 20,
+              "fixtureResultsSha256": "78f17a94f8a43d1d5ab4aab8f84f80cb2b12e95159181e51325d5a1cf37b6215"
+            },
+            {
+              "batch": 2,
+              "cartridges": 20,
+              "fixtureResultsSha256": "05bba24be7d64db65d635d3e258526ffcc86f9de12e04adbaa8bd0d223be47da"
+            },
+            {
+              "batch": 3,
+              "cartridges": 20,
+              "fixtureResultsSha256": "157f11c87471007f913d5a19a4bf1f343f27ecd691303906efb492654007fde1"
+            },
+            {
+              "batch": 4,
+              "cartridges": 20,
+              "fixtureResultsSha256": "57efe290b9e4011634905c8fe8280698614d03d1cc68889dc0adc05e88806c41"
+            },
+            {
+              "batch": 5,
+              "cartridges": 20,
+              "fixtureResultsSha256": "f18f0598b16d4bb3ff9e944c8df224186069d153af7bb95cc741d3a37a6b6f30"
+            },
+            {
+              "batch": 6,
+              "cartridges": 21,
+              "fixtureResultsSha256": "03eb479796d00b9ceb231a248468b3545a47297e8b63d6c7c90c8455c4cdfe6f"
+            },
+            {
+              "batch": 7,
+              "cartridges": 20,
+              "fixtureResultsSha256": "019c19001ffc22a2ea59d1e59381f8edf0a41cd194c2de42839ec75f72aabaab"
+            },
+            {
+              "batch": 8,
+              "cartridges": 20,
+              "fixtureResultsSha256": "61470c083bf7e417d7ee9a9ce42b74677aa42c7cd4940eb94ca01583a7734ca8"
+            },
+            {
+              "batch": 9,
+              "cartridges": 3,
+              "fixtureResultsSha256": "b3d9769a3bebf5148492996b9ff7d4af28d5caefdc4aecc74493daf4e17c2c6a"
+            }
+          ]
+        },
+        "firefox": {
+          "passedSnesBatches": 9,
+          "cartridges": 164,
+          "exactPositiveFrames": 163,
+          "positivePixelMismatches": 0,
+          "negativeControlRejectedPixels": 57344,
+          "pcmSamplesComparedPerCartridge": 256,
+          "frameAndPcmResultsSha256": "c7aaaf070ac2718bff7761bd3e1e4139622619ee0085a01d7675a61ae37b8feb",
+          "batches": [
+            {
+              "batch": 1,
+              "cartridges": 20,
+              "fixtureResultsSha256": "78f17a94f8a43d1d5ab4aab8f84f80cb2b12e95159181e51325d5a1cf37b6215"
+            },
+            {
+              "batch": 2,
+              "cartridges": 20,
+              "fixtureResultsSha256": "05bba24be7d64db65d635d3e258526ffcc86f9de12e04adbaa8bd0d223be47da"
+            },
+            {
+              "batch": 3,
+              "cartridges": 20,
+              "fixtureResultsSha256": "157f11c87471007f913d5a19a4bf1f343f27ecd691303906efb492654007fde1"
+            },
+            {
+              "batch": 4,
+              "cartridges": 20,
+              "fixtureResultsSha256": "57efe290b9e4011634905c8fe8280698614d03d1cc68889dc0adc05e88806c41"
+            },
+            {
+              "batch": 5,
+              "cartridges": 20,
+              "fixtureResultsSha256": "f18f0598b16d4bb3ff9e944c8df224186069d153af7bb95cc741d3a37a6b6f30"
+            },
+            {
+              "batch": 6,
+              "cartridges": 21,
+              "fixtureResultsSha256": "03eb479796d00b9ceb231a248468b3545a47297e8b63d6c7c90c8455c4cdfe6f"
+            },
+            {
+              "batch": 7,
+              "cartridges": 20,
+              "fixtureResultsSha256": "019c19001ffc22a2ea59d1e59381f8edf0a41cd194c2de42839ec75f72aabaab"
+            },
+            {
+              "batch": 8,
+              "cartridges": 20,
+              "fixtureResultsSha256": "61470c083bf7e417d7ee9a9ce42b74677aa42c7cd4940eb94ca01583a7734ca8"
+            },
+            {
+              "batch": 9,
+              "cartridges": 3,
+              "fixtureResultsSha256": "b3d9769a3bebf5148492996b9ff7d4af28d5caefdc4aecc74493daf4e17c2c6a"
+            }
+          ]
+        }
+      }
+    },
+    "trustedLocal": {
+      "status": "passed",
+      "command": "PLAYWRIGHT_JSON_OUTPUT_NAME=.build/final-validation/local-results.json npm run test:local -- --config=.build/final-validation/local.config.cjs --reporter=line,json",
+      "stats": {
+        "startTime": "2026-10-30T08:01:09.766Z",
+        "duration": 23574.313,
+        "expected": 1,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "reportSha256": "923e794dcc2bd84940f276b723d7388032c73480ff50429431c18bb6be4f5951",
+      "verilator": "5.020",
+      "verilatorSource": "https://github.com/verilator/verilator/tree/5c5314b39cd888f427807d626e1502cbf222c292",
+      "verilatorSourceModified": false,
+      "emscripten": "6.0.13-git",
+      "configuration": "Original tests/browser/counter.spec.js and assertions unchanged. Temporary config inherits playwright.config.js; only service/base URL port (8765 to 18765), cwd/test paths and output directory differ. Port 8765 was occupied and left untouched.",
+      "selection": "export VERILATOR_ROOT=\"$PWD/.build/toolchains/verilator-5.020\"; export PATH=\"$VERILATOR_ROOT/bin:$PATH\", scoped to the build/test shell.",
+      "referenceBuild": "Unmodified v5.020 checkout, autoconf, ./configure CPPFLAGS=-I<GNU_FLEX_PREFIX>/include, make -C src -j4 ../bin/verilator_bin. GNU Flex 2.6.4 and its matching headers selected together; Apple Flex scanner/header signatures fail to link with this release. Autoconf 2.72 and GNU M4 1.4.19 also built locally. No global tools replaced.",
+      "directBuild": {
+        "command": "python3 build.py examples/counter.v .build/final-validation/native-counter",
+        "passed": true,
+        "wasmBytes": 186868,
+        "wasmSha256": "a879af6b5e27461cce9dbf2babe7cf04ffd7233bbd95e3ad2932ed1b39dab4bf",
+        "moduleSha256": "62cdb9962ecc265f244e7195b53dcd59db64a82047951fb0eac66b01a6538347"
+      }
+    },
+    "testedInputSha256": {
+      "build.py": "a53cce3471a703c92193ecf08a9c9bf8b6d186ce5716d245942113ff9c99775b",
+      "build_site.py": "1b0b1a4cd74356a40c302fb4ee8a6566bfcce4e5decb36b93bf3a2156d1541ec",
+      "examples/snes/LICENSE": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+      "examples/snes/README.md": "299f2db8050f9697b370baaf299dce916d8e4de68dc06b5c614af8b3a0b822b8",
+      "examples/snes/boot/LICENSE": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+      "examples/snes/boot/README.md": "d4348f6bc1e2abce2bcb37258b7d4e7960bd02b5fbb4bc32fb2f4d9608f49c0d",
+      "examples/snes/boot/docs/protocol.md": "84f563ab5742a88588246160a29a425487de24fcb4d114c3dff8a6f7fa4995b5",
+      "examples/snes/boot/docs/testing.md": "fed6b52ce3a804408005e222bed0fbd763bdeb9f68936ac204ef521cd18b94fe",
+      "examples/snes/boot/listing.txt": "000dc78c23af4688cdf7fda2f9206ad8db3ce608dc5a5ee45549bd03b216ee17",
+      "examples/snes/boot/spc700-boot-rom.bin": "69ef17c3f4ff6f44ca3d86a344360e785fb1eb0ff0f51305e46c70d594a7fb65",
+      "examples/snes/boot/spc700_boot_rom.h": "167f346894859ac837bd4b2cfa9094a4d8bd07b39568c4ce98250b69c9ae3cf6",
+      "examples/snes/boot/src/assemble.py": "95be0a96f434be03cf9e61efef619e38d83153a50b900debe29924c0cdcd14aa",
+      "examples/snes/snes-core.v": "61b57cad71edaea173e5949adbf2d65f6c52ffbd84761f42c9c174f6595a75f5",
+      "examples/snes/snes.v": "0c707bd087c18279952a4a490045b954041475c8ec417f7dcaaa630e79fffec2",
+      "examples/snes/test-listing.txt": "982d76c135cb84d501581b0800a787f8313c6e6099f8244592037f4ff4c6bf83",
+      "examples/snes/test.sfc": "1f8ec0ba8bbc51e917c5104f771003e97705c8f2491258593f8181013da35fdb",
+      "examples/snes/upstream.json": "6118fd887337ebb9e17c431e023732833a3370029686187aed238722d9e9650e",
+      "package-lock.json": "541217566bd0ba90e22dd1c5358fd3b362853d705ac75d9c1f1e36139ef9e597",
+      "package.json": "07800e9a7e7b065aed8421b3ed238bf9be38611222904694eb3501598db87d76",
+      "playwright.config.js": "a305bfcc32c172ab9fb74fa8839dcec1340a41ca51b38d6e2cbd3a55361e7688",
+      "playwright.static.config.js": "8068db8aebfe9a627f5856e8c7db7091df49dc2f07d3f3ce25168d9c921d3de4",
+      "simulator.cpp": "cf51810c09407d7c313dd799d69c586f2bd9ce64a516c56adc996f6913ef3eaf",
+      "tests/browser/counter.spec.js": "4876539664c6bc441ae5ffbec63a887c6f017084087768976e6e5eddd4eb64cc",
+      "tests/static/backdrop.spec.js": "7cca9827398df97dbdbcabb62b0f50919c3d3c926574bc6f2b13be0c2865741b",
+      "tests/static/bg1.spec.js": "14397faf0c1cab219fe286f59e7af120be3125852070ba6a98c4e1d263e2fc5c",
+      "tests/static/counter.spec.js": "b87f66acc16e0629bdd1773aeb736cc86d9aadfa677aa38f02328492161e2a45",
+      "tests/static/cpu-bus.spec.js": "66a72b658f5ea8a9fee9b3440a105c9b45803b958bc75ee6f8ef2bc73936bb74",
+      "tests/static/cpu816.spec.js": "4f078078db5ba05f67b290b848c706e30ab047a5488d2827d349417573396c27",
+      "tests/static/outputs.spec.js": "74295dfad6ab354de831431f5b1082ad38ef9817249ce8c7cd5e95f94fb1e98c",
+      "tests/static/snes.spec.js": "72c9b08fb192c805c427d91b4babb8fc2cf18322a3578e0d1dd745f10544a587",
+      "web/app.js": "e7300ae748a49ef6b5f4f6c44079b6edbdcde3022019a1251c887d4ab409cfce",
+      "web/audio-output.js": "7ffea14c5bea930c3f6d31261f3fb8b208060464c8e4d159762b3490b61ad982",
+      "web/browser-client.js": "38b54c727b49fac21ccb777ca34b2eaf3650a9daf824614f45ea8c5047c11cb6",
+      "web/browser-simulator.cpp": "7f01a21f91241c8fd3dc0e15588bb61c64f3525d92a593ba37979db81da09fc4",
+      "web/compiler-worker.js": "d444cb2c60ad029fbb21cee421401a77f7c9f882f5e6b933ddeed93bcd17a7c4",
+      "web/compiler.js": "1694755644332981d93a73ac0550697e608c07b668f7100d74fa45a4407c3a1d",
+      "web/index.html": "d47c115f1e4b760085ec23d1c9d4556276e8aae1c607059622a4bb36f7a27d2b",
+      "web/output-contracts.js": "9bef190f1a3e9346835437e495d61a7c92828a5f833c64d9b33eb3d08418f97d",
+      "web/project.js": "cf06503c3634a638bafffd3f69f7c34e1b29fb3a4e1d898c07ddc2f635b90de5",
+      "web/simulator-worker.js": "35d5049d8cf718aef020069c044902ef3c02e3c74e1a58c86e53d938c43be661",
+      "web/snes-rom.js": "c1894003d4ae99596d2308b28fd3e0f7942f8f7a4f4466b0f2cedb842c5c8541",
+      "web/style.css": "f494df42a8a2c6764bb6e33d4ff6dc7860cb8f6869f7eb06f742ffe6fba7be3a",
+      "web/third-party-notices.txt": "97fae9b8cad693cb56b9508273cc99e86913e3b03015bb1eee55574721b6e746"
+    },
+    "limits": "All requested final pre-merge suites were executed with original fixtures and assertions. Bounded fixtures do not establish exhaustive conformance or real-time playability. Live Pages verification remains pending publication; no deployed-site or Ubuntu/GitHub CI result is inferred. No push or merge performed.",
+    "measurements": [
+      {
+        "browser": "chromium",
+        "compilations": 9,
+        "compileMs": {
+          "min": 71912.59999999776,
+          "max": 131406.90000000224
+        },
+        "wasmBytes": 269147,
+        "cxxrtlBytes": 1621880,
+        "observedRuntimeMemoryBytes": 20578304,
+        "masterClocksPerSecond": {
+          "min": 194446.2156030019,
+          "max": 263209.2232092541
+        },
+        "capturedFramesPerSecond": {
+          "min": 0.4654139275117808,
+          "max": 0.6300006300007039
+        },
+        "realTimeRatio": {
+          "min": 0.009053581558689811,
+          "max": 0.012255245811467384
+        }
+      },
+      {
+        "browser": "firefox",
+        "compilations": 9,
+        "compileMs": {
+          "min": 78726,
+          "max": 180591
+        },
+        "wasmBytes": 269147,
+        "cxxrtlBytes": 1621880,
+        "observedRuntimeMemoryBytes": 20578304,
+        "masterClocksPerSecond": {
+          "min": 84925.70383169022,
+          "max": 216416.47241647242
+        },
+        "capturedFramesPerSecond": {
+          "min": 0.20327269031405631,
+          "max": 0.518000518000518
+        },
+        "realTimeRatio": {
+          "min": 0.003954213167301534,
+          "max": 0.01007653544498311
+        }
+      }
+    ],
+    "measurementLimits": "Runtime ranges cover active sequential worker requests including startup, under concurrent browser workloads; exclude compilation/loading/pauses. Compiler peak memory was not measured. Wasm memory limit remains 67,108,864 bytes."
   }
 }
