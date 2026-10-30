@@ -5774,6 +5774,17 @@ reg [7:0] SPC700_D_IN, SPC700_D_OUT;
 wire [15:0] SPC700_A;
 wire SPC700_R_WN;
 wire SPC700_CE;
+wire SPC700_P, SPC700_IDLE;
+reg [3:0] WAIT_CNT;
+reg [5:0] TIMER_STEP;
+wire INTERNAL_ACCESS;
+wire [1:0] ACCESS_SPEED;
+// One normal SMP slot is two reference clocks. Selections 2/3 use the
+// documented deterministic 10/20-clock model; real silicon is unstable.
+wire [3:0] ACCESS_SLOTS = ACCESS_SPEED == 0 ? 4'd1 :
+                          ACCESS_SPEED == 1 ? 4'd2 :
+                          ACCESS_SPEED == 2 ? 4'd5 : 4'd10;
+wire ACCESS_READY = WAIT_CNT == ACCESS_SLOTS - 4'd1;
 reg TIMER_CE;
 
 reg [7:0] CPUI[0:3];
@@ -5802,7 +5813,15 @@ reg [7:0] T0_CNT, T1_CNT, T2_CNT;
 wire RESET01, RESET23;
 localparam [7:0] IPLROM[0:63] = '{8'hcd,8'hef,8'hbd,8'he8,8'h00,8'hc6,8'h1d,8'hd0,8'hfc,8'hc6,8'h8f,8'haa,8'hf4,8'h8f,8'hbb,8'hf5,8'h78,8'hcc,8'hf4,8'hd0,8'hfb,8'hba,8'hf6,8'hda,8'h00,8'hfa,8'hf4,8'hf4,8'he4,8'hf5,8'hf0,8'h1b,8'h8d,8'h00,8'h7e,8'hf4,8'hd0,8'hfc,8'he4,8'hf5,8'hcb,8'hf4,8'hd7,8'h00,8'hfc,8'hf0,8'h08,8'h7e,8'hf4,8'hf0,8'hf3,8'h10,8'hfa,8'h2f,8'hde,8'hab,8'h01,8'h2f,8'hf4,8'h1f,8'h00,8'h00,8'hc0,8'hff};
 
-assign SPC700_CE = ENABLE & CE;
+assign INTERNAL_ACCESS = SPC700_IDLE || SPC700_A[15:4] == 12'h00f ||
+                         (IPL_EN && SPC700_A >= 16'hffc0);
+assign ACCESS_SPEED = INTERNAL_ACCESS ? CLK_SPEED : TM_SPEED;
+assign SPC700_CE = ENABLE & CE & ACCESS_READY;
+always @(posedge CLK) begin
+    if (!RST_N) WAIT_CNT <= 0;
+    else if (ENABLE && CE)
+        WAIT_CNT <= ACCESS_READY ? 4'd0 : WAIT_CNT + 4'd1;
+end
 
 always @(posedge CLK) begin
     if (RST_N == 1'b0) begin
@@ -5837,6 +5856,7 @@ SPC700 SPC700 (
     .CLK(CLK),
     .RST_N(RST_N),
     .RDY(SPC700_CE),
+    .P_OUT(SPC700_P), .IDLE(SPC700_IDLE),
     .IRQ_N(1'b1),
     .A_OUT(SPC700_A),
     .D_IN(SPC700_D_IN),
@@ -5851,12 +5871,14 @@ SPC700 SPC700 (
 );
 
 always @(posedge CLK) begin : spc_timers
-    reg [4:0] TM_STEP;
+    reg [5:0] TM_STEP;
     reg [8:0] NEW_TM01_CNT;
-    reg [5:0] NEW_TM2_CNT;
+    reg [6:0] NEW_TM2_CNT;
 
     if (~RST_N) begin
         CLK_SPEED <= 0;
+        TEST <= 8'h0a;
+        TIMER_STEP <= 6'd3;
         TM_SPEED <= 0;
         TIMERS_ENABLE <= 1'b1;
         TIMERS_DISABLE <= 1'b0;
@@ -5906,10 +5928,12 @@ always @(posedge CLK) begin : spc_timers
             end
         end else if (SPC700_CE) begin
             TIMER_CE <= 1;
+            TIMER_STEP <= 6'd3 << ACCESS_SPEED;
             if (SPC700_A[15:4] == 12'h00F) begin
                 if (~SPC700_R_WN) begin
                     case (SPC700_A[3:0])
-                        4'h0: begin
+                        4'h0: if (!SPC700_P) begin
+                            TEST <= SPC700_D_OUT;
                             CLK_SPEED <= SPC700_D_OUT[7:6];
                             TM_SPEED <= SPC700_D_OUT[5:4];
                             TIMERS_ENABLE <= SPC700_D_OUT[3];
@@ -5961,7 +5985,7 @@ always @(posedge CLK) begin : spc_timers
         end
 
         if (TIMER_CE) begin
-            TM_STEP = (5'b00001 << CLK_SPEED) + (5'b00010 << TM_SPEED);
+            TM_STEP = TIMER_STEP;
             NEW_TM01_CNT = TM01_CNT + 9'(TM_STEP);
             if (NEW_TM01_CNT[8:7] == 2'b11) begin
                 TM01_CNT <= NEW_TM01_CNT & 9'b001111111;
@@ -5982,9 +6006,9 @@ always @(posedge CLK) begin : spc_timers
             end else
                 TM01_CNT <= NEW_TM01_CNT;
 
-            NEW_TM2_CNT = TM2_CNT + TM_STEP;
-            if (NEW_TM2_CNT[5:4] == 2'b11) begin
-                TM2_CNT <= NEW_TM2_CNT & 6'b001111;
+            NEW_TM2_CNT = {1'b0, TM2_CNT} + {1'b0, TM_STEP};
+            if (NEW_TM2_CNT >= 7'd48) begin
+                TM2_CNT <= 6'(NEW_TM2_CNT - 7'd48);
                 if (TM_EN[2] && TIMERS_ENABLE && ~TIMERS_DISABLE) begin
                     T2_CNT <= T2_CNT + 1;
                     if (T2_CNT + 8'd1 == T2DIV) begin
@@ -5993,7 +6017,7 @@ always @(posedge CLK) begin : spc_timers
                     end
                 end
             end else
-                TM2_CNT <= NEW_TM2_CNT;
+                TM2_CNT <= NEW_TM2_CNT[5:0];
         end
     end
 end
@@ -6023,8 +6047,8 @@ always @* begin
 end
 
 assign A = SPC700_A;
-assign WE_N = SPC700_R_WN;
-assign RAM_WE_N = SPC700_R_WN | ~RAM_WRITE_EN | RAM_DISABLE;
+assign WE_N = SPC700_R_WN | ~ACCESS_READY;
+assign RAM_WE_N = WE_N | ~RAM_WRITE_EN | RAM_DISABLE;
 assign DO = SPC700_D_OUT;
 
 always @* begin
@@ -10205,6 +10229,8 @@ module SPC700(
     output wire [7:0] D_OUT,    // this is comb logic heavy
     output reg [15:0] A_OUT  /* synthesis syn_keep=1 */,
     output reg WE_N,
+    output wire P_OUT,
+    output wire IDLE,
     input wire [7:0] DBG_REG,
     input wire [7:0] DBG_DAT_IN,
     output reg [7:0] DBG_DAT_OUT,
@@ -10251,6 +10277,7 @@ reg DBG_DAT_WRr;
 reg [15:0] DBG_BRK_ADDR = 16'b1111_1111_1111_1111;
 reg [7:0] DBG_CTRL = 8'b0;
 
+assign P_OUT = PSW[5];
 assign EN = RDY &  ~STPExec;
 assign NextIR = (STATE != 4'b0000) ? IR : GotInterrupt == 1'b1 ? 8'h0F : D_IN;
 always @(posedge CLK) begin : spc_jumps
@@ -10358,7 +10385,7 @@ SPC700_MCode MCode(
     .EN(EN),
     .IR(NextIR),
     .STATE(NextState),
-    .M(MC));
+    .M(MC), .IDLE(IDLE));
 
 SPC700_AddrGen AddrGen(
     .CLK(CLK),
@@ -10682,6 +10709,7 @@ module SPC700_MCode(
     input EN,
     input [7:0] IR,
     input [3:0] STATE,
+    output reg IDLE,
     output SpcMCode_r M
 );
 
@@ -13000,19 +13028,31 @@ MCODE0[2047]={2'bXX,2'bXX,6'bXXXXXX,5'bXXXXX,2'bXX,5'bXXXXX,6'bXXXXXX,3'bXXX};
 end
 
 
+// Idle flags derived from upstream bus-access annotations.
+localparam [2047:0] IDLE_MAP = {
+    256'hfcf4fcfcf4e0f4f8d0e8e8f4e8f024fcfcf8fcf0f8e0f0fcc4f8f0f8e8f024fc,
+    256'hfcd4fcfce4e0e4f090c8c8e4e8f024fcfcf8fce0f0d0e0fc84f0e0f0e8f024fc,
+    256'hf8fcfcfce4e8e0e0d0e8e8f4e8f024fcf4f4fce0f0f0c0fcc4f8f0f8e8f024fc,
+    256'hfcfcfcfce4e8e0e0d0e8e8f4e8f024fce0f4fce0f0f0c0fcc4f8f0f8e8f024fc,
+    256'hc8f8fcfce4e8f0f0d0e8e8f4e8f024fcf0e0f8e0f0f0e0fcc4f8f0f8e8f024fc,
+    256'hf8f0fcfce4e8e0e0d0e8e8f4e8f024fce4c0f8e0f0f0c0fcc4f8f0f8e8f024fc,
+    256'he0f8fcfce4c0e0e0d0e8e8f4e8f024fcfce8f8e0f0f0c0fcc4f8f0f8e8f024fc,
+    256'hc8f0fcfce4c0e0e0d0e8e8f4e8f024fc20c0f8e0f0f0c0fcc4f8f0f8e8f024fc
+};
+
 SpcMicroInst_r MI;
 SpcALUCtrl_r ALUFlags;
 SpcRegCtrl_r R;
 
 always @(posedge CLK) begin
     if (~RST_N)
-        MI <= MCODE0[0]; // {2'b0, 2'b0, 6'b0, 5'b1, 2'b0, 5'b0, 6'b0, 3'b0};
+        begin MI <= MCODE0[0]; IDLE <= IDLE_MAP[0]; end // {2'b0, 2'b0, 6'b0, 5'b1, 2'b0, 5'b0, 6'b0, 3'b0};
     else if (EN) begin
-		MI <= MCODE0[{IR, STATE[2:0]}];
+		begin MI <= MCODE0[{IR, STATE[2:0]}]; IDLE <= IDLE_MAP[{IR, STATE[2:0]}]; end
 		if (IR == 8'h9E && STATE[3])		// DIV
-			MI <= MCODE0[{9'h1,STATE[1:0]}];
+			begin MI <= MCODE0[{9'h1,STATE[1:0]}]; IDLE <= IDLE_MAP[{9'h1,STATE[1:0]}]; end
 		else if (IR == 8'hCF && STATE[3])	// MUL
-			MI <= MCODE0[3];
+			begin MI <= MCODE0[3]; IDLE <= IDLE_MAP[3]; end
 	end
 end
 

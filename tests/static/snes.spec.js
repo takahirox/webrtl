@@ -49,6 +49,9 @@ cases += [('reject-mode5-as0',dict(mode=0))]
 cases += [(name,dict(effect=name)) for name in ['slhv-latch','wbglog-open-bus']]
 cases += [(f'apu-{check}',dict(apu_check=check)) for check in
  ['ram-write-enable','ram-write-protect','ram-disable-read','ram-disable-write','ram-disable-dsp','ram-disable-aux']]
+cases += [(f'apu-{check}',dict(apu_check=check)) for check in ['test-p-set','test-p-clear']]
+cases += [(f'apu-clock-{internal}-{external}',dict(apu_check=f'clock-{internal}-{external}'))
+ for internal,external in [(0,0),(1,0),(0,1),(1,1),(2,0),(0,2),(2,2),(3,0),(0,3),(3,3)]]
 print(json.dumps([dict(name=name,bytes=list(build(**args)[0])) for name,args in cases]))`], { maxBuffer: 32 * 1024 * 1024 }));
 
 // Optional focused reruns still exercise browser compilation and the baseline
@@ -481,7 +484,8 @@ test(`full SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: boots a lo
         }
         const onset = pcm.findIndex((sample) => sample !== 0);
         modeResults.push({ name: fixture.name, height, mismatches, examples, frameHash: frame && frameHash(frame),
-          trace, pcm: pcm.slice(-256), onset: pcm.slice(onset, onset + 2048), hdma, observations });
+          trace, pcm: pcm.slice(-256), onset: pcm.slice(onset, onset + 2048), hdma, observations,
+          sampleCount: pcm.length, cycles: 64 * 512 + (batches - 64) * 16384 });
       }
       return { first, repeat, hi, modeResults, metrics: window.compiled.metrics,
         validWasm: WebAssembly.validate(window.compiled.wasm) };
@@ -508,12 +512,26 @@ test(`full SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: boots a lo
     expect(auxRepeat.frameHash, "AUX checks repeat after power reset").toBe(aux.frameHash);
     expect(auxRepeat.pcm).toEqual(aux.pcm);
   }
+  const clockBase = results.modeResults.find((r) => r.name === "apu-clock-0-0");
+  for (const fixture of results.modeResults.filter((r) => r.name.startsWith("apu-clock-"))) {
+    expect(fixture.observations, `${fixture.name} reports readiness once`).toHaveLength(1);
+    if (!clockBase) continue; // Focused selections can omit the comparison ROM.
+    const [, , internal, external] = fixture.name.split("-").map(Number);
+    const waits = [1, 2, 5, 10]; // independent SMP timing reference, in normal slots
+    const addedSlots = 132 * (waits[internal] - 1) + 406 * (waits[external] - 1);
+    const expectedClocks = addedSlots * 21477270 / 1024000;
+    const actualClocks = fixture.observations[0][0] - clockBase.observations[0][0];
+    // CPU polling and the fractional APU clock introduce bounded observation
+    // latency; this is less than five normal SMP cycles across 538 accesses.
+    expect(Math.abs(actualClocks - expectedClocks), `${fixture.name} access-specific waits`).toBeLessThan(100);
+  }
   const fixtureEvidence = [];
-  for (const { name, height, mismatches, examples, trace, pcm, onset, hdma, observations } of results.modeResults) {
+  for (const { name, height, mismatches, examples, trace, pcm, onset, hdma, observations, sampleCount, cycles } of results.modeResults) {
     fixtureEvidence.push({ name, height, mismatches, examples, pcm: pcm.slice(0, 32), hdma });
     if (name.startsWith("reject-")) expect(mismatches, name).toBeGreaterThan(50000);
     else expect.soft({ mismatches, examples }, name).toEqual({ mismatches: 0, examples: [] });
     expect(pcm.length, `${name} retains the PCM sample clock`).toBe(256);
+    expect(Math.abs(sampleCount - cycles * 32000 / 21477270), `${name} independent DSP sample clock`).toBeLessThan(2);
     if (["audio-decay-sustain", "audio-sustain", "audio-adsr-release"].includes(name)) {
       const phases = [0, 1].map((phase) => envelopePcm(name, phase));
       // Skip only interpolation startup. Compare every subsequent sample

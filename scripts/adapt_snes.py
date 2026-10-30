@@ -165,6 +165,43 @@ def adapt(sources, boot):
             source = source.replace("if (temp[5])\n            temp = 6'b111111;",
                                     "if (temp[5] && !half)\n            temp = 6'b111111;")
         if name == "src/smp.v":
+            # TEST writes require P=0 even when absolute addressing reaches
+            # $00f0 with P=1. Expose the flag rather than infer it from A.
+            source = source.replace("wire SPC700_CE;", """wire SPC700_CE;
+wire SPC700_P, SPC700_IDLE;
+reg [3:0] WAIT_CNT;
+reg [5:0] TIMER_STEP;
+wire INTERNAL_ACCESS;
+wire [1:0] ACCESS_SPEED;
+// One normal SMP slot is two reference clocks. Selections 2/3 use the
+// documented deterministic 10/20-clock model; real silicon is unstable.
+wire [3:0] ACCESS_SLOTS = ACCESS_SPEED == 0 ? 4'd1 :
+                          ACCESS_SPEED == 1 ? 4'd2 :
+                          ACCESS_SPEED == 2 ? 4'd5 : 4'd10;
+wire ACCESS_READY = WAIT_CNT == ACCESS_SLOTS - 4'd1;""")
+            source = source.replace("assign SPC700_CE = ENABLE & CE;", """assign INTERNAL_ACCESS = SPC700_IDLE || SPC700_A[15:4] == 12'h00f ||
+                         (IPL_EN && SPC700_A >= 16'hffc0);
+assign ACCESS_SPEED = INTERNAL_ACCESS ? CLK_SPEED : TM_SPEED;
+assign SPC700_CE = ENABLE & CE & ACCESS_READY;
+always @(posedge CLK) begin
+    if (!RST_N) WAIT_CNT <= 0;
+    else if (ENABLE && CE)
+        WAIT_CNT <= ACCESS_READY ? 4'd0 : WAIT_CNT + 4'd1;
+end""")
+            source = source.replace(".RDY(SPC700_CE),", ".RDY(SPC700_CE),\n    .P_OUT(SPC700_P), .IDLE(SPC700_IDLE),")
+            source = source.replace("CLK_SPEED <= 0;", "CLK_SPEED <= 0;\n        TEST <= 8'h0a;\n        TIMER_STEP <= 6'd3;")
+            source = source.replace("4'h0: begin\n                            CLK_SPEED", "4'h0: if (!SPC700_P) begin\n                            TEST <= SPC700_D_OUT;\n                            CLK_SPEED")
+            # Timers advance nominal 2/4/8/16 reference clocks per access,
+            # independently of the CPU's anomalous 10/20-clock wait counts.
+            # Latch the completed access selection before the CPU changes A.
+            source = source.replace("TIMER_CE <= 1;", "TIMER_CE <= 1;\n            TIMER_STEP <= 6'd3 << ACCESS_SPEED;")
+            source = source.replace("reg [4:0] TM_STEP;", "reg [5:0] TM_STEP;")
+            source = source.replace("TM_STEP = (5'b00001 << CLK_SPEED) + (5'b00010 << TM_SPEED);", "TM_STEP = TIMER_STEP;")
+            source = source.replace("reg [5:0] NEW_TM2_CNT;", "reg [6:0] NEW_TM2_CNT;")
+            source = source.replace("NEW_TM2_CNT = TM2_CNT + TM_STEP;", "NEW_TM2_CNT = {1'b0, TM2_CNT} + {1'b0, TM_STEP};")
+            source = source.replace("NEW_TM2_CNT[5:4] == 2'b11", "NEW_TM2_CNT >= 7'd48")
+            source = source.replace("TM2_CNT <= NEW_TM2_CNT & 6'b001111;", "TM2_CNT <= 6'(NEW_TM2_CNT - 7'd48);")
+            source = source.replace("TM2_CNT <= NEW_TM2_CNT;", "TM2_CNT <= NEW_TM2_CNT[5:0];")
             source = source.replace("    output WE_N,", "    output WE_N,\n    output RAM_WE_N,")
             source = source.replace("reg RAM_WRITE_EN;", "reg RAM_WRITE_EN, RAM_DISABLE;")
             source = source.replace("RAM_WRITE_EN <= 1;", "RAM_WRITE_EN <= 1;\n        RAM_DISABLE <= 0;")
@@ -174,7 +211,7 @@ def adapt(sources, boot):
             source = source.replace("SPC700_D_IN = DI;\nend",
                                     "SPC700_D_IN = RAM_DISABLE ? 8'h5a : DI;\nend")
             source = source.replace("assign WE_N = SPC700_R_WN;",
-                                    "assign WE_N = SPC700_R_WN;\nassign RAM_WE_N = SPC700_R_WN | ~RAM_WRITE_EN | RAM_DISABLE;")
+                                    "assign WE_N = SPC700_R_WN | ~ACCESS_READY;\nassign RAM_WE_N = WE_N | ~RAM_WRITE_EN | RAM_DISABLE;")
             # Timer stage 2 is eight bits: target zero means 256 ticks.
             for timer in range(3):
                 source = source.replace(f"T{timer}_CNT + 1 == T{timer}DIV",
@@ -186,6 +223,44 @@ def adapt(sources, boot):
             replacement = "localparam [7:0] IPLROM[0:63] = '{" + ",".join(f"8'h{b:02x}" for b in boot) + "};"
             source, count = re.subn(r"localparam \[7:0\] IPLROM\[0:63\] = '\{.*?\};", replacement, source, flags=re.S)
             assert count == 1
+        if name == "src/spc700/spc700.v":
+            source = source.replace("output reg WE_N,", "output reg WE_N,\n    output wire P_OUT,\n    output wire IDLE,")
+            source = source.replace("assign EN =", "assign P_OUT = PSW[5];\nassign EN =")
+            source = source.replace(".M(MC));", ".M(MC), .IDLE(IDLE));")
+        if name == "src/spc700/mcode.v":
+            # The upstream micro-operation annotations identify real bus
+            # accesses. A held PC during an ALU/idle cycle is not a fetch.
+            # Carry a separate bit alongside the unchanged microinstruction.
+            source = source.replace("output SpcMCode_r M", "output reg IDLE,\n    output SpcMCode_r M")
+            idle_bits = 0
+            entries = re.findall(r"MCODE0\[(\d+)\]=\{([^\n]+?)\};([^\n]*)", source)
+            assert len(entries) == 2048
+            # Dummy PC reads consume external time even when their data is
+            # unused (notably NOP). These facts follow the independent SPC700
+            # instruction reference linked in docs/snes-fixtures.md; upstream
+            # annotations omit them because the core discards their values.
+            dummy_pc_reads = {
+                0x00, 0x01, 0x06, 0x0d, 0x0f, 0x11, 0x19, 0x1c, 0x1d,
+                0x20, 0x21, 0x26, 0x2d, 0x31, 0x39, 0x3c, 0x3d, 0x40,
+                0x41, 0x46, 0x4d, 0x51, 0x59, 0x5c, 0x5d, 0x60, 0x61,
+                0x66, 0x6d, 0x6f, 0x71, 0x79, 0x7c, 0x7d, 0x7f, 0x80,
+                0x81, 0x86, 0x8e, 0x91, 0x99, 0x9c, 0x9d, 0x9e, 0x9f,
+                0xa0, 0xa1, 0xa6, 0xae, 0xaf, 0xb1, 0xb9, 0xbc, 0xbd,
+                0xbe, 0xbf, 0xc0, 0xc1, 0xc6, 0xce, 0xcf, 0xd1, 0xdc,
+                0xdd, 0xdf, 0xe0, 0xe1, 0xe6, 0xed, 0xee, 0xef, 0xf1,
+                0xfc, 0xfd, 0xfe, 0xff,
+            }
+            for index, value, annotation in entries:
+                opcode, state = divmod(int(index), 8)
+                access = state == 0 or bool(re.search(r"\[(PC|AX|SP|VECT)\]", annotation))
+                access |= state == 1 and opcode in dummy_pc_reads
+                idle_bits |= int(not access) << int(index)
+            digits = f"{idle_bits:0512x}"
+            table = "// Idle flags derived from upstream bus-access annotations.\nlocalparam [2047:0] IDLE_MAP = {\n"
+            table += ",\n".join(f"    256'h{digits[i:i+64]}" for i in range(0, 512, 64)) + "\n};\n"
+            source = source.replace("SpcMicroInst_r MI;", table + "\nSpcMicroInst_r MI;")
+            # Latch the bit using precisely the same MUL/DIV lookup as MI.
+            source = re.sub(r"MI <= MCODE0(\[[^;]+);", r"begin MI <= MCODE0\1; IDLE <= IDLE_MAP\1; end", source)
         if name == "src/spc700/muldiv.v":
             # Keep the existing nine shift/subtract steps. For Y >= 2*X,
             # divide YA-512*X by 256-X, then complement the quotient and add

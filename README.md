@@ -4,6 +4,23 @@ WebRTL compiles edited Verilog into a new WebAssembly circuit entirely in your
 browser. The GitHub Pages site needs only static assets. The original trusted-local
 Verilator/Emscripten development mode remains available separately.
 
+## UI/UX
+
+Apply these principles to the public browser compiler and trusted-local UI,
+including project editing, simulation controls and diagnostics, as well as
+documented commands and examples.
+
+1. **Keep it simple.** Show only necessary information and actions; avoid
+   unnecessary UI elements.
+2. **Show, don't tell.** Prefer layout, spacing and visual hierarchy over
+   explanatory labels or prose to communicate structure.
+3. **Intuitive and predictable.** Keep appearance and behavior consistent with
+   user expectations; don't interrupt the user's work.
+
+Preserve necessary control labels, accessible names, error messages and information
+needed to use the interface. Simplification must preserve meaningful consent,
+destructive-action safeguards and necessary warnings.
+
 ## Public browser compiler
 
 Demo URL: **https://takahirox.github.io/webrtl/** (published after the Pages workflow

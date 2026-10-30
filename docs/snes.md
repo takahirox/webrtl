@@ -93,7 +93,7 @@ and CPU paths; it does not replace devices with host implementations.
 | PPU composition | Windows, main/subscreen, priority, color math, brightness/blanking | Exact pixels for all four two-window Boolean operators, BG1/BG2 priorities, Mode 1 BG3 priority promotion, subscreen addition, fixed-color addition/subtraction and halving, and all sixteen CGWSEL color-window clipping/math-gating combinations. Exhaustive layer/window combinations remain unverified. |
 | Video timing | H/V counters, blanking, two long dots, NTSC short-line exception, overscan/interlace | 224/239/448-line captures and exact pixel positions tested; 357,368/357,364 master-clock noninterlaced field periods observed natively. No PAL board clock selector. |
 | DMA/HDMA | Eight channels, transfer modes, CPU stalls, direct/indirect HDMA | All eight DMA B-bus transfer patterns, reverse VRAM-to-WRAM DMA with CPU readback, and indirect HDMA data and 127-line timing; direct HDMA retained. Multi-channel checks cover DMA priority, direct/indirect HDMA ordering and HDMA interrupting/resuming active DMA. Exhaustive channel interaction and interrupt-boundary timing remain unverified. |
-| APU | SPC700, CPU ports, three timers, ARAM, eight-voice DSP, BRR/interpolation/envelopes/noise/echo | CPU uploads the driver, directory and BRR sample via standard IPL ports. All three timers, including target zero, must tick before video starts. AUX readback/reset, TEST RAM protection/disable with I/O access, DIV results/flags and read-only DSP mirrors are checked. Independently calculated PCM covers BRR filters/range handling/Gaussian wrap, gain, pitch, negative pitch modulation, eight-voice mixing, ADSR, gain attack, KOFF, mute, noise and delayed FIR echo; sample rate and reset digest checked. Bounded fixtures additionally check nonzero echo feedback and exact ADSR decay, sustain and release PCM. Other pitch modulation cases, arbitrary FIR/feedback configurations and exhaustive envelope rates remain unverified. |
+| APU | SPC700, CPU ports, three timers, ARAM, eight-voice DSP, BRR/interpolation/envelopes/noise/echo | CPU uploads the driver, directory and BRR sample via standard IPL ports. All three timers, including target zero, must tick before video starts. AUX readback/reset, TEST P gating, RAM protection/disable with I/O access, internal/external wait selections with independent timers/DSP, DIV results/flags and read-only DSP mirrors are checked. Independently calculated PCM covers BRR filters/range handling/Gaussian wrap, gain, pitch, negative pitch modulation, eight-voice mixing, ADSR, gain attack, KOFF, mute, noise and delayed FIR echo; sample rate and reset digest checked. Bounded fixtures additionally check nonzero echo feedback and exact ADSR decay, sustain and release PCM. Other pitch modulation cases, arbitrary FIR/feedback configurations and exhaustive envelope rates remain unverified. |
 | Controllers | Serial pad, CPU manual reads and system auto-joypad logic | Keyboard and standard gamepad B alter CPU-programmed palette during sound playback; a ROM variant reads automatic joypad results. A mixed twelve-button mask checks the complete 24-read serial sequence, signature and connection detection; second port is checked disconnected. |
 | Runtime | Compile, ROM import, Run/Pause, bounded batches, power Reset, Canvas, Web Audio | Static browser integration and repeatable frame/PCM checks; not real-time playability. |
 
@@ -159,6 +159,15 @@ terms before adding the fourth. BRR end events pass through the latch consumed
 by ENDX, and the final echo FIR product wraps to signed 16 bits before saturation.
 SMP timer comparisons wrap at eight bits so
 target zero represents 256 ticks; AUX reads return the stored registers.
+TEST writes require the SPC700 P flag to be clear, including absolute `$00f0`
+writes. Bits 7:6 select waits for idle, I/O and enabled IPL accesses; bits 5:4
+select waits for external ARAM accesses. The CPU advances once per 1/2/5/10
+normal SMP slots, while timers advance nominal 1/2/4/8 increments for the completed
+access. An idle flag accompanies the microcode, derived from its bus-access
+annotations with the reference's dummy PC reads explicitly preserved. The two
+slowest selections use the deterministic reference model; real silicon can stall
+unpredictably in those modes. DSP timing stays independent, and waiting CPU
+writes reach the DSP/ARAM interface only in the completing slot.
 TEST bit 1 gates SMP ARAM writes and bit 2 disables SMP ARAM reads/writes;
 disabled reads return `$5a` after I/O and IPL overlay selection. A separate
 write strobe carries those permissions into the DSP's SMP memory slot, leaving
@@ -349,6 +358,30 @@ The opt-in Slang source limit is 2 MiB and its compile timeout 300 seconds; lega
 projects retain 128 KiB and 120 seconds. Each simulation/ROM-write request retains
 the 10-second watchdog. A larger cartridge takes more loading requests and more
 wall time, without increasing any single request's bound.
+
+The TEST P-flag/access-timing correction passed all 10 Python checks, Verilator
+lint (no errors; existing DSP/DIV width warnings), and 48 browser checks: 40
+application regressions plus eight SNES/Slang checks. Each browser exercised
+54 APU/audio fixtures, including all 42 retained cases and 12 new P-flag/clock
+cases. CPU-observed timing matched the independent reference within 84 master
+clocks, and timer counts, exact frames/PCM and independent DSP sample counts
+passed. Fresh browser compilation of the reviewed head reproduced both defects
+before correction. All 164 retained cartridges remain byte-identical, and pinned
+adaptation reproduces the corrected core. The unrelated UI/UX policy and review
+requirement were restored exactly from the default branch's policy commit.
+
+The six corrected browser builds produced identical 270,483-byte Wasm artifacts
+(1,336 bytes larger than the reviewed head) and 1,630,315 CXXRTL bytes. Chromium
+compiled in 69.01–88.16 seconds and simulated 257,773–260,526 master clocks/s;
+Firefox compiled in 70.68–92.67 seconds and simulated 208,038–213,431 clocks/s.
+Captured video throughput was 0.617–0.624 frames/s in Chromium and 0.498–0.511
+frames/s in Firefox; master-clock real-time ratios were 0.01200–0.01213× and
+0.00969–0.00994× respectively.
+Model linear memory remained 20,578,304 bytes. These measurements include
+contention from two concurrent browser workers; compiler peak memory was not
+measured. Results, fixture/source hashes and timing observations are recorded
+under `smpTestAccessReviewFixValidation` in the validation JSON. The full
+176-fixture sweep and trusted-local suite were not rerun for this correction.
 
 ## Validation limits and publication
 

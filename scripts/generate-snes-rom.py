@@ -56,6 +56,37 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
         apu.jumps.append((len(apu.data) + 1, "apu_fail"))
         apu.emit("JMP apu_fail", 0x5f, 0, 0)
 
+    if apu_check in ["test-p-set", "test-p-clear"]:
+        apu.emit("Initialize ARAM $0800=$5a", 0xe8, 0x5a, 0xc5, 0, 8)
+        apu.emit("SETP" if apu_check == "test-p-set" else "CLRP",
+                 0x40 if apu_check == "test-p-set" else 0x20)
+        apu.emit("MOV A,#$08; MOV !$00f0,A (absolute TEST write)", 0xe8, 8, 0xc5, 0xf0, 0)
+        apu.emit("CLRP; attempt ARAM $0800=$a5; read back",
+                 0x20, 0xe8, 0xa5, 0xc5, 0, 8, 0xe5, 0, 8)
+        apu_expect(0xa5 if apu_check == "test-p-set" else 0x5a)
+        apu.emit("Restore TEST=$0a", 0x8f, 0x0a, 0xf0)
+    if apu_check and apu_check.startswith("clock-"):
+        internal, external = map(int, apu_check[6:].split("-"))
+        apu.emit("Set timer 2 target 32; enable it and IPL; clear output",
+                 0x8f, 32, 0xfc, 0x8f, 0x84, 0xf1, 0xe4, 0xff)
+        apu.emit("Set internal/external TEST waits", 0x8f, 0x0a | internal << 6 | external << 4, 0xf0)
+        for _ in range(128):
+            apu.emit("NOP (external opcode fetch and dummy PC read)", 0)
+        for _ in range(16):
+            apu.emit("MUL YA (two external reads, seven internal idle cycles)", 0xcf)
+        for _ in range(16):
+            apu.emit("MOV A,!$ffc0 (three external fetches, one internal IPL read)", 0xe5, 0xc0, 0xff)
+        apu.emit("Disable IPL, keep timer 2 (three external fetches, two internal I/O cycles)", 0x8f, 4, 0xf1)
+        for _ in range(16):
+            apu.emit("MOV A,!$ffc0 (four external reads with IPL disabled)", 0xe5, 0xc0, 0xff)
+        apu.emit("Restore TEST=$0a (three external fetches, two internal I/O cycles)", 0x8f, 0x0a, 0xf0)
+        # Timer 2 divides normal SMP cycles by 16, then by target 32.
+        # The chosen totals stay >32 cycles from the next tick boundary,
+        # exceeding startup/read overhead plus unknown initial divider phase.
+        timer_cycles = 132 * (1 << internal) + 406 * (1 << external)
+        apu.emit("Read timer 2 (nominal 1/2/4/8 increments, CPU waits 1/2/5/10)", 0xe4, 0xff)
+        apu_expect(timer_cycles // 512)
+        apu.emit("Disable timer 2 before normal DSP/timer setup", 0x8f, 0, 0xf1)
     ram_disable = apu_check and apu_check.startswith("ram-disable-")
     if ram_disable:
         # Execute the disabled interval from CPU input ports and AUX, since
@@ -691,6 +722,8 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
     load(0x2140)
     cpu.emit("CMP #$5a", 0xc9, 0x5a)
     cpu.branch(0xd0, "sound")
+    if apu_check and apu_check.startswith("clock-"):
+        cpu.emit("STA $7e3300 (timestamp driver readiness)", 0x8f, 0, 0x33, 0x7e)
     cpu.label("timer")
     load(0x2141)
     cpu.branch(0xf0, "timer")

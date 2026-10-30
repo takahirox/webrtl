@@ -60,6 +60,8 @@ the capture buffer starts at row 0.
 | `apu-timer-zero-0/1/2` | Each timer independently uses target zero (256 ticks); all three timer output ports must report ticks before the CPU enables display. |
 | `apu-aux`, `apu-aux-repeat` | Both AUX registers initially read zero, then independently retain `$5a/$a5` and `$c3/$3c`. Repeating after power reset reproduces the frame and PCM. |
 | `apu-ram-write-enable/protect` | Initialize ARAM `$0800=$5a`, set TEST to `$0a/$08`, attempt `$a5`, and require `$a5/$5a` respectively. Protection stays active through DSP register setup, BRR playback and timer/port I/O, which must still produce the normal exact frame and PCM. |
+| `apu-test-p-set/clear` | Initialize ARAM `$0800=$5a`, set/clear P, write TEST=`$08` through absolute `$00f0`, clear P, then attempt `$0800=$a5`. Require `$a5/$5a` respectively before restoring TEST and continuing normal frame/audio output. |
+| `apu-clock-I-E` | Select internal/external waits `(0,0)`, `(1,0)`, `(0,1)`, `(1,1)`, `(2,0)`, `(0,2)`, `(2,2)`, `(3,0)`, `(0,3)`, `(3,3)`. Execute 128 NOPs, 16 MULs, 16 IPL reads, disable the overlay, and read the same addresses 16 times before restoring TEST. Check timer 2, CPU-observed readiness latency, exact final pixels/PCM and the independent DSP sample count. |
 | `apu-ram-disable-read/write` | An I/O-resident SPC700 routine sets TEST=`$0e` (writes enabled, RAM disabled). Reading initialized `$80=$a5` must return `$5a`; attempting to overwrite `$80=$5a` with `$a5` must leave `$5a` after restoring RAM access. |
 | `apu-ram-disable-dsp/aux` | The same disabled-RAM routine reads DSPDATA or AUX through `(X)` and must retain the programmed `$7f/$22` value rather than the disabled-RAM value. All disabled-RAM cases return to ARAM code, restore TEST=`$0a`, and require normal frame/PCM output. |
 | `apu-dsp-mirror-volume/flg/kon` | Repeated writes through DSPADDR `$8c/$ec/$cc` leave mirrored readback and the normal PCM waveform intact, including KON/FLG side effects. |
@@ -150,6 +152,24 @@ read-modify-write restores TEST=`$02` without altering A. Inactive timer reads
 at `$fa`–`$ff` supply NOPs before a RAM trampoline at `$0100` returns to the
 driver. APU comparisons gate readiness and the CPU keeps checking readiness
 during playback, so a failed memory check cannot leave a passing frame behind.
+
+TEST writes also require P=0, including absolute-address writes, per the independent
+[ares SMP I/O reference](https://github.com/ares-emulator/ares/blob/master/ares/sfc/smp/io.cpp).
+The clock fixtures follow its [SMP timing reference](https://github.com/ares-emulator/ares/blob/master/ares/sfc/smp/timing.cpp)
+and [SPC700 instruction reference](https://github.com/ares-emulator/ares/blob/master/ares/component/processor/spc700/instructions.cpp).
+I/O, enabled IPL and idle cycles use TEST bits 7:6; ARAM and disabled IPL use
+bits 5:4. NOP has two external reads, including its dummy PC read. MUL has two
+external reads and seven internal idle cycles. Including the overlay-control and
+TEST-restoration instructions, the measured interval contains 132 internal and
+406 external cycles. CPU slots per access are `[1,2,5,10]`; timer increments use
+`[1,2,4,8]`. Readiness must be delayed relative to `(0,0)` by
+`(132*(slots[I]-1) + 406*(slots[E]-1)) * 21477270/1024000` master clocks,
+within 100 clocks for CPU polling and fractional clock alignment. Timer 2 uses
+target 32 and must report `floor((132*2^I + 406*2^E)/512)` ticks. Divider phase
+and setup/read overhead stay below the next tick boundary for these selections.
+Real hardware's two slowest selections are unstable; the RTL uses the reference's
+deterministic 10/20-clock model rather than attempting to reproduce random stalls.
+
 The zero-target fixtures clear all three proof ports and poll each timer
 independently: sampling a faster timer only every 256 slow ticks can repeatedly
 observe zero after its four-bit output wraps.

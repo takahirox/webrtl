@@ -1739,5 +1739,270 @@
       }
     ],
     "measurementLimits": "Runtime ranges cover active sequential worker requests including startup, under concurrent browser workloads; exclude compilation/loading/pauses. Compiler peak memory was not measured. Wasm memory limit remains 67,108,864 bytes."
+  },
+  "smpTestAccessReviewFixValidation": {
+    "date": "2026-10-30",
+    "reviewedPrHead": "5bb68252c5a67512847b1aa5828dd148d10369f5",
+    "scope": "TEST P gating, access-specific CPU waits, independent timer/DSP timing, and restoration of the default UI/UX policy.",
+    "reviewedHeadReproduction": {
+      "wasmBytes": 269147,
+      "wasmSha256": "11f035b30dc9376378cd660bac91a03b0db8ba6a9fa9badab07e08eb153bc3d6",
+      "results": [
+        {
+          "name": "test-p-set",
+          "redPixels": 0,
+          "nonzero": 0,
+          "ready": []
+        },
+        {
+          "name": "test-p-clear",
+          "redPixels": 57344,
+          "nonzero": 1397,
+          "ready": []
+        },
+        {
+          "name": "clock-0-0",
+          "redPixels": 57344,
+          "nonzero": 1381,
+          "ready": [
+            739929
+          ]
+        },
+        {
+          "name": "clock-1-1",
+          "redPixels": 57344,
+          "nonzero": 1381,
+          "ready": [
+            739929
+          ]
+        }
+      ]
+    },
+    "checks": {
+      "pythonPassed": 10,
+      "applicationRegressionsPassed": 40,
+      "snesAndSlangBrowserTestsPassed": 8,
+      "browsers": [
+        "chromium",
+        "firefox"
+      ],
+      "cartridgesPerBrowser": 54,
+      "retainedApuAudioCartridgesPerBrowser": 42,
+      "newCartridgesPerBrowser": 12,
+      "retainedCartridgesByteIdentical": 164,
+      "upstreamRegeneration": "byte-identical core from verified pinned inputs",
+      "verilatorLint": "5.052: no errors; 14 existing DSP/DIV width warnings",
+      "policyRestoration": "README UI/UX section and review requirement exactly match a6dccaf",
+      "full176CartridgeSweep": "not rerun; all retained APU/audio fixtures and baseline input, LoROM/HiROM, DMA/HDMA, interrupts and deterministic reset checks ran",
+      "trustedLocal": "not rerun for this SNES RTL correction",
+      "livePages": "pending publication; not performed"
+    },
+    "commands": [
+      "python3 -m unittest discover -s tests -v",
+      "npm run build:demo",
+      "WEBRTL_SNES_FIXTURES='^(apu-|audio-)' npx playwright test --config=playwright.static.config.js (stopped after the 20 Chromium application regressions passed, to run the longer SNES suites in parallel)",
+      "WEBRTL_SNES_FIXTURES='^(apu-|audio-)' npx playwright test --config=playwright.static.config.js tests/static/snes.spec.js --workers=2",
+      "npx playwright test --config=playwright.static.config.js --project=firefox --grep-invert 'full SNES|Slang remains'",
+      "verilator --lint-only --top-module snes -Wno-fatal examples/snes/snes.v examples/snes/snes-core.v"
+    ],
+    "sourceSha256": {
+      "examples/snes/snes-core.v": "6d6ab438be3c347c8f74a8b4f0c8534db5eb9713ff3eb6d101be4f0ef769f8e8",
+      "scripts/adapt_snes.py": "8951cd0bb238b18d80d3d5fe9ab44b429cd35414ce8c4cb6d54922257ff3d2c8",
+      "scripts/generate-snes-rom.py": "475bd1f7c6a2c688b3749382f9dcea0fec57918518641d2249d2e26ed948536f",
+      "tests/static/snes.spec.js": "9315454d1744455d180bdcafc75038b608a2f3d9ec0bcced0c2d12752700e47b",
+      "README.md": "326112a722350da772e4f17604c60c2ed78945e1819cf2f306706e8046581049",
+      "docs/review-guidelines.md": "d1b3b7928aedbdb4893160b2339a903cb3ac0865a40686f17388aac8c434373d",
+      "docs/snes-fixtures.md": "5ba82d642c4461dac52a98c49c60c4e18a8a9615fc0619c309b535e2b1e0e2d8"
+    },
+    "newCartridgeSha256": {
+      "apu-test-p-set": "7959ccd04abd73d52f216f3a470bbfd601d2247b944e521cf2faaaa6acee4b2b",
+      "apu-test-p-clear": "d980e40a27fccf9d6ec915e0723b7d3346a83deda8e6203c8ced877eba57e086",
+      "apu-clock-0-0": "4829686cc221b79bb35044ffc6e602a4856b6a495781b18dbfbd77e4522e734f",
+      "apu-clock-1-0": "b3cee1afd081cc0734834bb1b10bc210ea1b223a68a343ca4e591b5a1fd47a62",
+      "apu-clock-0-1": "4ac905093025528e5671c071fdc5c4bc979d628fd1f63810e60dcc120816559a",
+      "apu-clock-1-1": "96b3275828720e78a9dfc506c7d2d0de0dc71266405cb418153ced8d7cda0fef",
+      "apu-clock-2-0": "40dd59c2438688f842ec8ee06131332a78174fd8ede4aae3fef9d782936380f6",
+      "apu-clock-0-2": "0054cd9ef9e0db07dec66a370c5af7c4c6c699afd88d2248faf50ffc688b6eeb",
+      "apu-clock-2-2": "e7ae57556f53cbb03266027ae04e74167f0a8ba05bcad31aae98cc639725c194",
+      "apu-clock-3-0": "9f08d26116ff256ce3d1e46616003aec5dfcee7c60c021150d8cb256b4184d1a",
+      "apu-clock-0-3": "228f08c295e890abceaaef495c3889923bc7be0ff2e4d904fc030f8ed69d62bd",
+      "apu-clock-3-3": "00c67eb0614e7c43647799db689d73b24b0976404d86bdff5ff666795dfce1be"
+    },
+    "artifacts": {
+      "builds": 6,
+      "wasmBytes": 270483,
+      "wasmSha256": "046c3b8385aebdc4dfc438f089eeeee6c1ec61a1352aa911d12e2ca5d82aeecb"
+    },
+    "clockFixtures": {
+      "verifiedBrowsers": [
+        "chromium",
+        "firefox"
+      ],
+      "identicalResults": [
+        {
+          "name": "apu-clock-0-0",
+          "readyMasterClock": 739929,
+          "addedMasterClocks": 0,
+          "expectedAddedMasterClocks": 0.0,
+          "errorMasterClocks": 0.0,
+          "timer2Ticks": 1,
+          "frameHash": 3371206625,
+          "samples": 2489
+        },
+        {
+          "name": "apu-clock-1-0",
+          "readyMasterClock": 742661,
+          "addedMasterClocks": 2732,
+          "expectedAddedMasterClocks": 2768.5543359375,
+          "errorMasterClocks": -36.55433593750013,
+          "timer2Ticks": 1,
+          "frameHash": 3371206625,
+          "samples": 2489
+        },
+        {
+          "name": "apu-clock-0-1",
+          "readyMasterClock": 748397,
+          "addedMasterClocks": 8468,
+          "expectedAddedMasterClocks": 8515.40197265625,
+          "errorMasterClocks": -47.4019726562492,
+          "timer2Ticks": 1,
+          "frameHash": 3371206625,
+          "samples": 2489
+        },
+        {
+          "name": "apu-clock-1-1",
+          "readyMasterClock": 751129,
+          "addedMasterClocks": 11200,
+          "expectedAddedMasterClocks": 11283.95630859375,
+          "errorMasterClocks": -83.95630859374978,
+          "timer2Ticks": 2,
+          "frameHash": 3371206625,
+          "samples": 2489
+        },
+        {
+          "name": "apu-clock-2-0",
+          "readyMasterClock": 750925,
+          "addedMasterClocks": 10996,
+          "expectedAddedMasterClocks": 11074.21734375,
+          "errorMasterClocks": -78.21734375000051,
+          "timer2Ticks": 1,
+          "frameHash": 3371206625,
+          "samples": 2489
+        },
+        {
+          "name": "apu-clock-0-2",
+          "readyMasterClock": 773977,
+          "addedMasterClocks": 34048,
+          "expectedAddedMasterClocks": 34061.607890625,
+          "errorMasterClocks": -13.607890624996799,
+          "timer2Ticks": 3,
+          "frameHash": 3371206625,
+          "samples": 2489
+        },
+        {
+          "name": "apu-clock-2-2",
+          "readyMasterClock": 785041,
+          "addedMasterClocks": 45112,
+          "expectedAddedMasterClocks": 45135.825234375,
+          "errorMasterClocks": -23.825234374999127,
+          "timer2Ticks": 4,
+          "frameHash": 3371206625,
+          "samples": 2489
+        },
+        {
+          "name": "apu-clock-3-0",
+          "readyMasterClock": 764789,
+          "addedMasterClocks": 24860,
+          "expectedAddedMasterClocks": 24916.9890234375,
+          "errorMasterClocks": -56.9890234375016,
+          "timer2Ticks": 2,
+          "frameHash": 3371206625,
+          "samples": 2489
+        },
+        {
+          "name": "apu-clock-0-3",
+          "readyMasterClock": 816493,
+          "addedMasterClocks": 76564,
+          "expectedAddedMasterClocks": 76638.61775390625,
+          "errorMasterClocks": -74.61775390624825,
+          "timer2Ticks": 6,
+          "frameHash": 3371206625,
+          "samples": 2489
+        },
+        {
+          "name": "apu-clock-3-3",
+          "readyMasterClock": 841421,
+          "addedMasterClocks": 101492,
+          "expectedAddedMasterClocks": 101555.60677734375,
+          "errorMasterClocks": -63.60677734375349,
+          "timer2Ticks": 8,
+          "frameHash": 3371206625,
+          "samples": 2489
+        }
+      ]
+    },
+    "measurements": [
+      {
+        "browser": "chromium",
+        "compileMs": 88159.39999999851,
+        "wasmBytes": 270483,
+        "cxxrtlBytes": 1630315,
+        "masterClocksPerSecond": 257772.97897604786,
+        "videoFramesPerSecond": 0.6169887862286685,
+        "realTimeRatio": 0.012002129645716045,
+        "memoryBytes": 20578304
+      },
+      {
+        "browser": "firefox",
+        "compileMs": 92666,
+        "wasmBytes": 270483,
+        "cxxrtlBytes": 1630315,
+        "masterClocksPerSecond": 208037.8438939375,
+        "videoFramesPerSecond": 0.4979459728619445,
+        "realTimeRatio": 0.00968641935841648,
+        "memoryBytes": 20578304
+      },
+      {
+        "browser": "chromium",
+        "compileMs": 76874.5,
+        "wasmBytes": 270483,
+        "cxxrtlBytes": 1630315,
+        "masterClocksPerSecond": 260525.6758021673,
+        "videoFramesPerSecond": 0.6235774639106716,
+        "realTimeRatio": 0.012130297556540813,
+        "memoryBytes": 20578304
+      },
+      {
+        "browser": "firefox",
+        "compileMs": 71995,
+        "wasmBytes": 270483,
+        "cxxrtlBytes": 1630315,
+        "masterClocksPerSecond": 212887.64331210192,
+        "videoFramesPerSecond": 0.5095541401273885,
+        "realTimeRatio": 0.009912230153650902,
+        "memoryBytes": 20578304
+      },
+      {
+        "browser": "chromium",
+        "compileMs": 69006,
+        "wasmBytes": 270483,
+        "cxxrtlBytes": 1630315,
+        "masterClocksPerSecond": 260403.8893043524,
+        "videoFramesPerSecond": 0.623285963599955,
+        "realTimeRatio": 0.01212462707338281,
+        "memoryBytes": 20578304
+      },
+      {
+        "browser": "firefox",
+        "compileMs": 70683,
+        "wasmBytes": 270483,
+        "cxxrtlBytes": 1630315,
+        "masterClocksPerSecond": 213431.41762452107,
+        "videoFramesPerSecond": 0.5108556832694764,
+        "realTimeRatio": 0.00993754874919024,
+        "memoryBytes": 20578304
+      }
+    ],
+    "measurementNote": "SNES Chromium/Firefox suites ran concurrently with two Playwright workers. Compile/runtime measurements include that host contention; compiler peak memory was not measured."
   }
 }
