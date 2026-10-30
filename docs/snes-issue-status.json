@@ -1,0 +1,21 @@
+{
+  "source_issue": {
+    "number": 22,
+    "url": "https://github.com/takahirox/webrtl/issues/22",
+    "state_before": "open",
+    "state_after": "closed"
+  },
+  "pr": {
+    "number": 23,
+    "url": "https://github.com/takahirox/webrtl/pull/23",
+    "head_sha": "d5d3783f5152c162ca18a88425a9aa34d27d5a27"
+  },
+  "merged": true,
+  "merge_commit": "f4ae6e434f0d9ec0ff9b7a0be07eb0ea69426763",
+  "closed": true,
+  "outcome_comment": "https://github.com/takahirox/webrtl/issues/22#issuecomment-6535768700",
+  "post_merge_verification": {
+    "status": "pending",
+    "basis": "Inherited from docs/snes-merge-status.json; not performed in this issue-finalization node."
+  }
+}
