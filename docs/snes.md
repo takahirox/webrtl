@@ -171,7 +171,10 @@ writes reach the DSP/ARAM interface only in the completing slot.
 TEST bit 1 gates SMP ARAM writes and bit 2 disables SMP ARAM reads/writes;
 disabled reads return `$5a` after I/O and IPL overlay selection. A separate
 write strobe carries those permissions into the DSP's SMP memory slot, leaving
-DSP register writes and its sample/echo memory slots independent.
+DSP register writes and its sample/echo memory slots independent. Permitted
+SMP writes also update backing ARAM beneath `$00f0`–`$00ff`, while I/O reads
+continue through the register mux. TEST protection suppresses those backing writes
+without suppressing I/O side effects.
 DSPADDR bit 7 gates register RAM writes and special write side effects while
 preserving mirrored reads. SPC700 DIV retains its nine shift/subtract steps,
 selecting the documented overflow arithmetic (including X=0) and deriving flags
@@ -352,7 +355,7 @@ regression took 23.6 seconds. Its isolated service used port 18765 because 8765
 was occupied, with the original test and assertions unchanged. Source selection,
 build prerequisites, full-run and recheck results, current performance ranges,
 and source/artifact hashes are recorded under `finalImplementationValidation`
-in [snes-validation.json](snes-validation.json), now the latest validation entry.
+in [snes-validation.json](snes-validation.json) for that revision.
 
 The opt-in Slang source limit is 2 MiB and its compile timeout 300 seconds; legacy
 projects retain 128 KiB and 120 seconds. Each simulation/ROM-write request retains
@@ -380,8 +383,49 @@ frames/s in Firefox; master-clock real-time ratios were 0.01200–0.01213× and
 Model linear memory remained 20,578,304 bytes. These measurements include
 contention from two concurrent browser workers; compiler peak memory was not
 measured. Results, fixture/source hashes and timing observations are recorded
-under `smpTestAccessReviewFixValidation` in the validation JSON. The full
-176-fixture sweep and trusted-local suite were not rerun for this correction.
+under `smpTestAccessReviewFixValidation` in the validation JSON. At that revision, the full
+176-fixture sweep and trusted-local suite had not been rerun.
+
+The ARAM/I/O review correction passed all 10 Python checks, the static build,
+RTL lint (no errors; existing width warnings), and the complete unfiltered
+60-check static suite on 2026-10-30. No rechecks, fixture filters, assertion
+changes or timeout changes were needed. Each browser ran all 179 cartridges:
+176 retained cartridges remain byte-identical, and three new cases check a
+DSP directory beneath SMP I/O, TEST-protected backing writes with AUX side
+effects, and an ordinary-ARAM control. Both new I/O-directory cases reject the
+reviewed Wasm's PCM; the ordinary-ARAM control passes. The corrected circuit
+matches all 256 independently calculated PCM samples per cartridge, all 178
+positive frame expectations, and the retained negative control's 57,344 rejected
+pixels. Frame and PCM digests agree across Chromium and Firefox.
+
+The full run took 54.4 minutes. All 18 SNES browser compilations produced the same
+270,506-byte Wasm and 1,630,383-byte CXXRTL source. Results, source/cartridge hashes,
+per-batch measurements and the regression's negative controls are recorded under
+`aramIoReviewFixValidation` in [snes-validation.json](snes-validation.json), the
+latest validation entry. This supersedes the earlier outstanding full-sweep and
+trusted-local checks.
+
+| Browser | Compile range | Master clocks/s | Captured frames/s | Real-time ratio |
+| --- | ---: | ---: | ---: | ---: |
+| Chromium | 66.10–84.31 s | 236,007–263,496 | 0.565–0.631 | 0.01099–0.01227× |
+| Firefox | 70.45–93.04 s | 208,687–217,063 | 0.500–0.520 | 0.00972–0.01011× |
+
+Observed model linear memory remains 20,578,304 bytes; compiler peak memory was
+not measured. The same corrected source passed the direct native counter build
+and the unchanged trusted-local browser regression in 16.6 seconds using
+unmodified reference Verilator 5.020 (commit
+`5c5314b39cd888f427807d626e1502cbf222c292`) and Emscripten 6.0.13. The tools were
+built locally with GNU M4 1.4.19, Autoconf 2.72 and GNU Flex 2.6.4 plus its matching
+headers, and selected through scoped PATH/VERILATOR_ROOT settings. The isolated
+service used port 18765 with the original test/assertions unchanged.
+
+The corrected source therefore passes the locally executable pre-merge paths
+listed in Issue #22, including client compilation/local ROM loading, integrated
+hardware, independent frame/audio expectations, input and deterministic reset,
+regressions, provenance and performance reporting. Coverage remains bounded as
+specified in the feature matrix; exhaustive compatibility and real-time
+playability are not established. No Issue state is changed here. The separate
+required live-site verification remains pending after publication.
 
 ## Validation limits and publication
 

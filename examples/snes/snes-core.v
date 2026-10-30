@@ -5033,7 +5033,7 @@ always @* begin : ram_addrgen
         RAM_WE = ~SMP_RAM_WE_N_buf;
         RAM_OE = SMP_WE_N_buf;
         RAM_DO = SMP_DO_buf;            // buffered to satisfy timing checker
-        if (SMP_A_buf[15:4]== 12'h00F)
+        if (SMP_A_buf[15:4]== 12'h00F && SMP_RAM_WE_N_buf)
             RAM_CE = 0;
         else
             RAM_CE = 1;

@@ -52,6 +52,10 @@ def adapt(sources, boot):
             source = source.replace("reg SMP_WE_N_buf;", "reg SMP_WE_N_buf, SMP_RAM_WE_N_buf;")
             source = source.replace("SMP_WE_N_buf <= SMP_WE_N;", "SMP_WE_N_buf <= SMP_WE_N;\n    SMP_RAM_WE_N_buf <= SMP_RAM_WE_N;")
             source = source.replace("RAM_WE = ~SMP_WE_N_buf;", "RAM_WE = ~SMP_RAM_WE_N_buf;")
+            # I/O reads use the SMP register mux, but permitted writes also
+            # reach backing ARAM (visible to DSP directory/sample accesses).
+            source = source.replace("if (SMP_A_buf[15:4]== 12'h00F)",
+                                    "if (SMP_A_buf[15:4]== 12'h00F && SMP_RAM_WE_N_buf)")
             # DSPADDR bit 7 selects read-only mirrors, including the special
             # KON/FLG/ENDX write paths outside the register RAM.
             source = source.replace("~SMP_WE_N && SMP_A == 16'h00F3 && SUBSTEP == 3 && CE",

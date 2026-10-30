@@ -6,7 +6,7 @@ uploads its SPC700 driver through the IPL protocol. The browser test compiles th
 RTL once per batch and power-cycles it for each cartridge. Expected pixels and
 PCM are calculated in the test; they are not recordings of this core's output.
 Pixel comparisons cover every RGBA sample, including its position and alpha.
-The 164-cartridge sweep runs in nine batches per browser, each with at most
+The 179-cartridge sweep runs in nine batches per browser, each with at most
 20 cartridges plus the AUX reset repeat. Each batch retains the baseline
 input/audio, LoROM/HiROM and deterministic-reset checks, compiles client-side,
 and has a 30-minute deadline. This replaces the single 120-cartridge test that
@@ -268,3 +268,24 @@ LoROM/HiROM and deterministic reset checks:
 npm run build:demo
 WEBRTL_SNES_FIXTURES='^(sprite-small-interlace-|m7-|color-window-|obj-limit-|multi$|audio-(feedback|decay-sustain|sustain|adsr-release))' npx playwright test --config=playwright.static.config.js --grep 'full SNES RTL'
 ```
+
+
+### ARAM beneath SMP I/O registers
+
+`apu-io-directory` writes a BRR start pointer `$0600` through AUX `$f8/$f9`
+and a loop pointer `$0600` through timer targets `$fa/$fb`. DSP DIR=`$00`
+and SRCN=`$3e` select those four backing-ARAM bytes. Sustained PCM must match
+all 256 samples of the existing independent square-wave oracle. The timer targets
+remain 0 and 6; the driver independently polls all three timers so target zero
+cannot prevent readiness. The longer capture includes its 256-tick startup.
+
+`apu-io-directory-protect` additionally clears TEST bit 1, attempts to replace
+the start pointer with `$07f0`, then restores permission before playback. AUX
+readback must reflect the attempted values while DSP playback must still use
+`$0600`. `apu-io-directory-control` performs the same I/O initialization and
+uses the ordinary `$0500` directory. All retained cartridges are unchanged.
+
+The independent [ares SMP memory path](https://github.com/ares-emulator/ares/blob/master/ares/sfc/smp/memory.cpp)
+writes backing RAM for every SMP write, including I/O, subject to TEST RAM
+write/disable permissions, then performs the I/O side effects. The DSP reads
+that backing RAM directly, making PCM a check independent of AUX readback.

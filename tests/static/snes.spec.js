@@ -52,6 +52,8 @@ cases += [(f'apu-{check}',dict(apu_check=check)) for check in
 cases += [(f'apu-{check}',dict(apu_check=check)) for check in ['test-p-set','test-p-clear']]
 cases += [(f'apu-clock-{internal}-{external}',dict(apu_check=f'clock-{internal}-{external}'))
  for internal,external in [(0,0),(1,0),(0,1),(1,1),(2,0),(0,2),(2,2),(3,0),(0,3),(3,3)]]
+cases += [(f'apu-{check}',dict(apu_check=check)) for check in
+ ['io-directory','io-directory-protect','io-directory-control']]
 print(json.dumps([dict(name=name,bytes=list(build(**args)[0])) for name,args in cases]))`], { maxBuffer: 32 * 1024 * 1024 }));
 
 // Optional focused reruns still exercise browser compilation and the baseline
@@ -460,7 +462,8 @@ test(`full SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: boots a lo
         // Interlace needs both fields; zero timers need 256 ticks plus a frame.
         const batches = fixture.name === "audio-feedback" ? 664 :
           fixture.name.startsWith("m7-over") ? 264 :
-          fixture.name.includes("interlace") || fixture.name.startsWith("apu-timer-zero-") ? 224 : 164;
+          fixture.name.includes("interlace") || fixture.name.startsWith("apu-timer-zero-") ||
+          fixture.name.startsWith("apu-io-directory") ? 224 : 164;
         for (let i = 0; i < batches; i++) {
           const output = await call({ action: "batch", batchCycles: i < 64 ? 512 : 16384,
             buttons: fixture.name === "auto" ? 2048 : fixture.name === "serial" ? 0xa55 : 0 });

@@ -163,6 +163,23 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
                        (0x00, 0x7f), (0x01, 0x7f), (0x02, 0), (0x03, 0x10),
                        (0x04, 0), (0x05, 0), (0x07, 0x7f), (0x5d, 5),
                        (0x5c, 0)]
+    io_directory = apu_check in ["io-directory", "io-directory-protect", "io-directory-control"]
+    if io_directory:
+        # DIR=$00/SRCN=$3e locates start/loop at $f8-$fb, underneath
+        # AUX and timer targets. DSP reads ARAM, not the SMP's I/O mux.
+        apu.emit("Write directory start $0600 beneath AUX", 0x8f, 0, 0xf8, 0x8f, 6, 0xf9)
+        if apu_check == "io-directory-protect":
+            apu.emit("Protect ARAM; attempt start $07f0; restore TEST",
+                     0x8f, 8, 0xf0, 0x8f, 0xf0, 0xf8, 0x8f, 7, 0xf9, 0x8f, 0x0a, 0xf0)
+            # I/O side effects must survive protected backing-RAM writes.
+            for address, value in [(0xf8, 0xf0), (0xf9, 7)]:
+                apu.emit("Read protected-write AUX side effect", 0xe4, address)
+                apu_expect(value)
+        if apu_check != "io-directory-control":
+            registers += [(0x5d, 0), (0x04, 0x3e)]
+        # Initialize the loop pointer before KON; the timer setup below uses
+        # these same targets, preserving $0600 through sustained playback.
+        apu.emit("Write directory loop beneath timer targets", 0x8f, 0, 0xfa, 0x8f, 6, 0xfb)
     if audio == "gain": registers += [(0x07, 0x40)]
     if audio == "mute": registers += [(0x6c, 0x60)]
     if audio == "pitch": registers += [(0x03, 0x08)]
@@ -223,12 +240,13 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
             apu.emit("MOV A,$f3 (ENDX stays cleared)", 0xe4, 0xf3)
             apu_expect(0)
     targets = [1, 2, 3]
+    if io_directory: targets = [0, 6, 3]
     if apu_check and apu_check.startswith("timer-zero-"):
         targets[int(apu_check[-1])] = 0
     if audio == "adsr-release": apu.emit("Clear release timer counter", 0x8f, 0, 0x12)
     apu.emit(f"Enable all timers, targets {targets}",
              0x8f, targets[0], 0xfa, 0x8f, targets[1], 0xfb, 0x8f, targets[2], 0xfc, 0x8f, 7, 0xf1)
-    zero_timer = apu_check and apu_check.startswith("timer-zero-")
+    zero_timer = io_directory or (apu_check and apu_check.startswith("timer-zero-"))
     if zero_timer:
         apu.emit("Clear all timer proof ports", 0x8f, 0, 0xf6, 0x8f, 0, 0xf7)
     apu.emit("MOV $f5,#0; MOV $f4,#$5a (driver ready)", 0x8f, 0, 0xf5, 0x8f, 0x5a, 0xf4)

@@ -2004,5 +2004,1671 @@
       }
     ],
     "measurementNote": "SNES Chromium/Firefox suites ran concurrently with two Playwright workers. Compile/runtime measurements include that host contention; compiler peak memory was not measured."
+  },
+  "aramIoReviewFixValidation": {
+    "date": "2026-10-30",
+    "scope": "Fix permitted ARAM writes beneath SMP I/O and complete validation for Issue #22.",
+    "reviewedPrHead": "b56d22364f472a1300aa8d1ba76d1a3093621c3b",
+    "host": "macOS-27.2-arm64-arm-64bit-Mach-O",
+    "python": {
+      "passed": 10,
+      "command": "python3 -m unittest discover -s tests -v",
+      "logSha256": "d67f063b527169776c970e55bb4744e6bca1c95ea8f8e5ee7a2bdc4a3fbd6580"
+    },
+    "staticBuild": {
+      "passed": true,
+      "command": "npm run build:demo"
+    },
+    "lint": {
+      "passed": true,
+      "command": "verilator --lint-only --top-module snes -Wno-fatal examples/snes/snes-core.v examples/snes/snes.v",
+      "version": "5.052",
+      "logSha256": "b843fb5b5e29156b89069e97698606989964b12d29e7542205bc2260897d852e",
+      "warnings": "Existing WIDTH/UNSIGNED warnings; no errors."
+    },
+    "reproduction": {
+      "pinnedAdaptationByteIdentical": true,
+      "coreSha256": "08350ff7dd74f177a9fbed38b2f19b75c83bde2e87025e28b69355fc3a4c7679",
+      "retainedCartridgesByteIdentical": 176
+    },
+    "cartridges": [
+      {
+        "name": "mode-0",
+        "sha256": "1f8ec0ba8bbc51e917c5104f771003e97705c8f2491258593f8181013da35fdb"
+      },
+      {
+        "name": "mode-1",
+        "sha256": "78ccf43b1ba17822296cd99b3d627bf4aac72530a853d56a1fe97a73dfec7694"
+      },
+      {
+        "name": "mode-2",
+        "sha256": "784fb79feb40efadbab07b3f47d729be0db3e0a73b9a354f4f3a324a64c6e9ad"
+      },
+      {
+        "name": "mode-3",
+        "sha256": "85fe923f4f27380c7cea6b0e292a4124c09cb842b3cc9b1dbb9de2049f308370"
+      },
+      {
+        "name": "mode-4",
+        "sha256": "baf50d20df0ec671e8fcfac7fb7dc87a8248b6a3f7d2b6347e29c61797ca5691"
+      },
+      {
+        "name": "mode-5",
+        "sha256": "583c2e0fe9718deb3c910dce206bbac5e6f43f0236ba4ec32371b8f488ceccc5"
+      },
+      {
+        "name": "mode-6",
+        "sha256": "0b1e7e71e43d9981c5a3510b35fe06cf5721eee39078d4cb6fea33667fa2d789"
+      },
+      {
+        "name": "mode-7",
+        "sha256": "57b19f0df008c274e36b7df8587a9cb00188e80c7840d39e74e87337fd2af4bc"
+      },
+      {
+        "name": "sprite-low",
+        "sha256": "05b4e1e9a4b73f59edfc012ac139e1cca593505044be0d1deeed0dd486a8d948"
+      },
+      {
+        "name": "sprite-high",
+        "sha256": "46f272f03796148d4289134eadb1b2f4feca3f30bb76dde0e130d6a56f368cda"
+      },
+      {
+        "name": "overscan",
+        "sha256": "4a38ff4778440b8eb092cd267db0a388c6fc160be5b68721c4bd676aab1287d9"
+      },
+      {
+        "name": "interlace",
+        "sha256": "95d676fa646e080c43cedfc7c709fb3cda6d259f0d4ffe10f7ce47748e7823fd"
+      },
+      {
+        "name": "window",
+        "sha256": "6303edd1809f1f892477d151b4a7632a0a618083e50192e0dffb4ea9270dedf2"
+      },
+      {
+        "name": "math",
+        "sha256": "8162ab53b1e810d68da342ae902d6a055609ef1ab1155252317603eb96a054bc"
+      },
+      {
+        "name": "zoom",
+        "sha256": "8ef0b9d0327471f08f8a8947d6f9148db0498c3f13431cdcc41738e53f71a1d0"
+      },
+      {
+        "name": "constant",
+        "sha256": "63edceafbbd956ba51348e5d401285e3bcda50ffd04dac0e85e6d7cb4a1544c4"
+      },
+      {
+        "name": "auto",
+        "sha256": "1b5853dae0114b7a847c3b16751857366b7fea53c58833000135066389f2c6a0"
+      },
+      {
+        "name": "depth-0",
+        "sha256": "432f1b24960d8fb449abc5cc42ed9a6716e1f84d7b7b0cd1349ac2cad3a0e0b1"
+      },
+      {
+        "name": "depth-1",
+        "sha256": "5613df08e0b371e524f05957e4e9c35a1b52b1557420c780c45c5f85785bb408"
+      },
+      {
+        "name": "depth-2",
+        "sha256": "e33d910b4b4fc2536e987879ffa09cfd48ec7fbc8ed69e3afe51547d6de77bff"
+      },
+      {
+        "name": "depth-3",
+        "sha256": "a42de9edcef544e40cf3d848365db32d51ee23e2fcf31ef1ee9378ffee127e10"
+      },
+      {
+        "name": "depth-4",
+        "sha256": "8c591887033a5f8e6d0d19e1418cf4a5a2b43741510a948aae33799a7bb6da5b"
+      },
+      {
+        "name": "depth-5",
+        "sha256": "a690d1f7ca5a8491493b51a12270c2157a7f5e4ed26fd6e3c8ab3fd1111e7988"
+      },
+      {
+        "name": "depth-6",
+        "sha256": "11f70b23c44e2fd7300fb3b1e47d2c8cdee9feb034da620d319201f3024b5667"
+      },
+      {
+        "name": "hires-5-bg1-low-normal",
+        "sha256": "583c2e0fe9718deb3c910dce206bbac5e6f43f0236ba4ec32371b8f488ceccc5"
+      },
+      {
+        "name": "hires-5-bg1-low-reverse",
+        "sha256": "86cd3eac84aae849f6137044a2155aeb09ba2d1a785b630235d7ade63e20f966"
+      },
+      {
+        "name": "hires-5-bg1-high-normal",
+        "sha256": "317b1e2d604dd338c95d6138ecddcd45f8956c9b3d318067f814102aabc107a8"
+      },
+      {
+        "name": "hires-5-bg1-high-reverse",
+        "sha256": "cfe6859109bf858be27a8f4c55e484ebbef289e7b01ff83399c490afb21de73c"
+      },
+      {
+        "name": "hires-6-bg1-low-normal",
+        "sha256": "0b1e7e71e43d9981c5a3510b35fe06cf5721eee39078d4cb6fea33667fa2d789"
+      },
+      {
+        "name": "hires-6-bg1-low-reverse",
+        "sha256": "7cd737e35e9eebc2cee3db70a170047e7d20d7292616c534276ec4fa7174c5c5"
+      },
+      {
+        "name": "hires-6-bg1-high-normal",
+        "sha256": "fa9efdaa40e8fa55fe3c398c714bc789e8ebb2de17ec65cd7b6b8c629047d15d"
+      },
+      {
+        "name": "hires-6-bg1-high-reverse",
+        "sha256": "f82b8849cd57ca92eafbc85251c35a17740ec0c4a5b9647e9fa47faf0f891dc4"
+      },
+      {
+        "name": "hires-5-bg2-low-normal",
+        "sha256": "aa0450e15d255fc9c15439b72b8ea6a36f95db9803663ebe57f94dd7de6dc144"
+      },
+      {
+        "name": "hires-5-bg2-low-reverse",
+        "sha256": "d4b5156be7c4bf1d65636400a3152003e1945a7dfd4d9e8c9b08918457668fbe"
+      },
+      {
+        "name": "hires-5-bg2-high-normal",
+        "sha256": "5cee357ca220bc9550f50b4b728416b3539b9adfff50f486c2244936a803c209"
+      },
+      {
+        "name": "hires-5-bg2-high-reverse",
+        "sha256": "20c526bc45b0caedc5dc97546edb49659d64b450002db0754f8fff72576dea9b"
+      },
+      {
+        "name": "bus-no-sram-lorom",
+        "sha256": "953d610b11a12c19164f6ecedf4569f5015debabaa427d12fcd72baa914c8c85"
+      },
+      {
+        "name": "bus-no-sram-hirom",
+        "sha256": "bb95a374e0846226ff1044c478d00ab646e5421d42ff09fc94e8ea523dae0228"
+      },
+      {
+        "name": "bus-sram-lorom",
+        "sha256": "ab417492493ab43e2e68a294a320e5d5c0e872e16bcc5a75eba492e0adbe9254"
+      },
+      {
+        "name": "bus-sram-hirom",
+        "sha256": "223c43e2997a4c4858bb61cfcc34357d98fd303d15556ad7c77b4531df9b9a6a"
+      },
+      {
+        "name": "bg2",
+        "sha256": "2b28489a705fe027c80f0bc4af6bc64141b8166f151988bd2fd5d54836d29462"
+      },
+      {
+        "name": "bg3",
+        "sha256": "91918423dcbad67ae584f6db8f5628c83f925cacd00bf7ec15bc1527d1cf0829"
+      },
+      {
+        "name": "bg4",
+        "sha256": "aca76d8227fbd1ff0e25fda53440fe02e2ac459b248e64adfb3635cd6645624b"
+      },
+      {
+        "name": "layers",
+        "sha256": "1ef6ccc0d6760dfe9cb2e48d10333c4695a0ff955db12dad70270bc6427a7a30"
+      },
+      {
+        "name": "subscreen",
+        "sha256": "26ecf84f2dd9308a4a700ed20528949ec58b2779b7dbf99ec0a9415830478a76"
+      },
+      {
+        "name": "scroll",
+        "sha256": "60e5100ad399efbe42879c406af9471f8ace98a655a89000032fd36e81d5e5c0"
+      },
+      {
+        "name": "mosaic",
+        "sha256": "c1e579c2e3e4a444f15385f2a2836cd48c67a80d91ff3df165c9b8fec18fd696"
+      },
+      {
+        "name": "subtract",
+        "sha256": "cc1a45c9c78049fc914e8fbb1ac63e8e928316796291e2f0634fcc2ef4049619"
+      },
+      {
+        "name": "half",
+        "sha256": "1ebe0e5c52aeb82130b34317919c2592a95598fe530ed44a4d5c2928296ad040"
+      },
+      {
+        "name": "priority-low",
+        "sha256": "7fc39a1fb3bce5e10181bde8ba0edc59f0d09d812115baf65678cddef19889a6"
+      },
+      {
+        "name": "priority-high",
+        "sha256": "91b1c23c4a7bc15d3dca28bdf6d33c3d9633ed2e310b7f51eb67d7bdb6f75a24"
+      },
+      {
+        "name": "window-or",
+        "sha256": "b8630f7fc9cd746538592eb4f5d2d138784675172c6af7f109ace9db3af1601a"
+      },
+      {
+        "name": "window-and",
+        "sha256": "540ab56b47a2b179cf83e0606930e2febcac0da087ada22ac8d5b03c305ec1dd"
+      },
+      {
+        "name": "window-xor",
+        "sha256": "4a8d665ce9a982c0dc658570b5a1cd7988fc7ece95a584795079f7e98833fef2"
+      },
+      {
+        "name": "window-xnor",
+        "sha256": "285cd7e0ac608f32780876550f1fcf2981401ad4d04d29dad65f3bf624edc8e1"
+      },
+      {
+        "name": "rotate",
+        "sha256": "19fc37853572a119f0e14032e6f717db2f3777283f844d35d697ff28134a0edf"
+      },
+      {
+        "name": "hflip",
+        "sha256": "1df9ec1b518af0f7af3c199769bf6659516997fc140d1f554660e7adc6f2cbae"
+      },
+      {
+        "name": "vflip",
+        "sha256": "9652490d04f95eeedeace49d2faaa9e158d7fc22c1d5703333ba04847d2c43b5"
+      },
+      {
+        "name": "hvflip",
+        "sha256": "9a5a272f2e30726b748a5337ca8d6ecd33dbcf5bff2bf38fe8cae5ee8b81b2c5"
+      },
+      {
+        "name": "hflip-fraction",
+        "sha256": "c26efe84a09213a5b953241d769444173fef8f9dfa0e38ca6c35a26680dc794c"
+      },
+      {
+        "name": "hflip-scale",
+        "sha256": "d2339cfa6ec6ea88f9fafbdebf25b762162bfc6906004bfa9fefe0b8a6c5ef09"
+      },
+      {
+        "name": "vflip-fraction",
+        "sha256": "35e784049243a44d8a4f69d97833a414612d407461f9dadb9b1ba16cb590c048"
+      },
+      {
+        "name": "vflip-scale",
+        "sha256": "0771bb1c4e1b64ed5de5d41a237d7e9c80502e7123658661062a3bb9a9007022"
+      },
+      {
+        "name": "direct-3",
+        "sha256": "3876e9702f929b235702c71161e1af532a7222e5a9a9fd4c98a5d80caebee4cd"
+      },
+      {
+        "name": "direct-4",
+        "sha256": "90cfdd081e83b8110806da156b911d351a3e04b579f2eafe30715fbf51d7683c"
+      },
+      {
+        "name": "direct-7",
+        "sha256": "d8efc64bb68750ec4840d2038fccf471fe4991ca941b352e314d7800d0d046c8"
+      },
+      {
+        "name": "offset-2",
+        "sha256": "97210f58a4a35ea3e96c19e4c0bf8eb761a938f9fa6aec8553f681454698b8fe"
+      },
+      {
+        "name": "offset-4",
+        "sha256": "b863d8b80af6c92741f4ecb084b93c3c743c90185966d1f91d1b636c08210c03"
+      },
+      {
+        "name": "offset-6",
+        "sha256": "0a7e6054c81d5898998809f8508a57be67daa3b1d3d9a0b4e780502235cbb62b"
+      },
+      {
+        "name": "bg3-priority-low",
+        "sha256": "85d6240fd1c337fa86f5084c8b041adbb6914ed0f42accd9f58b8ac6dc009ce2"
+      },
+      {
+        "name": "bg3-priority-high",
+        "sha256": "5d394537c2e3a609d24d9f27314b3357f3d7ba09ed112014456f5d49a8595423"
+      },
+      {
+        "name": "sprite-hflip",
+        "sha256": "838492b191ae5d3957cb01828f8a570f801c0d4c874617ec239edefdcb2af441"
+      },
+      {
+        "name": "sprite-vflip",
+        "sha256": "fe6ad148ae3955e434c81fd09ed7fa3dc9141fcb9bfbd2a518df5451c82dd2c0"
+      },
+      {
+        "name": "sprite-edges",
+        "sha256": "161ba468358c325252fa10112f08d32a168b282dbbac64362f886f57ef828423"
+      },
+      {
+        "name": "sprite-interlace",
+        "sha256": "a7f9e42da8a8c51493e1b10ae7db14f39eb986cfe11bfbfce70373834caa3280"
+      },
+      {
+        "name": "sprite-interlace-vflip",
+        "sha256": "f8b1284131ba28d47eec9b9233959fdd957ab369609933c2d0dfce137444e06b"
+      },
+      {
+        "name": "sprite-rect",
+        "sha256": "05627c985a37f3432271a4057d0fc676626899d74363d70bc45f7ce6de4ad8e7"
+      },
+      {
+        "name": "sprite-rect-vflip",
+        "sha256": "9794f529a6c607ab952e411fbb78d63e2d058ab4e564ffeb3eed9a7f0a63a052"
+      },
+      {
+        "name": "cgram-latch",
+        "sha256": "48701e59808be464695e18760c376c919c75b6f49af9ea12ca14dbef3a53a165"
+      },
+      {
+        "name": "serial",
+        "sha256": "bc0cc8c9d5c6bd14225030d78210606604d0113e6438e97016d609e28723b38c"
+      },
+      {
+        "name": "reverse",
+        "sha256": "fcddbc9ad398910aafc2f89cdd3d957a95a09b181a2adf99ff693af2b4af215d"
+      },
+      {
+        "name": "indirect",
+        "sha256": "2af8d72c0f67b6a5c0799e3ae3ce18ae888b14d60ddc827d2229cade11d2940c"
+      },
+      {
+        "name": "dma-0",
+        "sha256": "c15b14f5cd23f7374697f86d047f7604df4430dd048e7700248766c38a4078c8"
+      },
+      {
+        "name": "dma-1",
+        "sha256": "4ef9b58f55457e28580083aa7abc23cd39aea1d2cceefebb208e05d59cef97b0"
+      },
+      {
+        "name": "dma-2",
+        "sha256": "2a1583f544032f4c9cdcf7af7a0f75f4755985044ebc7c19909cb41906175214"
+      },
+      {
+        "name": "dma-3",
+        "sha256": "7ad24516af863cf6f5a0ad162a66cb05e2bb629984f840642874cadfb1636fa1"
+      },
+      {
+        "name": "dma-4",
+        "sha256": "2028082bade2d893e8fba2ed14466bf0f504c5fba28f7efbdf50ef77f28fe747"
+      },
+      {
+        "name": "dma-5",
+        "sha256": "f70f900b066bfd71f5d1e48cb9016dd9cad596a69971a3b4622c5117c30bdb9a"
+      },
+      {
+        "name": "dma-6",
+        "sha256": "b7cb447314bc273d51a93c52904ce845c1acda82ac585c27fe207399583842e5"
+      },
+      {
+        "name": "dma-7",
+        "sha256": "832ce22a6b619785ea940225b74b930dd4a3f1fb4749a433f1cd8e03a6b6d5ce"
+      },
+      {
+        "name": "audio-gain",
+        "sha256": "4857e4aaf594b6aeb2028dd00a0097f17c6f9e402fad14c9e6328fa232859810"
+      },
+      {
+        "name": "audio-mute",
+        "sha256": "eaf2d42e8d9b406fd1d220b9d1435c29ada8d42a70d1b9ccc7a996da1b64960e"
+      },
+      {
+        "name": "audio-pitch",
+        "sha256": "9cfa5d8314e3eb72ac65fa69ca6c057cbfce43f49974ecf866feb47da7818a2f"
+      },
+      {
+        "name": "audio-voices",
+        "sha256": "e58db969fb9bed72b758034b34824a67d81b1b975d0fc4e5f7b0cdeea5fd0d61"
+      },
+      {
+        "name": "audio-adsr",
+        "sha256": "ea2d5c85225811f3f77bb497043d1e6fd2c6d62e28996966d5b5dea120313706"
+      },
+      {
+        "name": "audio-ramp",
+        "sha256": "aca3d17adbb95d91e19ba962f9f45d81def77a8d2b587cf2fac3fe30357e35df"
+      },
+      {
+        "name": "audio-keyoff",
+        "sha256": "b7867e6074cb70fa717fb9afc3ab62741e95d8434fce6f560b5fe90f27301f69"
+      },
+      {
+        "name": "audio-noise",
+        "sha256": "b7fe0a70c3ecd8b75b33121c31807c5e696bf76623ef765cbe53b4afbf25784a"
+      },
+      {
+        "name": "audio-echo",
+        "sha256": "e07acfb4b7edfc54000d584e0e01489491f600aa557535ceff246c2ebf7ed0e9"
+      },
+      {
+        "name": "audio-echo-wrap",
+        "sha256": "a0dfab9e4767d0983cb59b8489b003da934866d886df7a0e28ddfa8f82e22860"
+      },
+      {
+        "name": "audio-filter-1",
+        "sha256": "53384a06da79a3ed6641b77d23ab42cc78b24028978abb68acfe301dff840fb1"
+      },
+      {
+        "name": "audio-filter-2",
+        "sha256": "20191b0b2e6f84d94c1849f14ea8fec475cd7658421a4f1939659c870e4e903f"
+      },
+      {
+        "name": "audio-filter-3",
+        "sha256": "8e6ac5ff8d837660b11bb64525517b4cb948aa10bbe26d4347cc90c38e1c615a"
+      },
+      {
+        "name": "audio-range13",
+        "sha256": "ac54cd6a3d626ffae3277e716da0a6093c1fcde802441757f76059c49c6d027d"
+      },
+      {
+        "name": "audio-gauss-wrap",
+        "sha256": "dc85168332672cb0d22b33289f84be8b97476a045604fe1185af888b19fbc017"
+      },
+      {
+        "name": "audio-negative-modulator",
+        "sha256": "f74057065f201d4765ca0e5e6216379a934bffba54731ed4b64a0fef98bad3df"
+      },
+      {
+        "name": "apu-timer-zero-0",
+        "sha256": "5b421ba0400df5addff077a8e9851de2e4d053992d46c71fd0f4b7d516d3968f"
+      },
+      {
+        "name": "apu-timer-zero-1",
+        "sha256": "0449ee07799e7bcf964a6099dc6a7db7a929bbceca51bd0debdc26599e7ac10b"
+      },
+      {
+        "name": "apu-timer-zero-2",
+        "sha256": "fcb8eb64ef3ee5c15f17bd3674c2f406afccecc28c2d7d96c654f4162bea49ab"
+      },
+      {
+        "name": "apu-aux",
+        "sha256": "bfa1be65e03897a78bdd2899682ef686d586b408d79a89d99c53cd9943dd36ef"
+      },
+      {
+        "name": "apu-div-normal",
+        "sha256": "518b1219ade615a2400d00fb9a4c63e505a121d4dfdaf9df5042d5c7076507be"
+      },
+      {
+        "name": "apu-div-overflow",
+        "sha256": "0a2b47d5dd88fe76c42ce7dc1cd39aa32f60ec3b63af54095ebff54438f8cfb4"
+      },
+      {
+        "name": "apu-div-zero-divisor",
+        "sha256": "3253cd422934313961131387e5048904380a0fd6dc4325c4ee30e36402cbed6f"
+      },
+      {
+        "name": "apu-div-nine-bit",
+        "sha256": "f4a0c26190852afbe7c40fa8bf3e4517af3429920b62b325de42a50889ddb847"
+      },
+      {
+        "name": "apu-div-boundary",
+        "sha256": "845261e2250b295709ddf25b11778fe397825fbb8c9f027b160cc3b0a115e37a"
+      },
+      {
+        "name": "apu-div-zero-result",
+        "sha256": "6d6ce71a31afb73b683f12bf7d4f86c9741cf2b1aabc1467aeed29325ecca946"
+      },
+      {
+        "name": "apu-div-half-clear",
+        "sha256": "85eb190da15913b434742750b55e2ec795dc3dc409d5d0a9c32c669f054bb89c"
+      },
+      {
+        "name": "apu-dsp-mirror-volume",
+        "sha256": "da557c0b2d510ea800e44888467f22c0404064aae74e0322e8913065f5fafcee"
+      },
+      {
+        "name": "apu-dsp-mirror-flg",
+        "sha256": "a97212c591fda4700b466a0a740be52ea1d0b8145a76c8191c6eca839f9edd05"
+      },
+      {
+        "name": "apu-dsp-mirror-kon",
+        "sha256": "700ff71900cd43f3441d5cf879112aed06ef4f3561419bd8819535aa97d2bc1a"
+      },
+      {
+        "name": "apu-endx",
+        "sha256": "2cffb6dc1fcbc7db1760d3e32cbfd9d985ba0852e119ef6a949fdb1b50838a12"
+      },
+      {
+        "name": "apu-aux-repeat",
+        "sha256": "bfa1be65e03897a78bdd2899682ef686d586b408d79a89d99c53cd9943dd36ef"
+      },
+      {
+        "name": "sprite-small-interlace-6",
+        "sha256": "6a1afa45e527fb408874866df725fcdc14ca009e4fc8945a5814d357dab4b8a8"
+      },
+      {
+        "name": "sprite-small-interlace-6-vflip",
+        "sha256": "dc887e3ab0d1942db73791870fb9a6c4f04763fea7cac56db92ac53e50b3e58c"
+      },
+      {
+        "name": "sprite-small-interlace-7",
+        "sha256": "9cb1e02185f64d0de5614db0164577d8c482f0fc9bee242dbfc4d31f11250a33"
+      },
+      {
+        "name": "sprite-small-interlace-7-vflip",
+        "sha256": "41ec29d6f7ea5ca3464e4a7d5000e1647bdbe29714999f69f321aeb532eed303"
+      },
+      {
+        "name": "m7-over2",
+        "sha256": "be161f21ac99ef683554531829021923d03cb2f5d1d3dd88426f0638c8662140"
+      },
+      {
+        "name": "m7-over3",
+        "sha256": "7f20f313d27c0fd3d9f8613c4b4ad60a1479ab5740e6d417dde7672a5028ca20"
+      },
+      {
+        "name": "m7-origin-positive",
+        "sha256": "f5de8a6b7dba553918375f81af4fead899aaa5b05ab873e290872f342afe4866"
+      },
+      {
+        "name": "m7-origin-negative",
+        "sha256": "72dbcc45440114596c5d5943c4f01ffe1295087f8ca587083b79ba69ead7a47b"
+      },
+      {
+        "name": "color-window-0-0",
+        "sha256": "be89663663b7a1fe04427dfaa457fc054640eea569bf117d89d47b6751da4600"
+      },
+      {
+        "name": "color-window-0-1",
+        "sha256": "de51b07a425243436835365a4f8343974ecbeebd137efbeb13e401b3c0bbcf15"
+      },
+      {
+        "name": "color-window-0-2",
+        "sha256": "47118b874b881c55dac565796342d436b9193bfb9f34ec29ea1b41dc3ee97f21"
+      },
+      {
+        "name": "color-window-0-3",
+        "sha256": "ceab949acac7b181b2bda694899cce6846983af83c007dd49bb09c2c4aa26900"
+      },
+      {
+        "name": "color-window-1-0",
+        "sha256": "ff6266c7f58979f212b11869c7c94dbe5ba0b43d69da5da465d82e45779576cb"
+      },
+      {
+        "name": "color-window-1-1",
+        "sha256": "3db8998b0ae6c5438b64ea9743886f20f19afb55c33d2378a382c1e0534acd4b"
+      },
+      {
+        "name": "color-window-1-2",
+        "sha256": "a84e81b6f98eeb02f51f83f7ecb9264312641241e6dff3450cc6d3caab06fdbf"
+      },
+      {
+        "name": "color-window-1-3",
+        "sha256": "48a3f47e46a8a0efec1c494f837df04ac36e7130dfed7c8c3d2b258708d95286"
+      },
+      {
+        "name": "color-window-2-0",
+        "sha256": "3aed1c61fe467dcc8708690934b7e439a45c50466086025b36b0e2aeb8e2e099"
+      },
+      {
+        "name": "color-window-2-1",
+        "sha256": "0215d7653380e59c6168eff4c904b8f214284416015cac45d5ff473be2d96b01"
+      },
+      {
+        "name": "color-window-2-2",
+        "sha256": "62a964bce0100019aeac930f2c16b6080a9ed37456ea811daa867e804fb8ed00"
+      },
+      {
+        "name": "color-window-2-3",
+        "sha256": "84617778e2b12f28320192802b465166e41343ef62c69b3890bc42fd92707db8"
+      },
+      {
+        "name": "color-window-3-0",
+        "sha256": "6ae0ba55c584cd5e46a39e075b31558a2f2e58abdaef1cf8e6519f3d5ac32bdc"
+      },
+      {
+        "name": "color-window-3-1",
+        "sha256": "fe3696b47468f2a84dcd0b059ff95eb3f3ae8a8a5c67c170ae50c6abe37a7e83"
+      },
+      {
+        "name": "color-window-3-2",
+        "sha256": "5082618a389c2d63c40e34744381675a6764d6c03276f929b2c99aeed1a84f8e"
+      },
+      {
+        "name": "color-window-3-3",
+        "sha256": "3532ff74610f5d830d056452cadd52da2ec7ecc99d7decddb0623c9d1631d2b4"
+      },
+      {
+        "name": "obj-limit-32",
+        "sha256": "7e5e99087fabb959ab4611fe4f1384a8a6ddeefd23f6087bd1b89a139d635163"
+      },
+      {
+        "name": "obj-limit-33",
+        "sha256": "d4187641e6923733cd3ba396b15bbea5ae8890216b9ec31a8de9420704cd7200"
+      },
+      {
+        "name": "obj-limit-34tiles",
+        "sha256": "c67b748d668f305e908b640fa1469b3d06aaf3ee48846f8c005be04f17bc7bab"
+      },
+      {
+        "name": "obj-limit-35tiles",
+        "sha256": "66b3560b1d70a80fdd90b6d964ae1cbf348517dd0458d52e2583de11b58d702a"
+      },
+      {
+        "name": "multi",
+        "sha256": "e29e045198138b28b995e200cc378825ff89a886bc8777537c3f3423eda0aad1"
+      },
+      {
+        "name": "audio-feedback",
+        "sha256": "94296f048f5b479518aa37061621e9d0a7ba4c26689ad4765c0e66470c22a0b9"
+      },
+      {
+        "name": "audio-decay-sustain",
+        "sha256": "45be75b415b92e90da95a285327292863e04603106fc720f2ce8027aaf7e2f5e"
+      },
+      {
+        "name": "audio-sustain",
+        "sha256": "967b7ab6430cc748d77039b9cd79bfe2e9a1d37c967d8d61b1a9f7327b84741d"
+      },
+      {
+        "name": "audio-adsr-release",
+        "sha256": "4b25b888b8225199ecd4d046cd1e73c333b3c4ded0c0c7ce2b80f10a1818fb2f"
+      },
+      {
+        "name": "reject-mode5-as0",
+        "sha256": "1f8ec0ba8bbc51e917c5104f771003e97705c8f2491258593f8181013da35fdb"
+      },
+      {
+        "name": "slhv-latch",
+        "sha256": "8d34827462e57f119538b652fff572819192a026306f5c5e4f6e5eb81ffd5269"
+      },
+      {
+        "name": "wbglog-open-bus",
+        "sha256": "50de60410aad174dbee1b72d6748ad2bd7224abf5f28f82dec2607ce23965de2"
+      },
+      {
+        "name": "apu-ram-write-enable",
+        "sha256": "11fbcf273220ce9df1676e544b87b938569c9aceb603f0cdec16ec1a6b87d57d"
+      },
+      {
+        "name": "apu-ram-write-protect",
+        "sha256": "f7c977d1f62960cca0b8dca4162a1c1136ceca7501d031beabeed68e4376ef41"
+      },
+      {
+        "name": "apu-ram-disable-read",
+        "sha256": "98d11bd4bad96646397e402b56f9fe7fa0f98eb3f37d1e1c6fe7b7f5c98c3c72"
+      },
+      {
+        "name": "apu-ram-disable-write",
+        "sha256": "b86e8ba16f15c44c0c81c34a4a67c9a67a9ede42d99b21934c46376940ba6046"
+      },
+      {
+        "name": "apu-ram-disable-dsp",
+        "sha256": "e389f17fcc35dc98d734d6d86da3fc6b0ed796e98d42d7399c379ea7a699871f"
+      },
+      {
+        "name": "apu-ram-disable-aux",
+        "sha256": "7c2313165fa32e2cefef1e739c7eaef4972d2526b186b11ae9f5a72641b9c754"
+      },
+      {
+        "name": "apu-test-p-set",
+        "sha256": "7959ccd04abd73d52f216f3a470bbfd601d2247b944e521cf2faaaa6acee4b2b"
+      },
+      {
+        "name": "apu-test-p-clear",
+        "sha256": "d980e40a27fccf9d6ec915e0723b7d3346a83deda8e6203c8ced877eba57e086"
+      },
+      {
+        "name": "apu-clock-0-0",
+        "sha256": "4829686cc221b79bb35044ffc6e602a4856b6a495781b18dbfbd77e4522e734f"
+      },
+      {
+        "name": "apu-clock-1-0",
+        "sha256": "b3cee1afd081cc0734834bb1b10bc210ea1b223a68a343ca4e591b5a1fd47a62"
+      },
+      {
+        "name": "apu-clock-0-1",
+        "sha256": "4ac905093025528e5671c071fdc5c4bc979d628fd1f63810e60dcc120816559a"
+      },
+      {
+        "name": "apu-clock-1-1",
+        "sha256": "96b3275828720e78a9dfc506c7d2d0de0dc71266405cb418153ced8d7cda0fef"
+      },
+      {
+        "name": "apu-clock-2-0",
+        "sha256": "40dd59c2438688f842ec8ee06131332a78174fd8ede4aae3fef9d782936380f6"
+      },
+      {
+        "name": "apu-clock-0-2",
+        "sha256": "0054cd9ef9e0db07dec66a370c5af7c4c6c699afd88d2248faf50ffc688b6eeb"
+      },
+      {
+        "name": "apu-clock-2-2",
+        "sha256": "e7ae57556f53cbb03266027ae04e74167f0a8ba05bcad31aae98cc639725c194"
+      },
+      {
+        "name": "apu-clock-3-0",
+        "sha256": "9f08d26116ff256ce3d1e46616003aec5dfcee7c60c021150d8cb256b4184d1a"
+      },
+      {
+        "name": "apu-clock-0-3",
+        "sha256": "228f08c295e890abceaaef495c3889923bc7be0ff2e4d904fc030f8ed69d62bd"
+      },
+      {
+        "name": "apu-clock-3-3",
+        "sha256": "00c67eb0614e7c43647799db689d73b24b0976404d86bdff5ff666795dfce1be"
+      },
+      {
+        "name": "apu-io-directory",
+        "sha256": "1069fb245c4301a06db36704feb90e88e997c5abe83578f9a068bc008c15a526"
+      },
+      {
+        "name": "apu-io-directory-protect",
+        "sha256": "276cb6d3c442f2611e14b252c0c5246ae9368687ea0f3d3d06a02a5bb8bd6c32"
+      },
+      {
+        "name": "apu-io-directory-control",
+        "sha256": "a2ee80d11b77e784b8fc45415e79771462a6ff5b6b7ae8378492fed0b21942f9"
+      }
+    ],
+    "negativeControl": {
+      "reviewedWasmSha256": "046c3b8385aebdc4dfc438f089eeeee6c1ec61a1352aa911d12e2ca5d82aeecb",
+      "results": [
+        {
+          "name": "apu-io-directory",
+          "pcmMatches": false
+        },
+        {
+          "name": "apu-io-directory-protect",
+          "pcmMatches": false
+        },
+        {
+          "name": "apu-io-directory-control",
+          "pcmMatches": true
+        }
+      ],
+      "note": "Retained browser-compiled reviewed-head artifact; new cartridges replayed using its unchanged Wasm runtime exports. Both I/O directory cases fail the existing PCM oracle; ordinary ARAM control passes."
+    },
+    "focusedBrowsers": {
+      "stats": {
+        "startTime": "2026-10-30T09:51:30.032Z",
+        "duration": 189575.978,
+        "expected": 2,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "reportSha256": "130ad723d37374afba624098ae0b669a93fafa7d9d89ae5e0ec342c2d841acab",
+      "tests": [
+        {
+          "name": "full SNES RTL batch 1/1: boots a local cartridge, renders DMA tiles, produces DSP PCM, handles input and repeats reset",
+          "browser": "chromium",
+          "status": "expected",
+          "results": [
+            {
+              "status": "passed",
+              "durationMs": 167191,
+              "errors": []
+            }
+          ]
+        },
+        {
+          "name": "full SNES RTL batch 1/1: boots a local cartridge, renders DMA tiles, produces DSP PCM, handles input and repeats reset",
+          "browser": "firefox",
+          "status": "expected",
+          "results": [
+            {
+              "status": "passed",
+              "durationMs": 188166,
+              "errors": []
+            }
+          ]
+        }
+      ]
+    },
+    "staticBrowsers": {
+      "stats": {
+        "startTime": "2026-10-30T09:54:44.335Z",
+        "duration": 3263784.9250000003,
+        "expected": 60,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "reportSha256": "866ffe16de1a9fc33a44761a6c4c77b299e50de0e804a85a116fe85971b8518a",
+      "command": "env -u WEBRTL_SNES_FIXTURES PLAYWRIGHT_JSON_OUTPUT_NAME=.build/aram-validation/static.json npx playwright test --config=playwright.static.config.js --workers=2 --output=.build/aram-validation/static --reporter=line,json",
+      "fixtureFiltering": false,
+      "browsers": {
+        "chromium": {
+          "batches": [
+            {
+              "name": "full SNES RTL batch 1/9",
+              "cartridges": 20,
+              "resultsSha256": "6ba455176963c59794bc209f91a94225f011713284a7727120828377d73617dc",
+              "measurement": {
+                "browser": "chromium",
+                "compileMs": 70923.90000000224,
+                "wasmBytes": 270506,
+                "cxxrtlBytes": 1630383,
+                "runtime": {
+                  "samples": 2489,
+                  "nonzero": 1399,
+                  "pcmHash": 2024722791,
+                  "hashes": [
+                    698101324,
+                    698101324,
+                    3470071505,
+                    3371206625
+                  ],
+                  "frameCycles": [
+                    311296,
+                    671744,
+                    1032192,
+                    1392640
+                  ],
+                  "hdmaWrites": 4,
+                  "nmiVectors": 2,
+                  "irqVectors": 687,
+                  "memoryBytes": 20578304,
+                  "pcmPeriod16": true,
+                  "pcmMin": -14011,
+                  "pcmMax": 14005,
+                  "elapsedMs": 6342.300000000745,
+                  "cycles": 1671168
+                }
+              }
+            },
+            {
+              "name": "full SNES RTL batch 2/9",
+              "cartridges": 20,
+              "resultsSha256": "875d041160effb8dad563fc9acb7b2a8fa2e05bf340c59fed6772eef47d9731e",
+              "measurement": {
+                "browser": "chromium",
+                "compileMs": 67691.20000000298,
+                "wasmBytes": 270506,
+                "cxxrtlBytes": 1630383,
+                "runtime": {
+                  "samples": 2489,
+                  "nonzero": 1399,
+                  "pcmHash": 2024722791,
+                  "hashes": [
+                    698101324,
+                    698101324,
+                    3470071505,
+                    3371206625
+                  ],
+                  "frameCycles": [
+                    311296,
+                    671744,
+                    1032192,
+                    1392640
+                  ],
+                  "hdmaWrites": 4,
+                  "nmiVectors": 2,
+                  "irqVectors": 687,
+                  "memoryBytes": 20578304,
+                  "pcmPeriod16": true,
+                  "pcmMin": -14011,
+                  "pcmMax": 14005,
+                  "elapsedMs": 6348.699999999255,
+                  "cycles": 1671168
+                }
+              }
+            },
+            {
+              "name": "full SNES RTL batch 3/9",
+              "cartridges": 20,
+              "resultsSha256": "e5cf81c5844533ef03febbccdc9deb76f5ce42afb5b083f6f1f6e754651a5acc",
+              "measurement": {
+                "browser": "chromium",
+                "compileMs": 71496.70000000298,
+                "wasmBytes": 270506,
+                "cxxrtlBytes": 1630383,
+                "runtime": {
+                  "samples": 2489,
+                  "nonzero": 1399,
+                  "pcmHash": 2024722791,
+                  "hashes": [
+                    698101324,
+                    698101324,
+                    3470071505,
+                    3371206625
+                  ],
+                  "frameCycles": [
+                    311296,
+                    671744,
+                    1032192,
+                    1392640
+                  ],
+                  "hdmaWrites": 4,
+                  "nmiVectors": 2,
+                  "irqVectors": 687,
+                  "memoryBytes": 20578304,
+                  "pcmPeriod16": true,
+                  "pcmMin": -14011,
+                  "pcmMax": 14005,
+                  "elapsedMs": 6345.60000000149,
+                  "cycles": 1671168
+                }
+              }
+            },
+            {
+              "name": "full SNES RTL batch 4/9",
+              "cartridges": 20,
+              "resultsSha256": "73f0665ca238168e51bcb6914079ed97249584cafee85a4dfef95ad12c2b34e6",
+              "measurement": {
+                "browser": "chromium",
+                "compileMs": 68153.40000000224,
+                "wasmBytes": 270506,
+                "cxxrtlBytes": 1630383,
+                "runtime": {
+                  "samples": 2489,
+                  "nonzero": 1399,
+                  "pcmHash": 2024722791,
+                  "hashes": [
+                    698101324,
+                    698101324,
+                    3470071505,
+                    3371206625
+                  ],
+                  "frameCycles": [
+                    311296,
+                    671744,
+                    1032192,
+                    1392640
+                  ],
+                  "hdmaWrites": 4,
+                  "nmiVectors": 2,
+                  "irqVectors": 687,
+                  "memoryBytes": 20578304,
+                  "pcmPeriod16": true,
+                  "pcmMin": -14011,
+                  "pcmMax": 14005,
+                  "elapsedMs": 6470.39999999851,
+                  "cycles": 1671168
+                }
+              }
+            },
+            {
+              "name": "full SNES RTL batch 5/9",
+              "cartridges": 20,
+              "resultsSha256": "d1873d5049e8947f6aac9905edba7e6af7b4643a8f9f6d9a76cbdbe692f02d87",
+              "measurement": {
+                "browser": "chromium",
+                "compileMs": 79620,
+                "wasmBytes": 270506,
+                "cxxrtlBytes": 1630383,
+                "runtime": {
+                  "samples": 2489,
+                  "nonzero": 1399,
+                  "pcmHash": 2024722791,
+                  "hashes": [
+                    698101324,
+                    698101324,
+                    3470071505,
+                    3371206625
+                  ],
+                  "frameCycles": [
+                    311296,
+                    671744,
+                    1032192,
+                    1392640
+                  ],
+                  "hdmaWrites": 4,
+                  "nmiVectors": 2,
+                  "irqVectors": 687,
+                  "memoryBytes": 20578304,
+                  "pcmPeriod16": true,
+                  "pcmMin": -14011,
+                  "pcmMax": 14005,
+                  "elapsedMs": 6441.60000000149,
+                  "cycles": 1671168
+                }
+              }
+            },
+            {
+              "name": "full SNES RTL batch 6/9",
+              "cartridges": 21,
+              "resultsSha256": "6e4b273346e0ec388444f57f2c118348ef0ab91619cdc4a870be1583f19729c5",
+              "measurement": {
+                "browser": "chromium",
+                "compileMs": 66101.30000000075,
+                "wasmBytes": 270506,
+                "cxxrtlBytes": 1630383,
+                "runtime": {
+                  "samples": 2489,
+                  "nonzero": 1399,
+                  "pcmHash": 2024722791,
+                  "hashes": [
+                    698101324,
+                    698101324,
+                    3470071505,
+                    3371206625
+                  ],
+                  "frameCycles": [
+                    311296,
+                    671744,
+                    1032192,
+                    1392640
+                  ],
+                  "hdmaWrites": 4,
+                  "nmiVectors": 2,
+                  "irqVectors": 687,
+                  "memoryBytes": 20578304,
+                  "pcmPeriod16": true,
+                  "pcmMin": -14011,
+                  "pcmMax": 14005,
+                  "elapsedMs": 6455.400000002235,
+                  "cycles": 1671168
+                }
+              }
+            },
+            {
+              "name": "full SNES RTL batch 7/9",
+              "cartridges": 20,
+              "resultsSha256": "0aa3838be7d4325ab18c0857ade46a5aa1c8969d6f49115b7331163d6555d049",
+              "measurement": {
+                "browser": "chromium",
+                "compileMs": 67067.89999999851,
+                "wasmBytes": 270506,
+                "cxxrtlBytes": 1630383,
+                "runtime": {
+                  "samples": 2489,
+                  "nonzero": 1399,
+                  "pcmHash": 2024722791,
+                  "hashes": [
+                    698101324,
+                    698101324,
+                    3470071505,
+                    3371206625
+                  ],
+                  "frameCycles": [
+                    311296,
+                    671744,
+                    1032192,
+                    1392640
+                  ],
+                  "hdmaWrites": 4,
+                  "nmiVectors": 2,
+                  "irqVectors": 687,
+                  "memoryBytes": 20578304,
+                  "pcmPeriod16": true,
+                  "pcmMin": -14011,
+                  "pcmMax": 14005,
+                  "elapsedMs": 6461.89999999851,
+                  "cycles": 1671168
+                }
+              }
+            },
+            {
+              "name": "full SNES RTL batch 8/9",
+              "cartridges": 20,
+              "resultsSha256": "443545a64ebc5ebe1da0c374e1a17e5fbd757c5c412f6b56018beaac4679c76f",
+              "measurement": {
+                "browser": "chromium",
+                "compileMs": 73386.59999999776,
+                "wasmBytes": 270506,
+                "cxxrtlBytes": 1630383,
+                "runtime": {
+                  "samples": 2489,
+                  "nonzero": 1399,
+                  "pcmHash": 2024722791,
+                  "hashes": [
+                    698101324,
+                    698101324,
+                    3470071505,
+                    3371206625
+                  ],
+                  "frameCycles": [
+                    311296,
+                    671744,
+                    1032192,
+                    1392640
+                  ],
+                  "hdmaWrites": 4,
+                  "nmiVectors": 2,
+                  "irqVectors": 687,
+                  "memoryBytes": 20578304,
+                  "pcmPeriod16": true,
+                  "pcmMin": -14011,
+                  "pcmMax": 14005,
+                  "elapsedMs": 6506.300000000745,
+                  "cycles": 1671168
+                }
+              }
+            },
+            {
+              "name": "full SNES RTL batch 9/9",
+              "cartridges": 18,
+              "resultsSha256": "6df9c365ecffe8dcd38a8be431d05b4b8bf2198a2ac2a537c00fc8c96c66ad88",
+              "measurement": {
+                "browser": "chromium",
+                "compileMs": 84309.60000000149,
+                "wasmBytes": 270506,
+                "cxxrtlBytes": 1630383,
+                "runtime": {
+                  "samples": 2489,
+                  "nonzero": 1399,
+                  "pcmHash": 2024722791,
+                  "hashes": [
+                    698101324,
+                    698101324,
+                    3470071505,
+                    3371206625
+                  ],
+                  "frameCycles": [
+                    311296,
+                    671744,
+                    1032192,
+                    1392640
+                  ],
+                  "hdmaWrites": 4,
+                  "nmiVectors": 2,
+                  "irqVectors": 687,
+                  "memoryBytes": 20578304,
+                  "pcmPeriod16": true,
+                  "pcmMin": -14011,
+                  "pcmMax": 14005,
+                  "elapsedMs": 7081,
+                  "cycles": 1671168
+                }
+              }
+            }
+          ],
+          "cartridges": 179,
+          "exactPositiveFrames": 178,
+          "positivePixelMismatches": 0,
+          "negativeControlRejectedPixels": [
+            57344
+          ],
+          "pcmSamplesPerCartridge": [
+            256
+          ],
+          "frameAndPcmResultsSha256": "975dc198843bc1043323561ddf995f194faa1fbd6275061126eac8a2a64f25ae",
+          "measurements": {
+            "compileMs": [
+              66101.30000000075,
+              84309.60000000149
+            ],
+            "wasmBytes": [
+              270506
+            ],
+            "cxxrtlBytes": [
+              1630383
+            ],
+            "memoryBytes": [
+              20578304
+            ],
+            "masterClocksPerSecond": [
+              236007.34359553736,
+              263495.5773141926
+            ],
+            "capturedFramesPerSecond": [
+              0.5648919644118062,
+              0.6306860287276745
+            ],
+            "realTimeRatio": [
+              0.01098870310777568,
+              0.01226857870270256
+            ]
+          }
+        },
+        "firefox": {
+          "batches": [
+            {
+              "name": "full SNES RTL batch 1/9",
+              "cartridges": 20,
+              "resultsSha256": "6ba455176963c59794bc209f91a94225f011713284a7727120828377d73617dc",
+              "measurement": {
+                "browser": "firefox",
+                "compileMs": 71930,
+                "wasmBytes": 270506,
+                "cxxrtlBytes": 1630383,
+                "runtime": {
+                  "samples": 2489,
+                  "nonzero": 1399,
+                  "pcmHash": 2024722791,
+                  "hashes": [
+                    698101324,
+                    698101324,
+                    3470071505,
+                    3371206625
+                  ],
+                  "frameCycles": [
+                    311296,
+                    671744,
+                    1032192,
+                    1392640
+                  ],
+                  "hdmaWrites": 4,
+                  "nmiVectors": 2,
+                  "irqVectors": 687,
+                  "memoryBytes": 20578304,
+                  "pcmPeriod16": true,
+                  "pcmMin": -14011,
+                  "pcmMax": 14005,
+                  "elapsedMs": 7881,
+                  "cycles": 1671168
+                }
+              }
+            },
+            {
+              "name": "full SNES RTL batch 2/9",
+              "cartridges": 20,
+              "resultsSha256": "875d041160effb8dad563fc9acb7b2a8fa2e05bf340c59fed6772eef47d9731e",
+              "measurement": {
+                "browser": "firefox",
+                "compileMs": 74953,
+                "wasmBytes": 270506,
+                "cxxrtlBytes": 1630383,
+                "runtime": {
+                  "samples": 2489,
+                  "nonzero": 1399,
+                  "pcmHash": 2024722791,
+                  "hashes": [
+                    698101324,
+                    698101324,
+                    3470071505,
+                    3371206625
+                  ],
+                  "frameCycles": [
+                    311296,
+                    671744,
+                    1032192,
+                    1392640
+                  ],
+                  "hdmaWrites": 4,
+                  "nmiVectors": 2,
+                  "irqVectors": 687,
+                  "memoryBytes": 20578304,
+                  "pcmPeriod16": true,
+                  "pcmMin": -14011,
+                  "pcmMax": 14005,
+                  "elapsedMs": 8008,
+                  "cycles": 1671168
+                }
+              }
+            },
+            {
+              "name": "full SNES RTL batch 3/9",
+              "cartridges": 20,
+              "resultsSha256": "e5cf81c5844533ef03febbccdc9deb76f5ce42afb5b083f6f1f6e754651a5acc",
+              "measurement": {
+                "browser": "firefox",
+                "compileMs": 81668,
+                "wasmBytes": 270506,
+                "cxxrtlBytes": 1630383,
+                "runtime": {
+                  "samples": 2489,
+                  "nonzero": 1399,
+                  "pcmHash": 2024722791,
+                  "hashes": [
+                    698101324,
+                    698101324,
+                    3470071505,
+                    3371206625
+                  ],
+                  "frameCycles": [
+                    311296,
+                    671744,
+                    1032192,
+                    1392640
+                  ],
+                  "hdmaWrites": 4,
+                  "nmiVectors": 2,
+                  "irqVectors": 687,
+                  "memoryBytes": 20578304,
+                  "pcmPeriod16": true,
+                  "pcmMin": -14011,
+                  "pcmMax": 14005,
+                  "elapsedMs": 7901,
+                  "cycles": 1671168
+                }
+              }
+            },
+            {
+              "name": "full SNES RTL batch 4/9",
+              "cartridges": 20,
+              "resultsSha256": "73f0665ca238168e51bcb6914079ed97249584cafee85a4dfef95ad12c2b34e6",
+              "measurement": {
+                "browser": "firefox",
+                "compileMs": 83371,
+                "wasmBytes": 270506,
+                "cxxrtlBytes": 1630383,
+                "runtime": {
+                  "samples": 2489,
+                  "nonzero": 1399,
+                  "pcmHash": 2024722791,
+                  "hashes": [
+                    698101324,
+                    698101324,
+                    3470071505,
+                    3371206625
+                  ],
+                  "frameCycles": [
+                    311296,
+                    671744,
+                    1032192,
+                    1392640
+                  ],
+                  "hdmaWrites": 4,
+                  "nmiVectors": 2,
+                  "irqVectors": 687,
+                  "memoryBytes": 20578304,
+                  "pcmPeriod16": true,
+                  "pcmMin": -14011,
+                  "pcmMax": 14005,
+                  "elapsedMs": 7866,
+                  "cycles": 1671168
+                }
+              }
+            },
+            {
+              "name": "full SNES RTL batch 5/9",
+              "cartridges": 20,
+              "resultsSha256": "d1873d5049e8947f6aac9905edba7e6af7b4643a8f9f6d9a76cbdbe692f02d87",
+              "measurement": {
+                "browser": "firefox",
+                "compileMs": 71201,
+                "wasmBytes": 270506,
+                "cxxrtlBytes": 1630383,
+                "runtime": {
+                  "samples": 2489,
+                  "nonzero": 1399,
+                  "pcmHash": 2024722791,
+                  "hashes": [
+                    698101324,
+                    698101324,
+                    3470071505,
+                    3371206625
+                  ],
+                  "frameCycles": [
+                    311296,
+                    671744,
+                    1032192,
+                    1392640
+                  ],
+                  "hdmaWrites": 4,
+                  "nmiVectors": 2,
+                  "irqVectors": 687,
+                  "memoryBytes": 20578304,
+                  "pcmPeriod16": true,
+                  "pcmMin": -14011,
+                  "pcmMax": 14005,
+                  "elapsedMs": 7842,
+                  "cycles": 1671168
+                }
+              }
+            },
+            {
+              "name": "full SNES RTL batch 6/9",
+              "cartridges": 21,
+              "resultsSha256": "6e4b273346e0ec388444f57f2c118348ef0ab91619cdc4a870be1583f19729c5",
+              "measurement": {
+                "browser": "firefox",
+                "compileMs": 77875,
+                "wasmBytes": 270506,
+                "cxxrtlBytes": 1630383,
+                "runtime": {
+                  "samples": 2489,
+                  "nonzero": 1399,
+                  "pcmHash": 2024722791,
+                  "hashes": [
+                    698101324,
+                    698101324,
+                    3470071505,
+                    3371206625
+                  ],
+                  "frameCycles": [
+                    311296,
+                    671744,
+                    1032192,
+                    1392640
+                  ],
+                  "hdmaWrites": 4,
+                  "nmiVectors": 2,
+                  "irqVectors": 687,
+                  "memoryBytes": 20578304,
+                  "pcmPeriod16": true,
+                  "pcmMin": -14011,
+                  "pcmMax": 14005,
+                  "elapsedMs": 7910,
+                  "cycles": 1671168
+                }
+              }
+            },
+            {
+              "name": "full SNES RTL batch 7/9",
+              "cartridges": 20,
+              "resultsSha256": "0aa3838be7d4325ab18c0857ade46a5aa1c8969d6f49115b7331163d6555d049",
+              "measurement": {
+                "browser": "firefox",
+                "compileMs": 93041,
+                "wasmBytes": 270506,
+                "cxxrtlBytes": 1630383,
+                "runtime": {
+                  "samples": 2489,
+                  "nonzero": 1399,
+                  "pcmHash": 2024722791,
+                  "hashes": [
+                    698101324,
+                    698101324,
+                    3470071505,
+                    3371206625
+                  ],
+                  "frameCycles": [
+                    311296,
+                    671744,
+                    1032192,
+                    1392640
+                  ],
+                  "hdmaWrites": 4,
+                  "nmiVectors": 2,
+                  "irqVectors": 687,
+                  "memoryBytes": 20578304,
+                  "pcmPeriod16": true,
+                  "pcmMin": -14011,
+                  "pcmMax": 14005,
+                  "elapsedMs": 7915,
+                  "cycles": 1671168
+                }
+              }
+            },
+            {
+              "name": "full SNES RTL batch 8/9",
+              "cartridges": 20,
+              "resultsSha256": "443545a64ebc5ebe1da0c374e1a17e5fbd757c5c412f6b56018beaac4679c76f",
+              "measurement": {
+                "browser": "firefox",
+                "compileMs": 74389,
+                "wasmBytes": 270506,
+                "cxxrtlBytes": 1630383,
+                "runtime": {
+                  "samples": 2489,
+                  "nonzero": 1399,
+                  "pcmHash": 2024722791,
+                  "hashes": [
+                    698101324,
+                    698101324,
+                    3470071505,
+                    3371206625
+                  ],
+                  "frameCycles": [
+                    311296,
+                    671744,
+                    1032192,
+                    1392640
+                  ],
+                  "hdmaWrites": 4,
+                  "nmiVectors": 2,
+                  "irqVectors": 687,
+                  "memoryBytes": 20578304,
+                  "pcmPeriod16": true,
+                  "pcmMin": -14011,
+                  "pcmMax": 14005,
+                  "elapsedMs": 7707,
+                  "cycles": 1671168
+                }
+              }
+            },
+            {
+              "name": "full SNES RTL batch 9/9",
+              "cartridges": 18,
+              "resultsSha256": "6df9c365ecffe8dcd38a8be431d05b4b8bf2198a2ac2a537c00fc8c96c66ad88",
+              "measurement": {
+                "browser": "firefox",
+                "compileMs": 70452,
+                "wasmBytes": 270506,
+                "cxxrtlBytes": 1630383,
+                "runtime": {
+                  "samples": 2489,
+                  "nonzero": 1399,
+                  "pcmHash": 2024722791,
+                  "hashes": [
+                    698101324,
+                    698101324,
+                    3470071505,
+                    3371206625
+                  ],
+                  "frameCycles": [
+                    311296,
+                    671744,
+                    1032192,
+                    1392640
+                  ],
+                  "hdmaWrites": 4,
+                  "nmiVectors": 2,
+                  "irqVectors": 687,
+                  "memoryBytes": 20578304,
+                  "pcmPeriod16": true,
+                  "pcmMin": -14011,
+                  "pcmMax": 14005,
+                  "elapsedMs": 7699,
+                  "cycles": 1671168
+                }
+              }
+            }
+          ],
+          "cartridges": 179,
+          "exactPositiveFrames": 178,
+          "positivePixelMismatches": 0,
+          "negativeControlRejectedPixels": [
+            57344
+          ],
+          "pcmSamplesPerCartridge": [
+            256
+          ],
+          "frameAndPcmResultsSha256": "975dc198843bc1043323561ddf995f194faa1fbd6275061126eac8a2a64f25ae",
+          "measurements": {
+            "compileMs": [
+              70452,
+              93041
+            ],
+            "wasmBytes": [
+              270506
+            ],
+            "cxxrtlBytes": [
+              1630383
+            ],
+            "memoryBytes": [
+              20578304
+            ],
+            "masterClocksPerSecond": [
+              208687.3126873127,
+              217062.99519418107
+            ],
+            "capturedFramesPerSecond": [
+              0.4995004995004995,
+              0.5195479932458761
+            ],
+            "realTimeRatio": [
+              0.009716659179090857,
+              0.010106638096656654
+            ]
+          }
+        }
+      },
+      "wasmSha256": [
+        "b550e1c0c9b4e43197d1539a3733e105f98585e47d5cd96486cc1cce704b5a90"
+      ],
+      "sameFrameAndPcmHashesAcrossBrowsers": true
+    },
+    "trustedLocal": {
+      "stats": {
+        "startTime": "2026-10-30T09:54:41.513Z",
+        "duration": 16621.533,
+        "expected": 1,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "reportSha256": "2fcf39ad6041c210d30a6fbaa8617e1fa4e8be65f54e06231898546cc0ad5fef",
+      "tests": [
+        {
+          "name": "compiles and runs the real counter, edited HDL, and build errors",
+          "browser": "",
+          "status": "expected",
+          "results": [
+            {
+              "status": "passed",
+              "durationMs": 16177,
+              "errors": []
+            }
+          ]
+        }
+      ],
+      "command": "PLAYWRIGHT_JSON_OUTPUT_NAME=.build/aram-validation/local.json npm run test:local -- --config=.build/aram-validation/local.config.cjs --output=.build/aram-validation/local --reporter=line,json",
+      "verilator": "5.020",
+      "sourceCommit": "5c5314b39cd888f427807d626e1502cbf222c292",
+      "sourceModified": false,
+      "emscripten": "6.0.13-git",
+      "build": "Unmodified pinned Verilator checkout; autoconf 2.72, GNU M4 1.4.19, GNU Flex 2.6.4 with matching include directory, make -C src -j4 ../bin/verilator_bin. All tools built locally in ignored .build/toolchains; no global replacement.",
+      "selection": "Scoped VERILATOR_ROOT=$PWD/.build/toolchains/verilator-5.020 and PATH=$VERILATOR_ROOT/bin:$PATH.",
+      "configuration": "Original test and assertions; temporary config changes only service/base URL port to 18765, absolute cwd/test paths and output directory.",
+      "directBuild": {
+        "passed": true,
+        "command": "python3 build.py examples/counter.v .build/aram-validation/native-counter",
+        "wasmBytes": 186868,
+        "wasmSha256": "403d800e3e0354e46c3ca843c25be8a7595de0786570f8559a3a94e97539bfa9"
+      },
+      "reportOrigin": "Playwright resolved the relative report path against the temporary config directory; the identical report was copied to .build/aram-validation/local.json for collection."
+    },
+    "testedInputSha256": {
+      "build.py": "a53cce3471a703c92193ecf08a9c9bf8b6d186ce5716d245942113ff9c99775b",
+      "build_site.py": "1b0b1a4cd74356a40c302fb4ee8a6566bfcce4e5decb36b93bf3a2156d1541ec",
+      "examples/snes/LICENSE": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+      "examples/snes/README.md": "299f2db8050f9697b370baaf299dce916d8e4de68dc06b5c614af8b3a0b822b8",
+      "examples/snes/boot/LICENSE": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+      "examples/snes/boot/README.md": "d4348f6bc1e2abce2bcb37258b7d4e7960bd02b5fbb4bc32fb2f4d9608f49c0d",
+      "examples/snes/boot/docs/protocol.md": "84f563ab5742a88588246160a29a425487de24fcb4d114c3dff8a6f7fa4995b5",
+      "examples/snes/boot/docs/testing.md": "fed6b52ce3a804408005e222bed0fbd763bdeb9f68936ac204ef521cd18b94fe",
+      "examples/snes/boot/listing.txt": "000dc78c23af4688cdf7fda2f9206ad8db3ce608dc5a5ee45549bd03b216ee17",
+      "examples/snes/boot/spc700-boot-rom.bin": "69ef17c3f4ff6f44ca3d86a344360e785fb1eb0ff0f51305e46c70d594a7fb65",
+      "examples/snes/boot/spc700_boot_rom.h": "167f346894859ac837bd4b2cfa9094a4d8bd07b39568c4ce98250b69c9ae3cf6",
+      "examples/snes/boot/src/assemble.py": "95be0a96f434be03cf9e61efef619e38d83153a50b900debe29924c0cdcd14aa",
+      "examples/snes/snes-core.v": "08350ff7dd74f177a9fbed38b2f19b75c83bde2e87025e28b69355fc3a4c7679",
+      "examples/snes/snes.v": "0c707bd087c18279952a4a490045b954041475c8ec417f7dcaaa630e79fffec2",
+      "examples/snes/test-listing.txt": "982d76c135cb84d501581b0800a787f8313c6e6099f8244592037f4ff4c6bf83",
+      "examples/snes/test.sfc": "1f8ec0ba8bbc51e917c5104f771003e97705c8f2491258593f8181013da35fdb",
+      "examples/snes/upstream.json": "6118fd887337ebb9e17c431e023732833a3370029686187aed238722d9e9650e",
+      "package-lock.json": "541217566bd0ba90e22dd1c5358fd3b362853d705ac75d9c1f1e36139ef9e597",
+      "package.json": "07800e9a7e7b065aed8421b3ed238bf9be38611222904694eb3501598db87d76",
+      "playwright.config.js": "a305bfcc32c172ab9fb74fa8839dcec1340a41ca51b38d6e2cbd3a55361e7688",
+      "playwright.static.config.js": "8068db8aebfe9a627f5856e8c7db7091df49dc2f07d3f3ce25168d9c921d3de4",
+      "scripts/adapt_cpu816.py": "ca274a1f94d4a4afad407cd551d3be318dd24096c120c6c27aaf6ed5fe3e3838",
+      "scripts/adapt_snes.py": "e23b3488ac93571448cb9b9977a96f4a1d9990968b1b03a14c5ed570e0c785c1",
+      "scripts/generate-bg1-rom.py": "9d67729617c18273a23fdd9d468d4a706582a340a7a1e8d7be059a1a66fce07b",
+      "scripts/generate-snes-rom.py": "f2393bdce3d6f5112d5f33e7df9e5b1c924de95582843af27dda5050926f8533",
+      "simulator.cpp": "cf51810c09407d7c313dd799d69c586f2bd9ce64a516c56adc996f6913ef3eaf",
+      "tests/browser/counter.spec.js": "4876539664c6bc441ae5ffbec63a887c6f017084087768976e6e5eddd4eb64cc",
+      "tests/serve_static.py": "31c24efba32525390fc2d43d331a289e54cab2e99da01613ba83b32ba6bf0290",
+      "tests/static/backdrop.spec.js": "7cca9827398df97dbdbcabb62b0f50919c3d3c926574bc6f2b13be0c2865741b",
+      "tests/static/bg1.spec.js": "14397faf0c1cab219fe286f59e7af120be3125852070ba6a98c4e1d263e2fc5c",
+      "tests/static/counter.spec.js": "b87f66acc16e0629bdd1773aeb736cc86d9aadfa677aa38f02328492161e2a45",
+      "tests/static/cpu-bus.spec.js": "66a72b658f5ea8a9fee9b3440a105c9b45803b958bc75ee6f8ef2bc73936bb74",
+      "tests/static/cpu816.spec.js": "4f078078db5ba05f67b290b848c706e30ab047a5488d2827d349417573396c27",
+      "tests/static/outputs.spec.js": "74295dfad6ab354de831431f5b1082ad38ef9817249ce8c7cd5e95f94fb1e98c",
+      "tests/static/snes.spec.js": "429f796181d6e7d176cfdd14e145db211cac770a59345a83613d91135c3172ae",
+      "tests/test_service.py": "62116f0e7d4d73b1e877b1d9142e7dba516845ac50d3e419f3e883d454c2a02d",
+      "tests/test_snes_assets.py": "3387e460186e8e3aebc73750dcc81ad18166d71de5a07448e6c93badc42d2834",
+      "web/app.js": "e7300ae748a49ef6b5f4f6c44079b6edbdcde3022019a1251c887d4ab409cfce",
+      "web/audio-output.js": "7ffea14c5bea930c3f6d31261f3fb8b208060464c8e4d159762b3490b61ad982",
+      "web/browser-client.js": "38b54c727b49fac21ccb777ca34b2eaf3650a9daf824614f45ea8c5047c11cb6",
+      "web/browser-simulator.cpp": "7f01a21f91241c8fd3dc0e15588bb61c64f3525d92a593ba37979db81da09fc4",
+      "web/compiler-worker.js": "d444cb2c60ad029fbb21cee421401a77f7c9f882f5e6b933ddeed93bcd17a7c4",
+      "web/compiler.js": "1694755644332981d93a73ac0550697e608c07b668f7100d74fa45a4407c3a1d",
+      "web/index.html": "d47c115f1e4b760085ec23d1c9d4556276e8aae1c607059622a4bb36f7a27d2b",
+      "web/output-contracts.js": "9bef190f1a3e9346835437e495d61a7c92828a5f833c64d9b33eb3d08418f97d",
+      "web/project.js": "cf06503c3634a638bafffd3f69f7c34e1b29fb3a4e1d898c07ddc2f635b90de5",
+      "web/simulator-worker.js": "35d5049d8cf718aef020069c044902ef3c02e3c74e1a58c86e53d938c43be661",
+      "web/snes-rom.js": "c1894003d4ae99596d2308b28fd3e0f7942f8f7a4f4466b0f2cedb842c5c8541",
+      "web/style.css": "f494df42a8a2c6764bb6e33d4ff6dc7860cb8f6869f7eb06f742ffe6fba7be3a",
+      "web/third-party-notices.txt": "97fae9b8cad693cb56b9508273cc99e86913e3b03015bb1eee55574721b6e746"
+    },
+    "acceptanceAssessment": "Both agent-fixable findings are addressed. All locally executable pre-merge checks passed on the corrected source: integrated CPU/PPU/APU and peripherals, client-side compilation/local cartridge loading, independent exact frame/PCM expectations, controller effects and deterministic reset, retained application regressions, reproducible licensed adaptations, and resource/performance measurements. The feature matrix retains bounded coverage limits; this evidence does not establish exhaustive compatibility or real-time playability. No Issue state is changed. Required live-site verification remains pending after publication and is separate from pre-merge acceptance.",
+    "versions": {
+      "node": "v26.12.1",
+      "playwright": "1.64.1",
+      "chromium": "156.0.8078.4",
+      "firefox": "157.0"
+    }
   }
 }
