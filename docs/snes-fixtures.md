@@ -3,11 +3,16 @@
 `scripts/generate-snes-rom.py` assembles original cartridges. Every fixture boots
 through the CPU reset vector, programs the devices through CPU/DMA registers and
 uploads its SPC700 driver through the IPL protocol. The browser test compiles the
-RTL once per browser and power-cycles it for each cartridge. Expected pixels and
+RTL once per batch and power-cycles it for each cartridge. Expected pixels and
 PCM are calculated in the test; they are not recordings of this core's output.
 Pixel comparisons cover every RGBA sample, including its position and alpha.
-The 120-cartridge sweep allows up to 30 minutes per browser, including client-side
-compilation, and logs bounded fixture progress during simulation.
+The 123-cartridge sweep runs in seven batches per browser, each with at most
+20 cartridges plus the AUX reset repeat. Each batch retains the baseline
+input/audio, LoROM/HiROM and deterministic-reset checks, compiles client-side,
+and has a 30-minute deadline. This replaces the single 120-cartridge test that
+timed out on the Ubuntu CI runner before reaching its assertions. No fixtures
+are omitted; the AUX pair stays in one batch for its cross-cartridge comparison.
+Each batch saves its own Wasm, fixture results and measurements.
 For a focused DSP rerun (including baseline input/reset and LoROM/HiROM checks):
 
 ```sh
@@ -35,6 +40,8 @@ the capture buffer starts at row 0.
 | `sprite-hflip`, `sprite-vflip` | An asymmetric eight-row object distinguishes horizontal and vertical OAM flips. |
 | `sprite-edges` | OBSEL=`$61` selects 16×16 objects at X=0, 248, 252, −4, −8, −12, on separate rows. Left-edge objects wrap at 512 and display 12, 8, 4 dots; right-edge objects display 8 or 4 dots. The on-screen control displays all 16 dots. |
 | `sprite-interlace` | SETINI=`$03`, OBSEL=`$61`, object at (16,16): upper source tile rows alternate green/white and lower tiles are transparent. Both fields must produce exactly capture rows 32–39, green on even rows and white on odd rows. Rows 40–47 must show the background. |
+| `sprite-interlace-vflip` | Same cartridge with OAM vertical flip set: colored rows move to capture rows 40–47, white on even rows and green on odd rows. Rows 32–39 must show the background. This checks the flipped field bit in both fields. |
+| `sprite-rect`, `sprite-rect-vflip` | OBSEL=`$c1` selects a 16×32 object at (16,16). Only the first eight source rows have alternating green/white pixels. Unflipped output occupies rows 16–23; vertical flip occupies rows 24–31, white on even rows and green on odd rows. Rows 32–47 remain background: each 16-row section flips independently. |
 | `cgram-latch` | CPU reads entries `$40`–`$42` and stores `$00,$00,$80,$92,$5a,$23` in WRAM. Interposed OAM reads with opposite bit 7 update PPU1 open bus while leaving the CGRAM high byte's PPU2 bit 7 intact, in both directions. |
 | `scroll`, `mosaic` | One-dot scroll reverses the stripes; four-dot mosaic samples transparent dot 0 and makes all pixels blue. |
 | `offset-2/4/6` | Alternating solid/transparent tile rows. BG3 offset data enables a one-line vertical offset after the first eight screen dots; mode 4 uses the combined offset selector. |
@@ -168,14 +175,16 @@ The sprite-edge and interlace expectations follow the independent
 object X and each tile X wrap to nine bits, and interlace halves range height
 while source Y advances by two plus the field bit. The interlace fixture uses
 different colors per field so a duplicated field cannot satisfy its image check.
+Vertical flip reverses the source row including the field bit. Rectangular
+objects flip within width-sized squares, preserving the square's position.
 CGRAM readback follows the independent
 [bsnes PPU register implementation](https://github.com/bsnes-emu/bsnes/blob/master/bsnes/sfc/ppu-fast/io.cpp):
 `$213b` updates PPU2 MDR, high-byte reads retain bit 7 from that latch, and
 `$2138` updates only PPU1 MDR. The cartridge verifies each CPU load before
 enabling display, and the browser separately verifies its stores at `$7e3200`–`$7e320d`.
-For a focused rerun of these three PPU regressions:
+For a focused rerun of these PPU regressions:
 
 ```sh
 npm run build:demo
-WEBRTL_SNES_FIXTURES='^(sprite-edges|sprite-interlace|cgram-latch)$' npx playwright test --config=playwright.static.config.js --grep 'full SNES RTL'
+WEBRTL_SNES_FIXTURES='^(sprite-edges|sprite-interlace(-vflip)?|sprite-rect(-vflip)?|cgram-latch)$' npx playwright test --config=playwright.static.config.js --grep 'full SNES RTL'
 ```

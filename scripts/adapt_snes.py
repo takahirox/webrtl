@@ -96,6 +96,19 @@ def adapt(sources, boot):
             assert count == 1
             source = source.replace("(SCREEN_Y - OAM_OBJ_Y) <= {2'b0, H}",
                                     "(SCREEN_Y - OAM_OBJ_Y) <= {2'b0, RANGE_H}")
+            # Flip the full source row including FIELD. Rectangular objects
+            # flip each width-sized square independently, preserving the
+            # section bit; using the height mask would exchange the sections.
+            source, count = re.subn(
+                r"if \(~OAM_OBJ_VFLIP\)\s+Y = SCREEN_Y - OAM_OBJ_Y;\s+else\s+"
+                r"Y = ~\(SCREEN_Y - OAM_OBJ_Y\);\s+"
+                r"if \(OBJINTERLACE\)\s+Y = \{Y\[6:0\], FIELD\};",
+                """Y = SCREEN_Y - OAM_OBJ_Y;
+                    if (OBJINTERLACE)
+                        Y = {Y[6:0], FIELD};
+                    if (OAM_OBJ_VFLIP)
+                        Y = Y ^ {2'b00, W};""", source)
+            assert count == 1
             # Negative nine-bit X wraps at 512 and can continue onto the left
             # edge. Only a tile on the visible right edge terminates fetching.
             source = source.replace("((TILE_X + 8) >= 256 && OAM_OBJ_X != 256)",

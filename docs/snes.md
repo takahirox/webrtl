@@ -144,7 +144,9 @@ sample's own transparency bits for BG1/BG2 at both priorities. Mode 7 advances
 its source coordinate after the synchronous VRAM sample, and color addition is
 halved before saturation. Sprite fetching distinguishes wrapped negative X from
 the visible right edge. Interlaced sprite range evaluation uses half height while
-tile addressing retains the full source-height mask. CGRAM reads update PPU2 MDR;
+tile addressing retains the full source-height mask. Vertical flip includes the
+interlace field bit and flips rectangular objects within each width-sized square.
+CGRAM reads update PPU2 MDR;
 OAM reads update only PPU1 MDR. Flipped Mode 7 coordinates are zero-extended before
 signed matrix multiplication; negative DSP pitch modulators use an arithmetic
 shift. DSP echo accesses
@@ -245,6 +247,18 @@ pixels and PCM. Native MulDiv validation also checked all 16,777,216 YA/X inputs
 and N/V/H/Z flags. The corrected Wasm is 268,719 bytes; pinned-input regeneration
 is byte-identical. Results, source hashes, measurements and a separate exploratory
 ENDX loop-end observation are recorded under `apuReviewFixValidation` above.
+
+The sprite-flip/sweep revision passed 10 Python checks and all 123 cartridges in
+both Chromium and Firefox, including both interlace fields and the rectangular
+flip/control pair. All 120 original cartridges remain byte-identical. Splitting
+the sweep into seven batches per browser preserves every fixture and the AUX
+reset comparison; the longest local batch took 334 seconds against its
+1,800-second deadline. All 14 compilations produced identical 268,568-byte Wasm.
+The complete static attempt passed 50 checks and hit six Chromium backdrop/BG1
+source-loading timeouts; those six passed unchanged in an isolated one-worker
+rerun. The trusted-local suite and direct native compile reproduced the linker
+failure below. Results, batch timings and source hashes are recorded under
+`spriteFlipAndSweepReviewFixValidation` above. Ubuntu CI was not rerun here.
 
 The trusted-local counter test could not pass with this host's native tools:
 Verilator 5.052 and Emscripten 6.0.13 fail to link `pthread_getaffinity_np`,

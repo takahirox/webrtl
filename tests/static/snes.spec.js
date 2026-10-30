@@ -25,6 +25,9 @@ cases += [(name,dict(mode=1,effect=name)) for name in ['bg3-priority-low','bg3-p
 cases += [(name,dict(sprite_priority=3,effect=name)) for name in ['sprite-hflip','sprite-vflip']]
 cases += [('sprite-edges',dict(sprite_priority=3,effect='sprite-edges')),
  ('sprite-interlace',dict(sprite_priority=3,display=3,effect='sprite-interlace')),
+ ('sprite-interlace-vflip',dict(sprite_priority=3,display=3,effect='sprite-interlace-vflip')),
+ ('sprite-rect',dict(sprite_priority=3,effect='sprite-rect')),
+ ('sprite-rect-vflip',dict(sprite_priority=3,effect='sprite-rect-vflip')),
  ('cgram-latch',dict(effect='cgram-latch'))]
 cases += [('serial',dict(joycheck=0xa55)),('reverse',dict(transfer='reverse')),('indirect',dict(transfer='indirect'))]
 cases += [(f'dma-{mode}',dict(transfer=f'mode{mode}')) for mode in range(8)]
@@ -43,8 +46,20 @@ const selectedModes = process.env.WEBRTL_SNES_FIXTURES ?
   modes.filter(({ name }) => new RegExp(process.env.WEBRTL_SNES_FIXTURES).test(name)) : modes;
 if (!selectedModes.length) throw new Error("WEBRTL_SNES_FIXTURES selected no cartridges");
 
-// Browser compilation plus 120 cartridge power cycles can exceed 20 minutes.
-test.setTimeout(1_800_000);
+// Bound each test to at most 20 cartridges plus the AUX reset comparison.
+// Every batch compiles in the browser and retains baseline input/audio/reset
+// checks. Keeping AUX and its repeat together preserves their cross-ROM check.
+const fixtureBatches = [];
+const batchModes = selectedModes.filter(({ name }) => name !== "apu-aux-repeat");
+for (let offset = 0; offset < batchModes.length; offset += 20) {
+  fixtureBatches.push(batchModes.slice(offset, offset + 20));
+}
+const auxRepeat = selectedModes.find(({ name }) => name === "apu-aux-repeat");
+if (auxRepeat) {
+  const batch = fixtureBatches.find((fixtures) => fixtures.some(({ name }) => name === "apu-aux"));
+  if (batch) batch.push(auxRepeat);
+  else fixtureBatches.push([auxRepeat]);
+}
 
 // Expected pixels are specified from the cartridge data and SNES dot/bitplane,
 // transparency, layer and color arithmetic rules, never captured from the RTL.
@@ -92,6 +107,17 @@ function pixel(name, x, y) {
   // The fixed capture interleaves FIELD 0/1 in even/odd rows.
   if (name === "sprite-interlace" && dot >= 16 && dot < 32 && y >= 32 && y < 40) {
     return y & 1 ? [255, 255, 255, 255] : green;
+  }
+  // Vertical flip moves the upper tile to the bottom half and reverses the
+  // alternating rows, including FIELD. The combined frame checks both fields.
+  if (name === "sprite-interlace-vflip" && dot >= 16 && dot < 32 && y >= 40 && y < 48) {
+    return y & 1 ? green : [255, 255, 255, 255];
+  }
+  // OBSEL=$c1: a 16x32 object flips within each 16-row square, so the
+  // colored upper eight source rows stay in the first square after flipping.
+  const rectTop = name === "sprite-rect-vflip" ? 24 : 16;
+  if (["sprite-rect", "sprite-rect-vflip"].includes(name) && dot >= 16 && dot < 32 && y >= rectTop && y < rectTop + 8) {
+    return (y & 1) ^ Number(name.endsWith("-vflip")) ? [255, 255, 255, 255] : green;
   }
   if (["sprite-low", "sprite-high"].includes(name) && dot >= 16 && dot < 24 && y >= 16 && y < 24 &&
       (name === "sprite-high" || !(dot & 1))) return green;
@@ -213,7 +239,11 @@ async function frameMismatch(page, green = false) {
   }, green);
 }
 
-test("full SNES RTL boots a local cartridge, renders DMA tiles, produces DSP PCM, handles input and repeats reset", async ({ page }, info) => {
+for (const [batchIndex, modeCartridges] of fixtureBatches.entries()) {
+test(`full SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: boots a local cartridge, renders DMA tiles, produces DSP PCM, handles input and repeats reset`, async ({ page }, info) => {
+  // A 20-ROM batch leaves ample headroom within the existing 30-minute CI
+  // deadline, even on runners where the former 120-ROM sweep timed out.
+  test.setTimeout(1_800_000);
   const requests = [];
   page.on("console", (message) => {
     if (message.text().startsWith("SNES fixture ")) console.log(info.project.name, message.text());
@@ -370,7 +400,7 @@ test("full SNES RTL boots a local cartridge, renders DMA tiles, produces DSP PCM
       return { first, repeat, hi, modeResults, metrics: window.compiled.metrics,
         validWasm: WebAssembly.validate(window.compiled.wasm) };
     } finally { worker.terminate(); }
-  }, { cartridge: Array.from(rom), modeCartridges: selectedModes, pixelSource: pixel.toString() });
+  }, { cartridge: Array.from(rom), modeCartridges, pixelSource: pixel.toString() });
   writeFileSync(info.outputPath("snes-fixture-results.json"), JSON.stringify(results.modeResults));
   expect(results.validWasm).toBe(true);
   expect(results.first.nonzero).toBeGreaterThan(500);
@@ -463,6 +493,7 @@ test("full SNES RTL boots a local cartridge, renders DMA tiles, produces DSP PCM
   await info.attach("snes-measurements", { body: JSON.stringify({ browser: info.project.name,
     ...results.metrics, runtime: { ...results.first, trace: undefined } }, null, 2), contentType: "application/json" });
 });
+}
 
 test("Slang remains a general-purpose frontend and cartridge validation rejects unsupported layouts", async ({ page }) => {
   await page.goto("./");

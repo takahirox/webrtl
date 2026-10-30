@@ -418,5 +418,264 @@
     },
     "wasmSha256": "5e703889f13f368698128ca6d342c3322fa2352d6c7fb11eeb88c6655e9b4263",
     "limits": "Scoped APU revision. The full trusted-local suite with its documented linker failure was not rerun; the native MulDiv unit was checked separately. Live Pages checks remain pending publication."
+  },
+  "spriteFlipAndSweepReviewFixValidation": {
+    "date": "2026-10-30",
+    "host": "macOS arm64",
+    "scope": "Issue #22 review fixes: OBJ vertical flip includes FIELD and preserves rectangular sections; complete SNES sweep split into bounded batches.",
+    "commands": [
+      "python3 -m unittest discover -s tests -v",
+      "npm run build:demo",
+      "PLAYWRIGHT_JSON_OUTPUT_NAME=.build/static-tests.json npx playwright test --config=playwright.static.config.js --workers=2 --reporter=line,json",
+      "Chromium backdrop.spec.js and bg1.spec.js rerun with one worker on static port 18766 (same committed tests; temporary config overrides server port, cwd and output directory).",
+      "Trusted-local suite with server/base URL moved from occupied port 8765 to free port 18765; direct build.py compile used to capture the native linker diagnostic."
+    ],
+    "checks": {
+      "pythonPassed": 10,
+      "originalCartridgesByteIdentical": 120,
+      "pinnedInputRegeneration": "Byte-identical from all 39 SHA-256-verified pinned inputs.",
+      "snesBrowserBatchesPassed": 14,
+      "cartridgesPerBrowser": 123,
+      "pcmSamplesComparedPerCartridge": 256,
+      "batchSizesPerBrowser": [
+        20,
+        20,
+        20,
+        20,
+        20,
+        21,
+        2
+      ],
+      "deadlineMsPerBatch": 1800000,
+      "maxObservedBatchMs": 334060,
+      "fullStaticAttempt": {
+        "startTime": "2026-10-30T04:13:49.277Z",
+        "duration": 2371672.369,
+        "expected": 50,
+        "skipped": 0,
+        "unexpected": 6,
+        "flaky": 0
+      },
+      "legacyRerun": {
+        "stats": {
+          "startTime": "2026-10-30T04:45:16.561Z",
+          "duration": 98794.647,
+          "expected": 6,
+          "skipped": 0,
+          "unexpected": 0,
+          "flaky": 0
+        },
+        "cause": "Six Chromium backdrop/BG1 checks initially timed out waiting five seconds for example sources. All six passed unchanged with one worker on port 18766 while Firefox SNES finished."
+      },
+      "uniqueStaticChecksPassedAcrossAttemptAndRerun": 56,
+      "trustedLocal": {
+        "status": "failed",
+        "cause": "Verilator 5.052 / Emscripten 6.0.13 native link failure: unresolved pthread_getaffinity_np, sched_getcpu and pthread_setaffinity_np. Reproduced directly with build.py."
+      },
+      "githubCi": "Not rerun here; no push performed.",
+      "livePages": "Pending publication; not performed."
+    },
+    "beforeFix": {
+      "browser": "chromium",
+      "sprite-interlace-vflipPixelMismatches": 256,
+      "sprite-rect-vflipPixelMismatches": 512
+    },
+    "browsers": {
+      "chromium": {
+        "cartridges": 123,
+        "exactPixelFixtures": 122,
+        "modeSubstitutionRejectedPixels": 57344,
+        "wasmSha256": "ce9a2e9d2c42c228f0493b7e23b4112a4441ec961048c04a79b71158ee8afcf2",
+        "newSpriteFixtures": [
+          {
+            "name": "sprite-interlace-vflip",
+            "height": 448,
+            "mismatches": 0
+          },
+          {
+            "name": "sprite-rect",
+            "height": 224,
+            "mismatches": 0
+          },
+          {
+            "name": "sprite-rect-vflip",
+            "height": 224,
+            "mismatches": 0
+          }
+        ]
+      },
+      "firefox": {
+        "cartridges": 123,
+        "exactPixelFixtures": 122,
+        "modeSubstitutionRejectedPixels": 57344,
+        "wasmSha256": "ce9a2e9d2c42c228f0493b7e23b4112a4441ec961048c04a79b71158ee8afcf2",
+        "newSpriteFixtures": [
+          {
+            "name": "sprite-interlace-vflip",
+            "height": 448,
+            "mismatches": 0
+          },
+          {
+            "name": "sprite-rect",
+            "height": 224,
+            "mismatches": 0
+          },
+          {
+            "name": "sprite-rect-vflip",
+            "height": 224,
+            "mismatches": 0
+          }
+        ]
+      }
+    },
+    "batchTimings": [
+      {
+        "browser": "chromium",
+        "batch": "full SNES RTL batch 1/7",
+        "durationMs": 276405
+      },
+      {
+        "browser": "chromium",
+        "batch": "full SNES RTL batch 2/7",
+        "durationMs": 268928
+      },
+      {
+        "browser": "chromium",
+        "batch": "full SNES RTL batch 3/7",
+        "durationMs": 277838
+      },
+      {
+        "browser": "chromium",
+        "batch": "full SNES RTL batch 4/7",
+        "durationMs": 274651
+      },
+      {
+        "browser": "chromium",
+        "batch": "full SNES RTL batch 5/7",
+        "durationMs": 263503
+      },
+      {
+        "browser": "chromium",
+        "batch": "full SNES RTL batch 6/7",
+        "durationMs": 279730
+      },
+      {
+        "browser": "chromium",
+        "batch": "full SNES RTL batch 7/7",
+        "durationMs": 125521
+      },
+      {
+        "browser": "firefox",
+        "batch": "full SNES RTL batch 1/7",
+        "durationMs": 322330
+      },
+      {
+        "browser": "firefox",
+        "batch": "full SNES RTL batch 2/7",
+        "durationMs": 329124
+      },
+      {
+        "browser": "firefox",
+        "batch": "full SNES RTL batch 3/7",
+        "durationMs": 320521
+      },
+      {
+        "browser": "firefox",
+        "batch": "full SNES RTL batch 4/7",
+        "durationMs": 320222
+      },
+      {
+        "browser": "firefox",
+        "batch": "full SNES RTL batch 5/7",
+        "durationMs": 306085
+      },
+      {
+        "browser": "firefox",
+        "batch": "full SNES RTL batch 6/7",
+        "durationMs": 334060
+      },
+      {
+        "browser": "firefox",
+        "batch": "full SNES RTL batch 7/7",
+        "durationMs": 140229
+      }
+    ],
+    "measurements": [
+      {
+        "browser": "chromium",
+        "compileMs": 81068.70000000019,
+        "wasmBytes": 268568,
+        "cxxrtlBytes": 1617425,
+        "runtime": {
+          "samples": 2489,
+          "nonzero": 1399,
+          "pcmHash": 2024722791,
+          "hashes": [
+            698101324,
+            698101324,
+            3470071505,
+            3371206625
+          ],
+          "frameCycles": [
+            311296,
+            671744,
+            1032192,
+            1392640
+          ],
+          "hdmaWrites": 4,
+          "nmiVectors": 2,
+          "irqVectors": 687,
+          "memoryBytes": 20578304,
+          "pcmPeriod16": true,
+          "pcmMin": -14011,
+          "pcmMax": 14005,
+          "elapsedMs": 6394.5,
+          "cycles": 1671168,
+          "masterClocksPerSecond": 261344.59300961765,
+          "realTimeRatio": 0.012168427039824785
+        }
+      },
+      {
+        "browser": "firefox",
+        "compileMs": 79172,
+        "wasmBytes": 268568,
+        "cxxrtlBytes": 1617425,
+        "runtime": {
+          "samples": 2489,
+          "nonzero": 1399,
+          "pcmHash": 2024722791,
+          "hashes": [
+            698101324,
+            698101324,
+            3470071505,
+            3371206625
+          ],
+          "frameCycles": [
+            311296,
+            671744,
+            1032192,
+            1392640
+          ],
+          "hdmaWrites": 4,
+          "nmiVectors": 2,
+          "irqVectors": 687,
+          "memoryBytes": 20578304,
+          "pcmPeriod16": true,
+          "pcmMin": -14011,
+          "pcmMax": 14005,
+          "elapsedMs": 7845,
+          "cycles": 1671168,
+          "masterClocksPerSecond": 213023.32695984704,
+          "realTimeRatio": 0.009918547699956606
+        }
+      }
+    ],
+    "artifacts": {
+      "examples/snes/snes-core.v": "4481b8bbae95f67a69344fa3223cef67712ca369488c6519d803c7ab05adf7f7",
+      "scripts/adapt_snes.py": "926c8de14e3b0ebed46f48ac3d9001024cc9c459cae8e45cec79bda9e548ed2e",
+      "scripts/generate-snes-rom.py": "4800e4761f2f2a0e49760289979803cde8525fa641e5dcde2d4d822951296ebf",
+      "tests/static/snes.spec.js": "7de6f04d92d8682d1473a72f7e6bc42e2c68e8f3e6203e8009ceaea1e9c0c612"
+    },
+    "limits": "Local two-worker browser measurements do not establish Ubuntu CI performance or exhaustive base-console conformance. Compiler peak memory was not measured. Native trusted-local check remains failed; live Pages verification remains pending."
   }
 }

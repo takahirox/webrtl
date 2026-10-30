@@ -3331,13 +3331,11 @@ always @(posedge CLK) begin : calc_sprite_range
                     end else
                         CUR_TILES_CNT = TILES_CNT;
 
-                    if (~OAM_OBJ_VFLIP)
-                        Y = SCREEN_Y - OAM_OBJ_Y;
-                    else
-                        Y = ~(SCREEN_Y - OAM_OBJ_Y);
-
+                    Y = SCREEN_Y - OAM_OBJ_Y;
                     if (OBJINTERLACE)
                         Y = {Y[6:0], FIELD};
+                    if (OAM_OBJ_VFLIP)
+                        Y = Y ^ {2'b00, W};
                     OBJ_TILE_LINE <= Y[2:0];
 
                     if (~OAM_OBJ_HFLIP)

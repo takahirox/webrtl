@@ -400,15 +400,17 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
             stz(address)
     if sprite_priority is not None:
         assert mode == 0 and sprite_priority in [0, 3]
-        # Normally one green 8x8 object; edge/interlace fixtures use 16x16.
-        large_sprite = effect in ["sprite-edges", "sprite-interlace"]
+        # Normally one green 8x8 object; larger fixtures share a 16-dot width.
+        large_sprite = effect in ["sprite-edges", "sprite-interlace", "sprite-interlace-vflip",
+                                  "sprite-rect", "sprite-rect-vflip"]
         write(0x2121, 130)
         write(0x2122, 0xe0)
         write(0x2122, 3)
         if large_sprite:
             write(0x2122, 0xff)  # palette 131: white for odd source rows
             write(0x2122, 0x7f)
-        write(0x2101, 0x61 if large_sprite else 1)
+        write(0x2101, 0xc1 if effect in ["sprite-rect", "sprite-rect-vflip"] else
+              0x61 if large_sprite else 1)
         stz(0x2116)
         write(0x2117, 0x20)
         sprite_source = 0x9b00 if large_sprite else 0x9040
@@ -645,12 +647,13 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
             upper = bytes(v for y in range(8) for v in [255 if y & 1 else 0, 255]) + bytes(16)
             sprite_graphics = bytearray(18 * 32)
             for tile_index in [0, 1, 16, 17]:
-                tile_data = (upper if tile_index < 2 else bytes(32)) if effect == "sprite-interlace" else opaque
+                tile_data = (upper if tile_index < 2 else bytes(32)) if effect != "sprite-edges" else opaque
                 sprite_graphics[tile_index * 32:(tile_index + 1) * 32] = tile_data
             rom[0x1b00:0x1b00 + len(sprite_graphics)] = sprite_graphics
             xs = [0, 248, 252, 508, 504, 500] if effect == "sprite-edges" else [16]
             for i, x in enumerate(xs):
-                oam[4 * i:4 * i + 4] = bytes([x & 255, 16 + i * 24, 0, sprite_priority << 4])
+                attributes = (sprite_priority << 4) | (0x80 if effect.endswith("-vflip") else 0)
+                oam[4 * i:4 * i + 4] = bytes([x & 255, 16 + i * 24, 0, attributes])
                 oam[512 + i // 4] |= (x >> 8) << (2 * (i % 4))
         rom[0x1800:0x1a20] = oam
     rom[0x1100:0x1600] = payload
