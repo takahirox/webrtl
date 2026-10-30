@@ -4099,5 +4099,381 @@
       "tests/static/snes.spec.js": "c845978ca83490eb5c22f64407dc620a6227c4014b932996adf1e41d715e8fe0"
     },
     "limits": "Boundary fixtures require zero for prohibited I/O and nonzero for adjacent unmapped reads; they do not specify the exact arbitration/MDR phase. These bounded checks do not establish exhaustive console conformance or real-time playability."
+  },
+  "timerIrqReviewFixValidation": {
+    "date": "2026-10-30",
+    "issue": 22,
+    "scope": "Deterministic H-only, V-only and combined H/V timer IRQ target/recurrence, TIMEUP acknowledgement, disabled-frame and power-reset replay checks. No console RTL or application changes.",
+    "checks": {
+      "pythonPassed": 10,
+      "staticBuild": "passed",
+      "staticBrowsersPassed": 2,
+      "browsers": [
+        "chromium",
+        "firefox"
+      ],
+      "newTimerCartridgesPerBrowser": 6,
+      "timerRunsPerBrowser": 12,
+      "resetReplay": "Every timestamped IRQ/acknowledgement observation and settled PCM exactly identical after power reset for all six cartridges in both browsers.",
+      "crossBrowserAgreement": "All timestamped timer observations identical across Chromium and Firefox.",
+      "baseline": "Each browser also passed the existing UI keyboard/gamepad effects during audio, LoROM/HiROM, CPU/DMA/HDMA/NMI/IRQ, frame/PCM and deterministic reset checks.",
+      "commands": [
+        "python3 -m unittest discover -s tests -v",
+        "npm run build:demo",
+        "WEBRTL_SNES_FIXTURES='^irq-' npx playwright test --config=playwright.static.config.js --grep 'full SNES RTL' --workers=2",
+        "git diff --check"
+      ],
+      "livePages": "Not run; no push or merge in this revision."
+    },
+    "fixturePreservation": {
+      "retainedCount": 209,
+      "totalCount": 215,
+      "retainedSha256": "2c5232c2310275dddd4c85e06c9b4f072ac3501982c9386c367be35675cd7e9f",
+      "newSha256": {
+        "irq-h-80": "85557beffbc8fa039dd0a01492bc5c3bfef8ef3129b799d57f74e2daf8435b80",
+        "irq-h-260": "d514727bb54697dd5d812b11dacde4781d9e384b67b02a0e844a14b86456e225",
+        "irq-v-64": "dc717664d125840858e4b477fe7f61e8d1647e3ea9a8e990eff7ea3ffb24aced",
+        "irq-v-258": "3fceff5cf67f3e6cca1e852d4b403fc6a6f995a9dfaac6dfe9b0410a2e00edef",
+        "irq-hv-64-80": "ff7258abad744486ad67186af9aa212b05995629775c8e29edeef91eb9a5a41d",
+        "irq-hv-192-260": "75ca206c4b699bde76a3850a26bef3e18e5f3b2a2658b871da43a3fb9d36001d"
+      },
+      "comparison": "Regenerated all 209 pre-fix cartridges from HEAD 51a3ac3 and compared the complete named byte arrays with the new generator: identical. SHA-256 digests are also retained."
+    },
+    "expectations": {
+      "hOnlyLines": [
+        0,
+        1,
+        2
+      ],
+      "vOnlyLines": [
+        64,
+        258
+      ],
+      "combinedTargets": [
+        {
+          "v": 64,
+          "h": 80
+        },
+        {
+          "v": 192,
+          "h": 260
+        }
+      ],
+      "latchedHDotsAfterTarget": [
+        16,
+        48
+      ],
+      "hOnlyRecurrenceMasterClocks": 1364,
+      "vAndHvRecurrenceMasterClocks": 357368,
+      "recurrenceToleranceMasterClocks": 32,
+      "minimumDisabledMasterClocks": 357368,
+      "references": [
+        "https://github.com/ares-emulator/ares/blob/master/ares/sfc/cpu/irq.cpp",
+        "https://github.com/ares-emulator/ares/blob/master/ares/sfc/cpu/io.cpp"
+      ]
+    },
+    "timerObservationsBothBrowsers": [
+      {
+        "name": "irq-h-80",
+        "latchedH": [
+          116,
+          118,
+          116
+        ],
+        "latchedV": [
+          0,
+          1,
+          2
+        ],
+        "entryWriteMasterClocks": [
+          1072707,
+          1074079,
+          1075435
+        ],
+        "recurrenceMasterClocks": [
+          1372,
+          1356
+        ],
+        "timeupFirstRead": [
+          128,
+          128,
+          128
+        ],
+        "timeupSecondRead": [
+          0,
+          0,
+          0
+        ],
+        "irqCounts": [
+          1,
+          2,
+          3
+        ],
+        "disabledObservationMasterClocks": 710906
+      },
+      {
+        "name": "irq-h-260",
+        "latchedH": [
+          297,
+          295,
+          296
+        ],
+        "latchedV": [
+          0,
+          1,
+          2
+        ],
+        "entryWriteMasterClocks": [
+          1073391,
+          1074747,
+          1076113
+        ],
+        "recurrenceMasterClocks": [
+          1356,
+          1366
+        ],
+        "timeupFirstRead": [
+          128,
+          128,
+          128
+        ],
+        "timeupSecondRead": [
+          0,
+          0,
+          0
+        ],
+        "irqCounts": [
+          1,
+          2,
+          3
+        ],
+        "disabledObservationMasterClocks": 710140
+      },
+      {
+        "name": "irq-v-64",
+        "latchedH": [
+          33,
+          33,
+          34
+        ],
+        "latchedV": [
+          64,
+          64,
+          64
+        ],
+        "entryWriteMasterClocks": [
+          1159631,
+          1516995,
+          1874365
+        ],
+        "recurrenceMasterClocks": [
+          357364,
+          357370
+        ],
+        "timeupFirstRead": [
+          128,
+          128,
+          128
+        ],
+        "timeupSecondRead": [
+          0,
+          0,
+          0
+        ],
+        "irqCounts": [
+          1,
+          2,
+          3
+        ],
+        "disabledObservationMasterClocks": 626622
+      },
+      {
+        "name": "irq-v-258",
+        "latchedH": [
+          37,
+          40,
+          36
+        ],
+        "latchedV": [
+          258,
+          258,
+          258
+        ],
+        "entryWriteMasterClocks": [
+          1424259,
+          1781639,
+          2138987
+        ],
+        "recurrenceMasterClocks": [
+          357380,
+          357348
+        ],
+        "timeupFirstRead": [
+          128,
+          128,
+          128
+        ],
+        "timeupSecondRead": [
+          0,
+          0,
+          0
+        ],
+        "irqCounts": [
+          1,
+          2,
+          3
+        ],
+        "disabledObservationMasterClocks": 361996
+      },
+      {
+        "name": "irq-hv-64-80",
+        "latchedH": [
+          121,
+          117,
+          116
+        ],
+        "latchedV": [
+          64,
+          64,
+          64
+        ],
+        "entryWriteMasterClocks": [
+          1160021,
+          1517369,
+          1874733
+        ],
+        "recurrenceMasterClocks": [
+          357348,
+          357364
+        ],
+        "timeupFirstRead": [
+          128,
+          128,
+          128
+        ],
+        "timeupSecondRead": [
+          0,
+          0,
+          0
+        ],
+        "irqCounts": [
+          1,
+          2,
+          3
+        ],
+        "disabledObservationMasterClocks": 626304
+      },
+      {
+        "name": "irq-hv-192-260",
+        "latchedH": [
+          297,
+          301,
+          296
+        ],
+        "latchedV": [
+          192,
+          192,
+          192
+        ],
+        "entryWriteMasterClocks": [
+          1335279,
+          1692659,
+          2050007
+        ],
+        "recurrenceMasterClocks": [
+          357380,
+          357348
+        ],
+        "timeupFirstRead": [
+          128,
+          128,
+          128
+        ],
+        "timeupSecondRead": [
+          0,
+          0,
+          0
+        ],
+        "irqCounts": [
+          1,
+          2,
+          3
+        ],
+        "disabledObservationMasterClocks": 451024
+      }
+    ],
+    "measurements": [
+      {
+        "browser": "chromium",
+        "compileMs": 71777.60000000149,
+        "wasmBytes": 270593,
+        "cxxrtlBytes": 1631107,
+        "runtime": {
+          "samples": 2489,
+          "nonzero": 1399,
+          "pcmHash": 2024722791,
+          "hashes": [
+            698101324,
+            698101324,
+            3470071505,
+            3371206625
+          ],
+          "frameCycles": [
+            311296,
+            671744,
+            1032192,
+            1392640
+          ],
+          "hdmaWrites": 4,
+          "nmiVectors": 2,
+          "irqVectors": 687,
+          "memoryBytes": 20578304,
+          "pcmPeriod16": true,
+          "pcmMin": -14011,
+          "pcmMax": 14005,
+          "elapsedMs": 6360.5,
+          "cycles": 1671168
+        }
+      },
+      {
+        "browser": "firefox",
+        "compileMs": 75393,
+        "wasmBytes": 270593,
+        "cxxrtlBytes": 1631107,
+        "runtime": {
+          "samples": 2489,
+          "nonzero": 1399,
+          "pcmHash": 2024722791,
+          "hashes": [
+            698101324,
+            698101324,
+            3470071505,
+            3371206625
+          ],
+          "frameCycles": [
+            311296,
+            671744,
+            1032192,
+            1392640
+          ],
+          "hdmaWrites": 4,
+          "nmiVectors": 2,
+          "irqVectors": 687,
+          "memoryBytes": 20578304,
+          "pcmPeriod16": true,
+          "pcmMin": -14011,
+          "pcmMax": 14005,
+          "elapsedMs": 7968,
+          "cycles": 1671168
+        }
+      }
+    ],
+    "sourceSha256": {
+      "scripts/generate-snes-rom.py": "498550c47adc8397877bbc9f268db99ecabaaf7b5a46fc14610272585b970dc8",
+      "tests/static/snes.spec.js": "2124e0140d167f3d88dc60150baa22f3a86263f9351175620bd65d0b9949c9c4",
+      "examples/snes/snes-core.v": "b4866d4e0940d69ce91f5b1c39edf8ebca5be22712c0314c10639ed154ea893d",
+      "examples/snes/snes.v": "0c707bd087c18279952a4a490045b954041475c8ec417f7dcaaa630e79fffec2"
+    },
+    "limits": "Focused timer checks only; the full 209-cartridge sweep and unrelated browser/native regressions were not rerun. All 209 retained cartridges were regenerated and compared byte-for-byte against the pre-fix versions; their earlier full-sweep evidence remains separate. Timing is bounded rather than exact interrupt-latency certification; dynamic timer reprogramming and other corner cases remain unverified. No claim of exhaustive console conformance, real-time playability or live publication verification."
   }
 }

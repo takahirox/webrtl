@@ -62,6 +62,10 @@ cases += [(f'extbg-bg12-obj-{priority}',dict(mode=7,effect='extbg-bg12',sprite_p
 cases += [(f'extbg-bg2-obj-{priority}',dict(mode=7,effect='extbg-bg2',sprite_priority=priority)) for priority in range(2)]
 cases += [(f'abus-{bank:02x}',dict(dma_check=f'abus-{bank:02x}')) for bank in [0,0x3f,0x80,0xbf,0x40,0xc0]]
 cases += [(name,dict(dma_check=name)) for name in ['wram-forward','wram-reverse','hdma-00','hdma-80']]
+cases += [(f'irq-{name}',dict(irq_check=args)) for name,args in [
+ ('h-80',(1,80,192)),('h-260',(1,260,192)),
+ ('v-64',(2,260,64)),('v-258',(2,80,258)),
+ ('hv-64-80',(3,80,64)),('hv-192-260',(3,260,192))]]
 print(json.dumps([dict(name=name,bytes=list(build(**args)[0])) for name,args in cases]))`], { maxBuffer: 40 * 1024 * 1024 }));
 
 // Optional focused reruns still exercise browser compilation and the baseline
@@ -491,9 +495,12 @@ test(`full SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: boots a lo
       await load(hirom);
       const hi = await run();
       const modeResults = [];
-      for (const fixture of modeCartridges) {
+      // Each timer cartridge is independently power-reset and replayed in full.
+      const runtimeCartridges = modeCartridges.flatMap((f) => f.name.startsWith("irq-") ?
+        [f, { ...f, name: `${f.name}-repeat` }] : [f]);
+      for (const fixture of runtimeCartridges) {
         if (modeResults.length % 10 === 0 || fixture.name.startsWith("apu-")) {
-          console.log("SNES fixture", `${modeResults.length + 1}/${modeCartridges.length}`, fixture.name);
+          console.log("SNES fixture", `${modeResults.length + 1}/${runtimeCartridges.length}`, fixture.name);
         }
         await load(new Uint8Array(fixture.bytes));
         let frame, height;
@@ -503,7 +510,7 @@ test(`full SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: boots a lo
         const batches = fixture.name === "audio-feedback" ? 664 :
           fixture.name.startsWith("m7-over") ? 264 :
           fixture.name.includes("interlace") || fixture.name.startsWith("apu-timer-zero-") ||
-          fixture.name.startsWith("apu-io-directory") ? 224 : 164;
+          fixture.name.startsWith("apu-io-directory") || fixture.name.startsWith("irq-") ? 224 : 164;
         for (let i = 0; i < batches; i++) {
           const output = await call({ action: "batch", batchCycles: i < 64 ? 512 : 16384,
             buttons: fixture.name === "auto" ? 2048 : fixture.name === "serial" ? 0xa55 : 0 });
@@ -513,6 +520,8 @@ test(`full SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: boots a lo
           for (let j = 0; j < output.trace.length; j += 4) {
             const [cycle, address, value, flags] = output.trace.slice(j, j + 4);
             if (address === 0x7e3300 && (flags & 1)) observations.push([cycle, address, value, flags]);
+            if (fixture.name.startsWith("irq-") && address >= 0x7e3600 && address <= 0x7e360a && (flags & 1))
+              observations.push([cycle, address, value, flags]);
             if (fixture.name.startsWith("hdma-") && address >= 0x7e3500 && address < 0x7e3504 && (flags & 1))
               observations.push([cycle, address, value, flags]);
             if (cycle > 1000000 && address === 0x2121 && (flags & 1)) hdma.push([cycle, value]);
@@ -604,6 +613,50 @@ test(`full SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: boots a lo
       expect(pcmMatches(onset.slice(600, 768), expectedPcm("audio-echo"))).toBe(true);
     }
     expect(height, name).toBe(name.includes("interlace") ? 448 : name === "overscan" ? 239 : 224);
+    if (name.startsWith("irq-")) {
+      const [, mode, first, second] = name.split("-");
+      const targetH = mode === "v" ? 0 : Number(mode === "h" ? first : second);
+      const targetV = mode === "h" ? null : Number(first);
+      const values = (offset) => observations.filter((t) => t[1] === 0x7e3600 + offset).map((t) => t[2]);
+      expect(values(7), `${name} TIMEUP clear before arming`).toEqual([0]);
+      expect(values(8), `${name} NMITIMEN mode`).toEqual([{ h: 0x10, v: 0x20, hv: 0x30 }[mode]]);
+      expect(values(6), `${name} exactly three IRQs, no acknowledgement retrigger`).toEqual([1, 2, 3]);
+      expect(values(4), `${name} TIMEUP is set on entry`).toEqual([0x80, 0x80, 0x80]);
+      expect(values(5), `${name} TIMEUP read acknowledges once`).toEqual([0, 0, 0]);
+      expect(values(9), `${name} TIMEUP clear immediately after disable`).toEqual([0]);
+      expect(values(10), `${name} TIMEUP stays clear across a complete disabled frame`).toEqual([0]);
+      const h = values(0).map((lo, i) => lo | values(1)[i] << 8);
+      const v = values(2).map((lo, i) => lo | values(3)[i] << 8);
+      expect(h, `${name} captures each IRQ position`).toHaveLength(3);
+      // Comparator propagation, native interrupt entry, PHA and LDA SLHV add
+      // bounded latency. 16..48 dots is narrower than one scanline and the
+      // chosen H targets are 180 dots apart, including HTIME's ninth bit.
+      for (const dot of h) {
+        expect(dot - targetH, `${name} interrupt-entry latency in dots`).toBeGreaterThanOrEqual(16);
+        expect(dot - targetH, `${name} interrupt-entry latency in dots`).toBeLessThanOrEqual(48);
+      }
+      if (targetV !== null) expect(v, `${name} exact VTIME line including ninth bit`).toEqual(Array(3).fill(targetV));
+      else expect(v, `${name} H-only starts on line 0 and ignores VTIME=192`).toEqual([0, 1, 2]);
+      const times = observations.filter((t) => t[1] === 0x7e3600).map((t) => t[0]);
+      const disabledAt = observations.find((t) => t[1] === 0x7e3609)[0];
+      const checkedAt = observations.find((t) => t[1] === 0x7e360a)[0];
+      expect(checkedAt - disabledAt, `${name} disabled observation spans at least a complete frame`)
+        .toBeGreaterThanOrEqual(1364 * 262);
+      expect(cycles - checkedAt, `${name} capture continues after the disabled-frame check`).toBeGreaterThan(0);
+      fixtureEvidence.at(-1).timer = { h, v, observations };
+      for (let i = 1; i < times.length; i++) {
+        // NTSC non-interlace: 1364 clocks/line, 262 lines/frame, with one
+        // four-clock short line on alternate fields. CPU instruction phase
+        // can vary by <=32 clocks; a one-line or wrong-period IRQ cannot pass.
+        const period = mode === "h" ? 1364 : 1364 * 262;
+        expect(Math.abs(times[i] - times[i - 1] - period), `${name} timer recurrence`).toBeLessThanOrEqual(32);
+      }
+      if (name.endsWith("-repeat")) {
+        const original = results.modeResults.find((r) => r.name === name.slice(0, -7));
+        expect(observations, `${name} exact IRQ/acknowledgement reset replay`).toEqual(original.observations);
+        expect(pcm).toEqual(original.pcm);
+      }
+    }
     const writes = Array.from({ length: trace.length / 4 }, (_, i) => trace.slice(i * 4, i * 4 + 4)).filter((t) => t[3] & 1);
     if (name === "serial") {
       expect(writes.filter((t) => t[1] >= 0x7e2000 && t[1] < 0x7e2018).map((t) => t[2])).toEqual(

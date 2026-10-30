@@ -47,7 +47,8 @@ class Program:
 
 
 def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
-          joycheck=None, transfer=None, audio=None, bus=None, apu_check=None, dma_check=None):
+          joycheck=None, transfer=None, audio=None, bus=None, apu_check=None, dma_check=None,
+          irq_check=None):
     assert mode in range(8)
     large_bg = bool(effect and effect.startswith("large-"))
     extbg = bool(effect and effect.startswith("extbg-"))
@@ -911,6 +912,46 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
                                   (3, 0x90), (4, 0), (7, bank)]:
                 write(0x4300 + channel * 16 + offset, value)
         write(0x420c, 0x0f)
+    if irq_check:
+        timer_mode, htime, vtime = irq_check
+        assert timer_mode in [1, 2, 3] and 0 <= htime < 512 and 0 <= vtime < 512
+        # Isolate timer IRQs from NMI, autojoy and HDMA. Align arming to line 0;
+        # targets are independent SNES dot/line values, not observed RTL counts.
+        stz(0x4200)
+        stz(0x420c)
+        stz(0x12)
+        for address, value in [(0x4207, htime & 255), (0x4208, htime >> 8),
+                               (0x4209, vtime & 255), (0x420a, vtime >> 8)]:
+            write(address, value)
+
+        def irq_observe(address, offset, mask=255):
+            load(address)
+            if mask != 255:
+                cpu.emit(f"AND #${mask:02x}", 0x29, mask)
+            cpu.emit(f"STA $7e36{offset:02x}", 0x8f, offset, 0x36, 0x7e)
+
+        def irq_wait_frame(label):
+            for suffix, branch in [("start", 0xf0), ("end", 0xd0)]:
+                cpu.label(f"{label}_{suffix}")
+                load(0x4212)
+                cpu.emit("AND #$80 (VBlank)", 0x29, 0x80)
+                cpu.branch(branch, f"{label}_{suffix}")
+
+        irq_observe(0x4211, 7, 0x80)  # no pending interrupt before enabling
+        irq_wait_frame("irq_align")
+        write(0x4200, timer_mode << 4)
+        cpu.emit("STA $7e3608 (armed); CLI", 0x8f, 8, 0x36, 0x7e, 0x58)
+        cpu.label("irq_wait_three")
+        load(0x12)
+        cpu.emit("CMP #3", 0xc9, 3)
+        cpu.branch(0xd0, "irq_wait_three")
+        # The third handler disables IRQs. Observe another complete frame to
+        # detect pending flags/retriggers, then leave audio/video running.
+        irq_wait_frame("irq_disabled_one")
+        irq_wait_frame("irq_disabled_two")
+        irq_observe(0x4211, 10, 0x80)
+        cpu.label("irq_done")
+        cpu.branch(0x80, "irq_done")
     # NMI increments WRAM $10; main loop waits for it, then samples controller B.
     stz(0x10)
     write(0x4207, 128)
@@ -987,8 +1028,24 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
     cpu.emit("INC $10; PLA; RTI", 0xe6, 0x10, 0x68, 0x40)
     cpu.label("irq")
     cpu.emit("PHA", 0x48)
-    load(0x4211)
-    cpu.emit("INC $12; PLA; RTI", 0xe6, 0x12, 0x68, 0x40)
+    if irq_check:
+        load(0x2137)  # latch the actual PPU H/V counters on entry
+        load(0x213f)  # reset OPHCT/OPVCT read flip-flops
+        for address, offset, mask in [(0x213c, 0, 255), (0x213c, 1, 1),
+                                      (0x213d, 2, 255), (0x213d, 3, 1),
+                                      (0x4211, 4, 0x80), (0x4211, 5, 0x80)]:
+            irq_observe(address, offset, mask)
+        cpu.emit("INC $12", 0xe6, 0x12)
+        irq_observe(0x12, 6)
+        cpu.emit("CMP #3", 0xc9, 3)
+        cpu.branch(0xd0, "irq_return")
+        stz(0x4200)
+        irq_observe(0x4211, 9, 0x80)
+        cpu.label("irq_return")
+        cpu.emit("PLA; RTI", 0x68, 0x40)
+    else:
+        load(0x4211)
+        cpu.emit("INC $12; PLA; RTI", 0xe6, 0x12, 0x68, 0x40)
     cpu.label("fail")
     write(0x1e, 0xff)
     write(0x2100, 0x80)

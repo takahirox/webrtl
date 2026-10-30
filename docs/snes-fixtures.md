@@ -324,3 +324,50 @@ collisions suppress the B write. Ordinary CPU I/O accesses remain available.
 npm run build:demo
 WEBRTL_SNES_FIXTURES='^(abus-|wram-|hdma-)' npx playwright test --config=playwright.static.config.js --grep 'full SNES RTL'
 ```
+
+### 5A22 timer IRQs
+
+Six original cartridges isolate NMITIMEN's H/V timer modes with NMI, HDMA and
+autojoy disabled. All 209 earlier cartridges remain byte-identical.
+
+| Cartridge | NMITIMEN | HTIME | VTIME | Independent expectation |
+| --- | --- | --- | --- | --- |
+| `irq-h-80` | `$10` | 80 | 192 | IRQ every scanline at H=80, regardless of VTIME. |
+| `irq-h-260` | `$10` | 260 | 192 | Same recurrence, with HTIME bit 8 set. |
+| `irq-v-64` | `$20` | 260 | 64 | IRQ once per frame at the start of line 64, regardless of HTIME. |
+| `irq-v-258` | `$20` | 80 | 258 | Same recurrence on line 258, with VTIME bit 8 set. |
+| `irq-hv-64-80` | `$30` | 80 | 64 | IRQ once per frame at H=80 on line 64. |
+| `irq-hv-192-260` | `$30` | 260 | 192 | IRQ once per frame at H=260 on line 192. |
+
+Mode selection, nine-bit targets, rising-edge triggering, TIMEUP acknowledgement
+and disable behavior follow the independent ares
+[IRQ logic](https://github.com/ares-emulator/ares/blob/master/ares/sfc/cpu/irq.cpp)
+and [CPU registers](https://github.com/ares-emulator/ares/blob/master/ares/sfc/cpu/io.cpp).
+The browser does not use RTL output to calculate expected targets.
+
+After synchronizing to VBlank's end, each cartridge enables its timer and services
+three IRQs. Its handler latches PPU counters through SLHV, reads both halves of
+OPHCT/OPVCT, reads TIMEUP twice, and stores results at `$7e3600`–`$7e3606`.
+The browser requires the exact target line (or three consecutive lines for
+H-only), H in the target+16 through target+48 dot interval, and TIMEUP bits
+`$80,$00` on every entry. The H interval includes comparator propagation,
+native interrupt entry, PHA and LDA SLHV; it excludes adjacent scanlines and the
+other H targets. Recurrence must be 1,364 master clocks for H-only or
+262×1,364 clocks for V/HV, within 32 clocks for CPU instruction phase and the
+alternate NTSC field's four-clock short line. These are bounded timing checks,
+not cycle-exact interrupt-latency certification.
+
+The third handler disables timers. Markers at `$7e3607`–`$7e360a` verify TIMEUP
+before enabling, the armed mode, and TIMEUP remaining clear immediately after
+disable and after another complete disabled frame. The browser also checks that
+the last observation occurs at least 262×1,364 clocks after disable.
+Exactly three handler packets must occur
+through the end of capture. Each cartridge then runs again after power reset;
+every observation, including its master-clock timestamp, and settled PCM must
+match exactly. Existing baseline keyboard/gamepad, frame, audio, LoROM/HiROM and
+reset checks still run in both browsers.
+
+```sh
+npm run build:demo
+WEBRTL_SNES_FIXTURES='^irq-' npx playwright test --config=playwright.static.config.js --grep 'full SNES RTL' --workers=2
+```
