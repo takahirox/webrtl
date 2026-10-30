@@ -1,5 +1,5 @@
 {
-  "latestValidation": "highResolutionMosaicReviewFixValidation",
+  "latestValidation": "recoveryMainIntegrationValidation",
   "historyNote": "Top-level checks and measurements are the initial 2026-10-29 snapshot. Named review entries retain historical evidence; latestValidation identifies the latest validation and its scope.",
   "issue": 22,
   "date": "2026-10-29",
@@ -7228,5 +7228,106 @@
       "package-lock.json": "541217566bd0ba90e22dd1c5358fd3b362853d705ac75d9c1f1e36139ef9e597"
     },
     "limits": "Complete static suite passed without fixture filters, skips, failures or retries. Four concurrent browser workers affect timings. These bounded fixtures do not establish exhaustive hardware conformance or real-time playability. Unchanged trusted-local tests were not rerun for this correction. Compiler peak memory, optional broad benchmarks and post-merge Pages checks were not measured/performed; publication remains pending."
+  },
+  "recoveryMainIntegrationValidation": {
+    "date": "2026-10-31",
+    "issue": 22,
+    "recoveredCheckpoint": "fabd5fc3d9b0fa4ab20780fb80fe16faef31abc6",
+    "preservedAgentCommit": "7b50ad44ba76f731872e3d858ecae2dd9aae1f40",
+    "integratedMain": "92256ec948cf8e884e9ad89988651cd628a61df6",
+    "integration": "Conflict-free merge. Main only adds UI/UX documentation already present in the checkpoint, so the merge introduces no source changes. The mosaic correction, 14 regressions and all nine recorded source/artifact hashes are preserved.",
+    "commands": [
+      "python3 -m unittest discover -s tests -v",
+      "npm run build:demo",
+      "verilator --lint-only -Wno-fatal --top-module snes examples/snes/snes.v examples/snes/snes-core.v",
+      "WEBRTL_SNES_FIXTURES='^(mosaic($|-)|hires-)' PLAYWRIGHT_JSON_OUTPUT_NAME=.build/recovery-results.json npx playwright test --config=playwright.static.config.js --workers=4 --reporter=line,json",
+      "git diff --check",
+      "git diff --cached --check"
+    ],
+    "checks": {
+      "pythonPassed": 10,
+      "staticBuild": "passed",
+      "rtlLint": "passed with existing DSP/DIV width warnings",
+      "staticBrowsers": {
+        "passed": 46,
+        "failed": 0,
+        "skipped": 0,
+        "retries": 0,
+        "durationMs": 731013.0310000001,
+        "browsers": [
+          "chromium",
+          "firefox"
+        ],
+        "existingExampleChecks": 42,
+        "snesBatches": 4,
+        "namedCartridgesPerBrowser": 27,
+        "mosaicRegressionsPerBrowser": 14,
+        "retainedControlsPerBrowser": 13,
+        "pixelMismatches": 0,
+        "crossBrowserFramesPcmObservations": "identical",
+        "baselinePerBatch": "Keyboard/gamepad effects during RTL audio, LoROM/HiROM boot, pause and deterministic reset passed."
+      }
+    },
+    "measurements": [
+      {
+        "browser": "chromium",
+        "compileMs": 103299.40000000596,
+        "wasmBytes": 270944,
+        "cxxrtlBytes": 1638004,
+        "runtime": {
+          "cycles": 1671168,
+          "elapsedMs": 7341,
+          "memoryBytes": 20578304,
+          "samples": 2489,
+          "nonzero": 1399
+        }
+      },
+      {
+        "browser": "firefox",
+        "compileMs": 114574,
+        "wasmBytes": 270944,
+        "cxxrtlBytes": 1638004,
+        "runtime": {
+          "cycles": 1671168,
+          "elapsedMs": 8522,
+          "memoryBytes": 20578304,
+          "samples": 2489,
+          "nonzero": 1399
+        }
+      },
+      {
+        "browser": "chromium",
+        "compileMs": 100342.59999999404,
+        "wasmBytes": 270944,
+        "cxxrtlBytes": 1638004,
+        "runtime": {
+          "cycles": 1671168,
+          "elapsedMs": 6497.70000000298,
+          "memoryBytes": 20578304,
+          "samples": 2489,
+          "nonzero": 1399
+        }
+      },
+      {
+        "browser": "firefox",
+        "compileMs": 85273,
+        "wasmBytes": 270944,
+        "cxxrtlBytes": 1638004,
+        "runtime": {
+          "cycles": 1671168,
+          "elapsedMs": 7926,
+          "memoryBytes": 20578304,
+          "samples": 2489,
+          "nonzero": 1399
+        }
+      }
+    ],
+    "artifacts": {
+      "snesWasmCompilations": 4,
+      "snesWasmSha256": "3bd23feeae078fa811b4a9f29a7ca3e5287967851af345151a7de741b4bba060",
+      "crossBrowserFramesPcmObservationsSha256": "ece809755e9d3164a9fd3047952bdbefb9a70d704d1f06f3d505cdf459b0931b",
+      "sourceHashes": "All nine sourceSha256 entries in highResolutionMosaicReviewFixValidation match this integrated tree."
+    },
+    "limits": "This is a fresh focused rerun of the mosaic regressions and controls plus all 42 existing-example checks. The earlier 68-check/260-cartridge sweep remains inherited evidence, not a fresh result. Full unfiltered static, trusted-local, upstream regeneration and post-merge live Pages checks were not rerun. No runtime source changed during main integration. Compiler peak memory and optional broad benchmarks were not measured; publication remains pending."
   }
 }

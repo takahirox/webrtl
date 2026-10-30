@@ -673,12 +673,34 @@ baseline simulation measured 204,650–261,320 master clocks/s,
 
 Commands, source/cartridge/artifact hashes, negative controls, per-browser
 results and measurement ranges are recorded under `highResolutionMosaicReviewFixValidation` in
-[snes-validation.json](snes-validation.json), now the latest validation entry.
+[snes-validation.json](snes-validation.json), the validation entry for that correction.
 This supersedes the previous outstanding complete-sweep gap. The unchanged
 trusted-local tests were not rerun for this correction. Exhaustive hardware
 conformance, real-time playability and optional broad benchmarks are not
 established by these bounded checks; post-merge live Pages verification remains
 pending publication.
+
+### Recovery and main integration (2026-10-31)
+
+The recovered checkpoint retains commit `7b50ad4`, including the high-resolution
+mosaic correction and all fourteen regressions. Main at `92256ec` merges without
+conflicts; its UI/UX documentation was already present, so integration changes no
+runtime sources. All nine source/artifact hashes recorded for the correction match.
+
+Fresh validation passes all ten Python tests, the static build, RTL lint (existing
+DSP/DIV width warnings), and 46 static browser checks in 12.2 minutes without
+failures, skips or retries. These comprise all 42 existing-example checks and four
+SNES batches: each browser runs the fourteen mosaic regressions and thirteen
+controls, plus baseline input/audio, LoROM/HiROM and deterministic reset checks.
+All 27 cartridge frames have zero pixel mismatches and matching PCM across
+Chromium and Firefox. All four fresh Wasm artifacts match the correction's recorded
+270,944-byte artifact hash.
+
+The latest scoped results are under `recoveryMainIntegrationValidation` in
+[snes-validation.json](snes-validation.json). The earlier 68-check/260-cartridge
+sweep above remains historical evidence; it was not rerun during this integration.
+Trusted-local tests, upstream regeneration and live Pages checks were not rerun.
+Publication remains pending.
 
 ## Validation limits and publication
 
