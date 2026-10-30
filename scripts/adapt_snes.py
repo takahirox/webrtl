@@ -28,6 +28,14 @@ def adapt(sources, boot):
         # Simulation-only printing is unavailable in the standalone Wasm ABI.
         source = re.sub(r"^\s*\$fdisplay\([^\n]*\);", ";", source, flags=re.M)
         if name == "src/SNES.v":
+            # Invalid DMA A-bus reads supply zero even when PA selects WRAM
+            # or a PPU register. CPU accesses keep their ordinary bus mux.
+            source = source.replace("wire SMP_CE;", "wire DMA_A_INVALID;\nwire SMP_CE;")
+            source = source.replace(".TURBO()", ".TURBO(), .DMA_A_INVALID(DMA_A_INVALID)")
+            source = source.replace("assign BUSA_SEL =", "assign BUSA_SEL = DMA_A_INVALID ? 1'b1 :")
+            source, count = re.subn(
+                r"assign BUSA_DO =.*?;", "assign BUSA_DO = DMA_A_INVALID ? 8'h00 : DI;", source, flags=re.S)
+            assert count == 1
             source = source.replace("wire SMP_WE_N;", "wire SMP_WE_N, SMP_RAM_WE_N;")
             source = source.replace(".WE_N(SMP_WE_N),", ".WE_N(SMP_WE_N), .RAM_WE_N(SMP_RAM_WE_N),")
             source = source.replace(".SMP_WE_N(SMP_WE_N),", ".SMP_WE_N(SMP_WE_N), .SMP_RAM_WE_N(SMP_RAM_WE_N),")
@@ -35,11 +43,30 @@ def adapt(sources, boot):
             source = source.replace(".TURBO()", ".TURBO(1'b0)")
             source = source.replace("endmodule", "assign DBG_PPU_DAT=0; assign DBG_WRAM_DAT=0; assign PPU_DBG_BRK=0;\nendmodule")
         if name == "src/cpu.v":
+            # bsnes/ares validA: both DMA directions and HDMA table/data
+            # accesses exclude exactly these I/O ranges (including mirrors).
+            source = source.replace("input TURBO,", "input TURBO,\n    output DMA_A_INVALID,")
+            source = source.replace("assign DMA_ACTIVE = DMA_RUN | HDMA_RUN;", """assign DMA_ACTIVE = DMA_RUN | HDMA_RUN;
+assign DMA_A_INVALID = DMA_ACTIVE && !INT_A[22] &&
+    (INT_A[15:8] == 8'h21 ||      // $2100-$21ff
+     INT_A[15:9] == 7'h20 ||      // $4000-$41ff
+     INT_A[15:5] == 11'h210 ||    // $4200-$421f
+     INT_A[15:7] == 9'h086);      // $4300-$437f""")
+            # Suppress peripheral/cartridge side effects as well as reads.
+            for strobe in ["CPURD_N", "CPUWR_N", "CPURD_CYC_N"]:
+                source = re.sub(rf"({strobe} = )~((?:H)?DMA_A_(?:RD_CYC|RD|WR));",
+                                rf"\1DMA_A_INVALID | ~\2;", source)
             # Standard pads do not drive the programmable I/O pins. Their
             # pull-ups read high when released, low when WRIO drives them low.
             source = source.replace("P65_DI = 8'h00;                                  //RDIO",
                                     "P65_DI = WRIO;                                   //RDIO (undriven pins pulled high)")
             source = source.replace("endmodule", "assign DBG_CPU_BRK=0;\nendmodule")
+        if name == "src/swram.v":
+            # Reverse WRAM-to-WRAM DMA writes the invalid B-bus read value
+            # (zero) to A. Forward transfers still suppress the B write and
+            # neither direction increments WMADD on a collision.
+            source = source.replace("PA == 8'h80 && RAMSEL_N == 1'b0 ? 8'hFF : DI",
+                                    "PA == 8'h80 && RAMSEL_N == 1'b0 ? 8'h00 : DI")
         if name == "src/65C816/mcode.sv":
             # STATE2 is a combinational temporary, not an asynchronously reset FF.
             source = source.replace("reg [3:0] STATE2;", "")

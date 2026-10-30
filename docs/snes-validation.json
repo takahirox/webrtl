@@ -4037,5 +4037,67 @@
       "firefox": "157.0"
     },
     "limits": "This revision reran the 20 new cartridges and each browser batch retained baseline keyboard/gamepad effects during audio, LoROM/HiROM, DMA/HDMA, interrupts and deterministic power reset. The full 199-cartridge sweep and unrelated application/native regressions were not rerun; prior full-sweep/regression evidence remains recorded separately. These bounded PPU expectations do not establish exhaustive compatibility or real-time playability. Live Pages verification remains pending publication."
+  },
+  "dmaBusReviewFixValidation": {
+    "date": "2026-10-30",
+    "issue": 22,
+    "fixes": [
+      "Invalid DMA/HDMA A-bus reads return zero and A-bus strobes are suppressed only in 00-3f/80-bf:2100-21ff,4000-41ff,4200-421f,4300-437f. Ordinary CPU I/O and valid 4380-43ff open-bus accesses remain available.",
+      "Reverse WRAM-to-WRAM DMA writes zero to A; forward collisions preserve both locations, and neither direction advances WMADD."
+    ],
+    "checks": {
+      "pythonPassed": 10,
+      "staticBuild": "passed",
+      "rtlLint": "passed (upstream warnings retained)",
+      "pinnedUpstreamAdaptation": "byte-identical to generated RTL; all pinned input hashes checked",
+      "retainedCartridges": "All 199 prior cartridges byte-identical",
+      "staticBrowsersPassed": 64,
+      "browsers": [
+        "chromium",
+        "firefox"
+      ],
+      "snesBatchesPerBrowser": 11,
+      "snesFixturesPerBrowser": 209,
+      "newDmaFixturesPerBrowser": 10,
+      "scheduling": "Initial run completed 24 checks with two workers. Two in-flight checks were interrupted; only the 40 pending checks were rescheduled with four workers using the exact completed-test list. No fixture or assertion was removed.",
+      "commands": [
+        "python3 -m unittest discover -s tests -v",
+        "npm run build:demo",
+        "verilator --lint-only -Wno-fatal --top-module snes examples/snes/snes.v examples/snes/snes-core.v",
+        "npx playwright test --config=playwright.static.config.js --fully-parallel --workers=2",
+        "npx playwright test --config=playwright.static.config.js --test-list-invert <24-completed-tests> --fully-parallel --workers=4"
+      ],
+      "trustedLocal": {
+        "status": "blocked by reproduced existing toolchain link failure",
+        "probe": "python3 build.py examples/counter.v <temporary-output>",
+        "cause": "Installed Verilator 5.052 / Emscripten 6.0.13 cannot resolve pthread_getaffinity_np, sched_getcpu and pthread_setaffinity_np (documented in README). No native toolchain workaround or unrelated source change was made."
+      },
+      "livePages": "Not run; no push or merge in this revision."
+    },
+    "negativeControls": {
+      "reviewedWasmAbus00": "New original cartridge reads 6b from forbidden 002100 and rejects it; corrected RTL reads 00.",
+      "reviewedWasmWramReverse": "New original cartridge reads ff at A destination and rejects it; corrected RTL reads 00."
+    },
+    "newFixtureNames": [
+      "abus-00",
+      "abus-3f",
+      "abus-80",
+      "abus-bf",
+      "abus-40",
+      "abus-c0",
+      "wram-forward",
+      "wram-reverse",
+      "hdma-00",
+      "hdma-80"
+    ],
+    "wasmBytes": 270593,
+    "cxxrtlBytes": 1631107,
+    "sourceSha256": {
+      "examples/snes/snes-core.v": "b4866d4e0940d69ce91f5b1c39edf8ebca5be22712c0314c10639ed154ea893d",
+      "scripts/adapt_snes.py": "0f432b5c03bde62c65fcd7b9221f9a11da9468b1e62e47adda9f870b90c1c783",
+      "scripts/generate-snes-rom.py": "9c308bb55b0d6d74624f83ae027116940cd58cc90f7345ce25c166bc5393b46f",
+      "tests/static/snes.spec.js": "c845978ca83490eb5c22f64407dc620a6227c4014b932996adf1e41d715e8fe0"
+    },
+    "limits": "Boundary fixtures require zero for prohibited I/O and nonzero for adjacent unmapped reads; they do not specify the exact arbitration/MDR phase. These bounded checks do not establish exhaustive console conformance or real-time playability."
   }
 }

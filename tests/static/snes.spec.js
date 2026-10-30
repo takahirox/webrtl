@@ -60,7 +60,9 @@ cases += [(name,dict(effect=name)) for name in ['pseudo-hires','pseudo-hires-swa
 cases += [(name,dict(mode=7,effect=name)) for name in ['extbg-bg2','extbg-bg12','extbg-off']]
 cases += [(f'extbg-bg12-obj-{priority}',dict(mode=7,effect='extbg-bg12',sprite_priority=priority)) for priority in range(4)]
 cases += [(f'extbg-bg2-obj-{priority}',dict(mode=7,effect='extbg-bg2',sprite_priority=priority)) for priority in range(2)]
-print(json.dumps([dict(name=name,bytes=list(build(**args)[0])) for name,args in cases]))`], { maxBuffer: 32 * 1024 * 1024 }));
+cases += [(f'abus-{bank:02x}',dict(dma_check=f'abus-{bank:02x}')) for bank in [0,0x3f,0x80,0xbf,0x40,0xc0]]
+cases += [(name,dict(dma_check=name)) for name in ['wram-forward','wram-reverse','hdma-00','hdma-80']]
+print(json.dumps([dict(name=name,bytes=list(build(**args)[0])) for name,args in cases]))`], { maxBuffer: 40 * 1024 * 1024 }));
 
 // Optional focused reruns still exercise browser compilation and the baseline
 // cartridge's input, audio, LoROM/HiROM and deterministic reset checks.
@@ -511,6 +513,8 @@ test(`full SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: boots a lo
           for (let j = 0; j < output.trace.length; j += 4) {
             const [cycle, address, value, flags] = output.trace.slice(j, j + 4);
             if (address === 0x7e3300 && (flags & 1)) observations.push([cycle, address, value, flags]);
+            if (fixture.name.startsWith("hdma-") && address >= 0x7e3500 && address < 0x7e3504 && (flags & 1))
+              observations.push([cycle, address, value, flags]);
             if (cycle > 1000000 && address === 0x2121 && (flags & 1)) hdma.push([cycle, value]);
           }
         }
@@ -613,6 +617,51 @@ test(`full SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: boots a lo
       expect(writes.filter((t) => t[1] >= 0x7e3100 && t[1] < 0x7e3100 + expected.length)
         .map((t) => [t[1], t[2]]), `${name} CPU read results`).toEqual(
           expected.map((value, i) => [0x7e3100 + i, value]));
+    }
+    if (name.startsWith("abus-")) {
+      const bank = Number.parseInt(name.slice(5), 16), rom = bank === 0x40 || bank === 0xc0;
+      // Literal boundary expectations from bsnes/ares validA, independent of
+      // the generator's range predicate. Valid unmapped reads must not be
+      // forced to zero; their exact arbitration/open-bus phase is not tested.
+      const expected = rom ? Array(18).fill(0x5a) :
+        [null,0,0,null,null,0,0,0,0,0,0,null,null,0,0,null,null,null];
+      expected.push(rom ? 0x5a : 0xc0);
+      if (!rom) expected.push(0xa5);
+      const readback = writes.filter((t) => t[1] >= 0x7e3500 && t[1] < 0x7e3500 + expected.length);
+      expect(readback.map((t) => t[1]), `${name} complete CPU readback`).toEqual(
+        expected.map((_, i) => 0x7e3500 + i));
+      for (const [i, value] of expected.entries()) {
+        if (value === null) expect(readback[i][2], `${name} valid boundary ${i}`).not.toBe(0);
+        else expect(readback[i][2], `${name} boundary/CPU I/O ${i}`).toBe(value);
+      }
+      if (!rom) {
+        const prohibited = [0x2100,0x21ff,0x4000,0x401f,0x4100,0x41ff,0x4200,0x421f,0x4300,0x437f]
+          .map((address) => bank * 65536 + address);
+        let reverse = false, pending = false, commands = 0;
+        for (const [, address, value] of writes) {
+          // Each reverse command transfers one byte. Its next bus write must
+          // be the resumed CPU's write, never a prohibited DMA destination.
+          if (pending) {
+            expect(prohibited.includes(address), `${name} suppresses invalid A write`).toBe(false);
+            pending = false;
+          }
+          if (address === 0x4370) reverse = Boolean(value & 0x80);
+          if (address === 0x420b && (value & 0x80) && reverse) { pending = true; commands++; }
+        }
+        expect(commands, `${name} exercises all reverse destinations`).toBe(10);
+        expect(pending).toBe(false);
+      }
+    }
+    if (name.startsWith("wram-")) {
+      const expected = Array.from({ length: 6 }, () => [name === "wram-reverse" ? 0 : 0xa5,0x3c,0x3c]).flat();
+      expect(writes.filter((t) => t[1] >= 0x7e3500 && t[1] < 0x7e3512)
+        .map((t) => [t[1], t[2]]), `${name} WRAM banks/mirrors, port contents and WMADD`).toEqual(
+          expected.map((value, i) => [0x7e3500 + i, value]));
+    }
+    if (name.startsWith("hdma-")) {
+      expect(observations.length, `${name} CPU checks HDMA writes`).toBeGreaterThanOrEqual(4);
+      expect(observations.slice(0, 4).map((t) => [t[1], t[2]])).toEqual(
+        Array.from({ length: 4 }, (_, i) => [0x7e3500 + i, 0]));
     }
     if (["cgram-latch", "wbglog-open-bus"].includes(name)) {
       const expected = [0, 0, 0x80, 0x92, 0x5a, 0x23, 0, 0x80, 0x80, 0, 0x80, 0, 0, 0x92];

@@ -240,6 +240,7 @@ wire [7:0] PPU_DO;
 wire [7:0] PPU_DI;
 
 // APU
+wire DMA_A_INVALID;
 wire SMP_CE;
 wire [15:0] SMP_A;
 wire [7:0] SMP_DO;
@@ -276,7 +277,7 @@ SCPU CPU(
     .JOY1_DI(JOY1_DI), .JOY2_DI(JOY2_DI),
     .DBG_CPU_BRK(CPU_BRK),.DBG_REG(DBG_REG),.DBG_DAT(DBG_SCPU_DAT),
     .DBG_DAT_IN(DBG_DAT_IN), .DBG_CPU_DAT(DBG_CPU_DAT),.DBG_CPU_WR(CPU_DBG_WR),
-    .SYSCLK(), .TURBO(1'b0)
+    .SYSCLK(), .TURBO(1'b0), .DMA_A_INVALID(DMA_A_INVALID)
 );
 
 reg INT_RAMSEL_N_buf, BUSA_SEL_buf, BUSB_SEL_buf;
@@ -289,12 +290,11 @@ always @(posedge MCLK) begin
     BUSB_DO_buf <= BUSB_DO;
 end
 
-assign BUSA_SEL =   INT_CA[22] == 1'b0 && INT_CA[15:8] == 8'h20 ? 1'b1 :
+assign BUSA_SEL = DMA_A_INVALID ? 1'b1 :   INT_CA[22] == 1'b0 && INT_CA[15:8] == 8'h20 ? 1'b1 :
                     INT_CA[22] == 1'b0 && INT_CA[15:8] >= 8'h22 ? 1'b1 :
                     INT_CA[23:16] >= 8'h40 && INT_CA[23:16] <= 8'h7D ? 1'b1 :
                     INT_CA[23:16] >= 8'hC0 ? 1'b1 : 1'b0;
-assign BUSA_DO =    ~INT_CA[22] && (INT_CA[15:8] == 8'h40 || INT_CA[15:8] == 8'h43) ? 8'h0 :
-                    DI;
+assign BUSA_DO = DMA_A_INVALID ? 8'h00 : DI;
 
 assign BUSB_SEL =   ~INT_PA[7] || INT_PA[7:2] == 6'b100000;
 assign BUSB_DO =    INT_PA[7:6] == 2'b00 ? PPU_DO :
@@ -461,6 +461,7 @@ module SCPU(
     output JOY2_CLK,
 
     input TURBO,
+    output DMA_A_INVALID,
 
     output DBG_CPU_BRK,
     input [7:0] DBG_REG,
@@ -648,6 +649,11 @@ reg JOY_VBLANK_OLD;
 wire P65_RDY;
 
 assign DMA_ACTIVE = DMA_RUN | HDMA_RUN;
+assign DMA_A_INVALID = DMA_ACTIVE && !INT_A[22] &&
+    (INT_A[15:8] == 8'h21 ||      // $2100-$21ff
+     INT_A[15:9] == 7'h20 ||      // $4000-$41ff
+     INT_A[15:5] == 11'h210 ||    // $4200-$421f
+     INT_A[15:7] == 9'h086);      // $4300-$437f
 
 /*
 mclk    /1\__/2\__/3\__/4\__/5\__/6\__/7\__/8\__/9\__/0\__/1\__/2\__/3\__/4\__/5\__/6\__/7\__/8\__/9\__/0\__/
@@ -839,11 +845,11 @@ always @* begin
     end
 
     if (HDMA_RUN && EN) begin
-        CPURD_N = ~HDMA_A_RD;
-        CPUWR_N = ~HDMA_A_WR;
+        CPURD_N = DMA_A_INVALID | ~HDMA_A_RD;
+        CPUWR_N = DMA_A_INVALID | ~HDMA_A_WR;
     end else if (DMA_RUN && EN) begin
-        CPURD_N = ~DMA_A_RD;
-        CPUWR_N = ~DMA_A_WR;
+        CPURD_N = DMA_A_INVALID | ~DMA_A_RD;
+        CPUWR_N = DMA_A_INVALID | ~DMA_A_WR;
     end else if (P65_EN) begin
         CPURD_N = ~CPU_RD;
         CPUWR_N = ~CPU_WR;
@@ -865,9 +871,9 @@ always @* begin
         PARD_CYC_N = 1'b1;
 
     if (HDMA_RUN && EN)
-        CPURD_CYC_N = ~HDMA_A_RD_CYC;
+        CPURD_CYC_N = DMA_A_INVALID | ~HDMA_A_RD_CYC;
     else if (DMA_RUN && EN)
-        CPURD_CYC_N = ~DMA_A_RD_CYC;
+        CPURD_CYC_N = DMA_A_INVALID | ~DMA_A_RD_CYC;
     else if (P65_EN)
         CPURD_CYC_N = ~P65_R_WN;
     else
@@ -6155,7 +6161,7 @@ module SWRAM (
 
     assign DO = RAM_Q;
 
-    assign RAM_D = PA == 8'h80 && RAMSEL_N == 1'b0 ? 8'hFF : DI;
+    assign RAM_D = PA == 8'h80 && RAMSEL_N == 1'b0 ? 8'h00 : DI;
 
     assign RAM_A = RAMSEL_N == 1'b0 ? CA[16:0] : WMADD[16:0];
 

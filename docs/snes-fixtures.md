@@ -6,7 +6,7 @@ uploads its SPC700 driver through the IPL protocol. The browser test compiles th
 RTL once per batch and power-cycles it for each cartridge. Expected pixels and
 PCM are calculated in the test; they are not recordings of this core's output.
 Pixel comparisons cover every RGBA sample, including its position and alpha.
-The 199-cartridge sweep runs in ten batches per browser, each with at most
+The 209-cartridge sweep runs in eleven batches per browser, each with at most
 20 cartridges plus the AUX reset repeat. Each batch retains the baseline
 input/audio, LoROM/HiROM and deterministic-reset checks, compiles client-side,
 and has a 30-minute deadline. This replaces the single 120-cartridge test that
@@ -72,6 +72,9 @@ rules; the oracle never reads the generated ROM or RTL tables.
 | `overscan`, `interlace` | The expected stripe image covers 239 or 448 rows, respectively. |
 | `dma-0`…`dma-7` | Eight distinct source bytes must reach the documented B-bus offset sequence for each transfer mode. |
 | `reverse` | Mode 1 copies 16 VRAM bytes from `$2139/$213a` to `$7e3000`; both CPU readback and destination bus writes must match the cartridge's plane data. |
+| `abus-00/3f/80/bf/40/c0` | DMA reads at eighteen I/O range boundaries return zero for `$2100-$21ff`, `$4000-$41ff`, `$4200-$421f`, `$4300-$437f` in banks `$00-$3f/$80-$bf`. Adjacent unmapped addresses, including `$4380-$43ff`, must retain nonzero open bus rather than being forced to zero; exact arbitration/MDR phase is outside this check. The same addresses in ROM banks `$40/$c0` return `$5a`. CPU loads record every result at `$7e3500` onward, and ordinary CPU WRIO/DMA-register accesses still work. Reverse DMA emits no prohibited A-bus writes. |
+| `wram-forward/reverse` | A-bus WRAM in banks `$7e/$7f` and mirrors `$00/$3f/$80/$bf` collides with B-bus `$80`. Forward DMA leaves A=`$a5` and port memory=`$3c`; reverse writes zero to A and preserves port memory. CPU reads `$2180` afterward to prove WMADD did not increment in either direction (`$4001` contains `$99`). |
+| `hdma-00/80` | Four indirect HDMA channels fetch descriptors from ROM and data from prohibited A-bus ranges. They overwrite nonzero WRAM sentinels with zero; CPU readback is checked independently of the displayed frame. |
 | `indirect` | HDMA follows pointers in its table to alternating bytes `$10/$20`. Writes must occur 127 scanlines (127 × 1364 master clocks) apart, allowing 16 clocks for CPU/DMA arbitration phase. |
 | `serial`, `auto` | CPU records and checks all twelve buttons, four zero signature bits, eight one connection-detection bits and disconnected port 2; automatic reads separately affect the palette. |
 | `apu-timer-zero-0/1/2` | Each timer independently uses target zero (256 ticks); all three timer output ports must report ticks before the CPU enables display. |
@@ -306,3 +309,18 @@ The independent [ares SMP memory path](https://github.com/ares-emulator/ares/blo
 writes backing RAM for every SMP write, including I/O, subject to TEST RAM
 write/disable permissions, then performs the I/O side effects. The DSP reads
 that backing RAM directly, making PCM a check independent of AUX readback.
+
+
+### DMA bus restrictions
+
+The DMA/HDMA range and WRAM-collision expectations follow the independent
+[bsnes DMA implementation](https://github.com/bsnes-emu/bsnes/blob/master/bsnes/sfc/cpu/dma.cpp)
+and [ares DMA implementation](https://github.com/ares-emulator/ares/blob/master/ares/sfc/cpu/dma.cpp):
+invalid A reads return zero, invalid A writes are suppressed, and reverse
+WRAM-to-WRAM transfers write the invalid B read value (zero) to A. Forward
+collisions suppress the B write. Ordinary CPU I/O accesses remain available.
+
+```sh
+npm run build:demo
+WEBRTL_SNES_FIXTURES='^(abus-|wram-|hdma-)' npx playwright test --config=playwright.static.config.js --grep 'full SNES RTL'
+```

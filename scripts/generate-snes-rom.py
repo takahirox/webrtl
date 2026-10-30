@@ -47,7 +47,7 @@ class Program:
 
 
 def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
-          joycheck=None, transfer=None, audio=None, bus=None, apu_check=None):
+          joycheck=None, transfer=None, audio=None, bus=None, apu_check=None, dma_check=None):
     assert mode in range(8)
     large_bg = bool(effect and effect.startswith("large-"))
     extbg = bool(effect and effect.startswith("extbg-"))
@@ -321,6 +321,76 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
     cpu.emit("SEI; CLD; CLC; XCE; REP #$10; LDX #$1fff; TXS", 0x78, 0xd8, 0x18, 0xfb, 0xc2, 0x10, 0xa2, 0xff, 0x1f, 0x9a)
     stz(0x4200)
     stz(0x420c)
+    if dma_check:
+        observations = []
+
+        def long_store(address, value):
+            cpu.emit(f"LDA #${value:02x}; STA ${address:06x}",
+                     0xa9, value, 0x8f, address & 255, (address >> 8) & 255, address >> 16)
+
+        def observe_dma(address, expected):
+            cpu.emit(f"LDA ${address:06x}", 0xaf, address & 255, (address >> 8) & 255, address >> 16)
+            index = len(observations)
+            cpu.emit(f"STA $7e3500+{index}", 0x8f, index, 0x35, 0x7e)
+            if expected is None:
+                # Valid unmapped addresses retain nonzero open bus. Avoid
+                # specifying the core's internal DMA arbitration MDR phase.
+                cpu.emit("CMP #0; BNE +3 (open bus is not forced zero)", 0xc9, 0, 0xd0, 3)
+                cpu.jumps.append((len(cpu.data) + 1, "fail"))
+                cpu.emit("JMP fail", 0x4c, 0, 0)
+            else:
+                check(expected)
+            observations.append(expected)
+
+        def wmadd(address):
+            for reg, value in [(0x2181, address & 255), (0x2182, (address >> 8) & 255),
+                               (0x2183, (address >> 16) & 1)]:
+                write(reg, value)
+
+        def dma_byte(address, reverse=False):
+            for reg, value in [(0x4370, 0x80 if reverse else 0), (0x4371, 0x80),
+                               (0x4372, address & 255), (0x4373, (address >> 8) & 255),
+                               (0x4374, address >> 16), (0x4375, 1), (0x4376, 0),
+                               (0x420b, 0x80)]:
+                write(reg, value)
+
+        long_store(0x7e0000, 0x6b)
+        if dma_check.startswith("abus-"):
+            bank = int(dma_check.split("-")[-1], 16)
+            # All four ranges, inclusive ends, adjacent valid addresses, and
+            # $4380-$43ff (which the old decoder incorrectly zeroed).
+            for address in [0x20ff, 0x2100, 0x21ff, 0x2200, 0x3fff, 0x4000,
+                            0x401f, 0x4100, 0x41ff, 0x4200, 0x421f, 0x4220,
+                            0x42ff, 0x4300, 0x437f, 0x4380, 0x43ff, 0x4400]:
+                invalid = bank in [0, 0x3f, 0x80, 0xbf] and (
+                    0x2100 <= address <= 0x21ff or 0x4000 <= address <= 0x421f or
+                    0x4300 <= address <= 0x437f)
+                expected = 0 if invalid else 0x5a if bank in [0x40, 0xc0] else None
+                long_store(0x7e3000, 0x6b)
+                wmadd(0x3000)
+                dma_byte(bank << 16 | address)
+                observe_dma(0x7e3000, expected)
+                if invalid:
+                    # Invalid A writes must not appear on the external bus.
+                    wmadd(0x4000)
+                    dma_byte(bank << 16 | address, reverse=True)
+            # CPU I/O reads/writes still work in every low-bank mirror.
+            long_store(bank << 16 | 0x4201, 0xc0)
+            observe_dma(bank << 16 | 0x4213, 0xc0 if bank not in [0x40, 0xc0] else 0x5a)
+            if bank not in [0x40, 0xc0]:
+                long_store(bank << 16 | 0x437b, 0xa5)
+                observe_dma(bank << 16 | 0x437b, 0xa5)
+        elif dma_check.startswith("wram-"):
+            reverse = dma_check.endswith("reverse")
+            for address in [0x7e3000, 0x7f3000, 0x001000, 0x3f1000, 0x801000, 0xbf1000]:
+                long_store(address, 0xa5)
+                long_store(0x7e4000, 0x3c)
+                long_store(0x7e4001, 0x99)
+                wmadd(0x4000)
+                dma_byte(address, reverse=reverse)
+                observe_dma(address, 0 if reverse else 0xa5)
+                observe_dma(0x7e4000, 0x3c)
+                observe_dma(0x002180, 0x3c)  # neither collision advances WMADD
     if bus:
         hirom = bus.endswith("hirom")
         has_sram = bus.startswith("sram-")
@@ -811,7 +881,8 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
     # Channel 1 HDMA reselects CGRAM at rows 0 and 127, changing no palette data.
     # The indirect variant fetches distinct address values from its pointer table.
     for address, value in [(0x4310, 0x40 if transfer == "indirect" else 0), (0x4311, 0x21), (0x4312, 0x80),
-                           (0x4313, 0x90), (0x4314, 0), (0x420c, 2)]:
+                           (0x4313, 0x90), (0x4314, 0),
+                           (0x420c, 0 if dma_check and dma_check.startswith("hdma-") else 2)]:
         write(address, value)
     if transfer == "indirect": stz(0x4317)
     if transfer == "multi":
@@ -822,12 +893,37 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
                                   (3, 0x90), (4, 0), (7, 0)]:
                 write(0x4300 + channel * 16 + offset, value)
         write(0x420c, 0x24)
+    if dma_check and dma_check.startswith("hdma-"):
+        # Indirect HDMA data uses the same A-bus exclusions as DMA, while
+        # each descriptor is read from an ordinary ROM table.
+        bank = int(dma_check.split("-")[-1], 16)
+        # Enable during VBlank so no channel can transfer with a descriptor
+        # left over from power-up or the baseline channel configuration.
+        cpu.label("hdma_config_vblank")
+        load(0x4212)
+        cpu.emit("AND #$80 (VBlank)", 0x29, 0x80)
+        cpu.branch(0xf0, "hdma_config_vblank")
+        for address in range(0x7e5000, 0x7e5004):
+            long_store(address, 0x6b)
+        wmadd(0x5000)
+        for channel in range(4):
+            for offset, value in [(0, 0x40), (1, 0x80), (2, 0xc0 + channel * 8),
+                                  (3, 0x90), (4, 0), (7, bank)]:
+                write(0x4300 + channel * 16 + offset, value)
+        write(0x420c, 0x0f)
     # NMI increments WRAM $10; main loop waits for it, then samples controller B.
     stz(0x10)
     write(0x4207, 128)
     stz(0x4208)
     write(0x4200, 0x91 if autojoy else 0x90)
     cpu.emit("CLI (enable horizontal timer IRQ)", 0x58)
+    if dma_check and dma_check.startswith("hdma-"):
+        # HDMA initializes at the next frame boundary, after the first NMI.
+        # Observe its writes only after a complete subsequent visible field.
+        cpu.label("hdma_warmup")
+        load(0x10)
+        cpu.branch(0xf0, "hdma_warmup")
+        stz(0x10)
     cpu.label("frame")
     if apu_check:
         load(0x2140)
@@ -835,6 +931,9 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
     load(0x10)
     cpu.branch(0xf0, "frame")
     stz(0x10)
+    if dma_check and dma_check.startswith("hdma-"):
+        for address in range(0x7e5000, 0x7e5004):
+            observe_dma(address, 0)
     if transfer == "multi":
         # Start long DMA at the end of VBlank. HBlank HDMA must interrupt it
         # and the DMA byte stream must resume before channel 7 starts.
@@ -868,7 +967,7 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
     write(0x2121, 1)
     write(0x2122, 0xe0)
     write(0x2122, 3)
-    if transfer == "multi":
+    if transfer == "multi" or (dma_check and dma_check.startswith("hdma-")):
         cpu.jumps.append((len(cpu.data) + 1, "frame"))
         cpu.emit("JMP frame", 0x4c, 0, 0)
     else:
@@ -877,7 +976,7 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
     write(0x2121, 1)
     write(0x2122, 0x1f)
     write(0x2122, 0)
-    if transfer == "multi":
+    if transfer == "multi" or (dma_check and dma_check.startswith("hdma-")):
         cpu.jumps.append((len(cpu.data) + 1, "frame"))
         cpu.emit("JMP frame", 0x4c, 0, 0)
     else:
@@ -896,6 +995,8 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
     cpu.label("failed")
     cpu.branch(0x80, "failed")
     rom = bytearray([0xcb] * 32768)
+    if dma_check:
+        assert len(cpu.finish()) < 0x1000, "DMA probe must not overlap cartridge data"
     rom[:len(cpu.finish())] = cpu.data
     graphics_offset = 0x1b00 if graphics_far else 0x1000
     rom[graphics_offset:graphics_offset + len(graphics)] = graphics
@@ -910,6 +1011,15 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
         rom[0x1080:0x1087] = bytes([127, 0xb0, 0x90, 97, 0xb1, 0x90, 0])
         rom[0x10b0:0x10b2] = bytes([0x10, 0x20])
     rom[0x10a0:0x10a8] = bytes(range(0x21, 0x29))
+    if dma_check and dma_check.startswith("hdma-"):
+        for channel, address in enumerate([0x2100, 0x4100, 0x421f, 0x437f]):
+            start = 0x10c0 + channel * 8
+            rom[start:start + 4] = bytes([1, address & 255, address >> 8, 0])
+    if dma_check and dma_check.startswith("abus-"):
+        for address in [0x20ff, 0x2100, 0x21ff, 0x2200, 0x3fff, 0x4000, 0x401f,
+                        0x4100, 0x41ff, 0x4200, 0x4213, 0x421f, 0x4220, 0x42ff,
+                        0x4300, 0x437f, 0x4380, 0x43ff, 0x4400]:
+            rom[address] = 0x5a  # valid ROM controls at banks $40/$c0
     if transfer == "multi":
         rom[0x10c0:0x10c5] = bytes([127, 0x31, 97, 0x32, 0])
         rom[0x10d0:0x10d7] = bytes([127, 0xe0, 0x90, 97, 0xe1, 0x90, 0])
