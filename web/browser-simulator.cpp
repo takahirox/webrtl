@@ -4,11 +4,23 @@
 #include <string.h>
 
 cxxrtl_design::p_webrtltop model;
-static uint8_t frame[64 * 48 * 4], drawing[64 * 48 * 4];
+#ifdef BOARD_SNES
+#define BOARD_VIDEO
+#define BOARD_AUDIO
+static constexpr unsigned width = 512, height = 480;
+#else
+static constexpr unsigned width = 64, height = 48;
+#endif
+static uint8_t frame[width * height * 4], drawing[width * height * 4];
 static int16_t samples[16384];
 static unsigned sample_count;
 static bool frame_ready;
-static uint32_t trace[128 * 4];
+#ifdef BOARD_SNES
+static constexpr unsigned trace_capacity = 4096;
+#else
+static constexpr unsigned trace_capacity = 128;
+#endif
+static uint32_t trace[trace_capacity * 4];
 static unsigned trace_count, cycle_count;
 
 extern "C" {
@@ -22,8 +34,8 @@ static void tick(bool capture = true) {
     // level before capture; this does not create another rising edge.
     model.step();
     if (capture) ++cycle_count;
-#ifdef BOARD_CPU816
-    if (capture && (model.p_trace__flags.get<unsigned>() & 8) && trace_count < 128) {
+#if defined(BOARD_CPU816) || defined(BOARD_SNES)
+    if (capture && (model.p_trace__flags.get<unsigned>() & 8) && trace_count < trace_capacity) {
         unsigned offset = trace_count++ * 4;
         trace[offset] = cycle_count;
         trace[offset + 1] = model.p_trace__address.get<unsigned>();
@@ -36,18 +48,22 @@ static void tick(bool capture = true) {
     if (capture && model.p_video__valid.get<bool>()) {
         unsigned x = model.p_video__x.get<unsigned>();
         unsigned y = model.p_video__y.get<unsigned>();
-        if (x >= 64 || y >= 48) __builtin_trap();
+        if (x >= width || y >= height) __builtin_trap();
         unsigned rgb = model.p_video__rgb.get<unsigned>();
-        unsigned offset = (y * 64 + x) * 4;
+        unsigned offset = (y * width + x) * 4;
         drawing[offset] = rgb >> 16;
         drawing[offset + 1] = rgb >> 8;
         drawing[offset + 2] = rgb;
         drawing[offset + 3] = 255;
-        if (model.p_video__last.get<bool>()) {
-            memcpy(frame, drawing, sizeof(frame));
-            memset(drawing, 0, sizeof(drawing));
-            frame_ready = true;
-        }
+    }
+    if (capture && model.p_video__last.get<bool>()
+#ifndef BOARD_SNES
+        && model.p_video__valid.get<bool>()
+#endif
+    ) {
+        memcpy(frame, drawing, sizeof(frame));
+        memset(drawing, 0, sizeof(drawing));
+        frame_ready = true;
     }
 #endif
 #ifdef BOARD_AUDIO
@@ -68,10 +84,16 @@ void sim_batch(unsigned cycles) {
 
 void sim_step() { sim_batch(1); }
 void sim_reset() {
+#ifdef BOARD_SNES
+    model.p_buttons.set(0);
+#endif
     model.p_reset.set(true);
     tick(false);
     model.p_reset.set(false);
     model.step();
+#ifdef BOARD_SNES
+    for (unsigned i = 0; i < 131073; ++i) tick(false);
+#endif
     sample_count = 0;
     frame_ready = false;
     memset(frame, 0, sizeof(frame));
@@ -94,4 +116,21 @@ int16_t *sim_audio() { return samples; }
 unsigned sim_audio_count() { return sample_count; }
 uint32_t *sim_trace() { return trace; }
 unsigned sim_trace_count() { return trace_count; }
+#ifdef BOARD_SNES
+void sim_buttons(unsigned buttons) { model.p_buttons.set(buttons & 4095); }
+void sim_cart_config(unsigned hirom, unsigned mask, unsigned ram_size) {
+    model.p_cart__hirom.set(bool(hirom));
+    model.p_cart__mask.set(mask);
+    model.p_cart__ram__size.set(ram_size);
+}
+unsigned sim_video_height() { return model.p_video__height.get<unsigned>(); }
+void sim_cart_byte(unsigned address, unsigned data) {
+    if (address >= 4194304 || data > 255) __builtin_trap();
+    model.p_cart__address.set(address);
+    model.p_cart__data.set(data);
+    model.p_cart__write.set(true);
+    tick(false);
+    model.p_cart__write.set(false);
+}
+#endif
 }

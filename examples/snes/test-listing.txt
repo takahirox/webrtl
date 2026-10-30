@@ -1,0 +1,172 @@
+Original GPL-3.0-or-later fixture. All labels are resolved below and in test.sfc.
+
+65C816
+8000: 78 d8 18 fb c2 10 a2 ff 1f 9a SEI; CLD; CLC; XCE; REP #$10; LDX #$1fff; TXS
+800a: 9c 00 42             STZ $4200
+800d: 9c 0c 42             STZ $420c
+8010: a9 ff 8d 01 42       LDA #$ff; STA $4201
+8015: ad 13 42             LDA $4213
+8018: c9 ff f0 03          CMP #$ff; BEQ +3
+801c: 4c 33 82             JMP fail
+801f: a9 00 8d 01 42       LDA #$00; STA $4201
+8024: ad 13 42             LDA $4213
+8027: c9 00 f0 03          CMP #$00; BEQ +3
+802b: 4c 33 82             JMP fail
+802e: a9 40 8d 01 42       LDA #$40; STA $4201
+8033: ad 13 42             LDA $4213
+8036: c9 40 f0 03          CMP #$40; BEQ +3
+803a: 4c 33 82             JMP fail
+803d: a9 80 8d 01 42       LDA #$80; STA $4201
+8042: ad 13 42             LDA $4213
+8045: c9 80 f0 03          CMP #$80; BEQ +3
+8049: 4c 33 82             JMP fail
+804c: a9 ff 8d 01 42       LDA #$ff; STA $4201
+8051: ad 13 42             LDA $4213
+8054: c9 ff f0 03          CMP #$ff; BEQ +3
+8058: 4c 33 82             JMP fail
+805b: a9 5a 8d 11 00       LDA #$5a; STA $0011
+8060: af 11 00 7e          LDA $7e0011
+8064: c9 5a f0 03          CMP #$5a; BEQ +3
+8068: 4c 33 82             JMP fail
+806b: af 11 00 80          LDA $800011
+806f: c9 5a f0 03          CMP #$5a; BEQ +3
+8073: 4c 33 82             JMP fail
+8076: a9 12 8d 02 42       LDA #$12; STA $4202
+807b: a9 03 8d 03 42       LDA #$03; STA $4203
+8080: ea ea ea ea ea ea ea ea ea ea ea ea ea ea ea ea 16 NOP (multiply settle)
+8090: ad 16 42             LDA $4216
+8093: c9 36 f0 03          CMP #$36; BEQ +3
+8097: 4c 33 82             JMP fail
+809a: a9 34 8d 04 42       LDA #$34; STA $4204
+809f: a9 12 8d 05 42       LDA #$12; STA $4205
+80a4: a9 03 8d 06 42       LDA #$03; STA $4206
+80a9: ea ea ea ea ea ea ea ea ea ea ea ea ea ea ea ea 16 NOP (divide settle)
+80b9: ad 14 42             LDA $4214
+80bc: c9 11 f0 03          CMP #$11; BEQ +3
+80c0: 4c 33 82             JMP fail
+80c3: ad 15 42             LDA $4215
+80c6: c9 06 f0 03          CMP #$06; BEQ +3
+80ca: 4c 33 82             JMP fail
+80cd: ad 16 42             LDA $4216
+80d0: c9 01 f0 03          CMP #$01; BEQ +3
+80d4: 4c 33 82             JMP fail
+80d7: a9 01 8d 1e 00       LDA #$01; STA $001e
+80dc: a9 80 8d 00 21       LDA #$80; STA $2100
+80e1: a9 00 8d 05 21       LDA #$00; STA $2105
+80e6: 9c 07 21             STZ $2107
+80e9: a9 01 8d 0b 21       LDA #$01; STA $210b
+80ee: 9c 21 21             STZ $2121
+80f1: a9 00 8d 22 21       LDA #$00; STA $2122
+80f6: a9 7c 8d 22 21       LDA #$7c; STA $2122
+80fb: a9 1f 8d 22 21       LDA #$1f; STA $2122
+8100: a9 00 8d 22 21       LDA #$00; STA $2122
+8105: a9 e0 8d 22 21       LDA #$e0; STA $2122
+810a: a9 03 8d 22 21       LDA #$03; STA $2122
+810f: a9 ff 8d 22 21       LDA #$ff; STA $2122
+8114: a9 7f 8d 22 21       LDA #$7f; STA $2122
+8119: a9 80 8d 15 21       LDA #$80; STA $2115
+811e: 9c 16 21             STZ $2116
+8121: a9 10 8d 17 21       LDA #$10; STA $2117
+8126: a9 01 8d 00 43       LDA #$01; STA $4300
+812b: a9 18 8d 01 43       LDA #$18; STA $4301
+8130: a9 00 8d 02 43       LDA #$00; STA $4302
+8135: a9 90 8d 03 43       LDA #$90; STA $4303
+813a: a9 00 8d 04 43       LDA #$00; STA $4304
+813f: a9 10 8d 05 43       LDA #$10; STA $4305
+8144: a9 00 8d 06 43       LDA #$00; STA $4306
+8149: a9 01 8d 0b 42       LDA #$01; STA $420b
+814e: a9 01 8d 2c 21       LDA #$01; STA $212c
+8153: ad 40 21             LDA $2140
+8156: c9 aa                CMP #$aa
+8158: d0 f9                branch ipl
+815a: a9 00 8d 42 21       LDA #$00; STA $2142
+815f: a9 02 8d 43 21       LDA #$02; STA $2143
+8164: a9 01 8d 41 21       LDA #$01; STA $2141
+8169: a9 cc 8d 40 21       LDA #$cc; STA $2140
+816e: ad 40 21             LDA $2140
+8171: c9 cc                CMP #$cc
+8173: d0 f9                branch kick
+8175: a2 00 00             LDX #0
+8178: bf 00 91 00          LDA $009100,X
+817c: 8d 41 21 8a 8d 40 21 STA $2141; TXA; STA $2140
+8183: cd 40 21             CMP $2140
+8186: d0 fb                branch echo
+8188: e8 e0 00 05          INX; CPX #$0500
+818c: d0 ea                branch upload
+818e: a9 00 8d 42 21       LDA #$00; STA $2142
+8193: a9 02 8d 43 21       LDA #$02; STA $2143
+8198: 9c 41 21             STZ $2141
+819b: a9 01 8d 40 21       LDA #$01; STA $2140
+81a0: ad 40 21             LDA $2140
+81a3: c9 5a                CMP #$5a
+81a5: d0 f9                branch sound
+81a7: ad 41 21             LDA $2141
+81aa: f0 fb                branch timer
+81ac: ad 42 21             LDA $2142
+81af: f0 fb                branch timer8514
+81b1: ad 43 21             LDA $2143
+81b4: f0 fb                branch timer8515
+81b6: a9 0f 8d 00 21       LDA #$0f; STA $2100
+81bb: a9 00 8d 10 43       LDA #$00; STA $4310
+81c0: a9 21 8d 11 43       LDA #$21; STA $4311
+81c5: a9 80 8d 12 43       LDA #$80; STA $4312
+81ca: a9 90 8d 13 43       LDA #$90; STA $4313
+81cf: a9 00 8d 14 43       LDA #$00; STA $4314
+81d4: a9 02 8d 0c 42       LDA #$02; STA $420c
+81d9: 9c 10 00             STZ $0010
+81dc: a9 80 8d 07 42       LDA #$80; STA $4207
+81e1: 9c 08 42             STZ $4208
+81e4: a9 90 8d 00 42       LDA #$90; STA $4200
+81e9: 58                   CLI (enable horizontal timer IRQ)
+81ea: ad 10 00             LDA $0010
+81ed: f0 fb                branch frame
+81ef: 9c 10 00             STZ $0010
+81f2: a9 01 8d 16 40       LDA #$01; STA $4016
+81f7: 9c 16 40             STZ $4016
+81fa: ad 16 40             LDA $4016
+81fd: 29 01                AND #1
+81ff: f0 11                branch red
+8201: a9 01 8d 21 21       LDA #$01; STA $2121
+8206: a9 e0 8d 22 21       LDA #$e0; STA $2122
+820b: a9 03 8d 22 21       LDA #$03; STA $2122
+8210: 80 d8                branch frame
+8212: a9 01 8d 21 21       LDA #$01; STA $2121
+8217: a9 1f 8d 22 21       LDA #$1f; STA $2122
+821c: a9 00 8d 22 21       LDA #$00; STA $2122
+8221: 80 c7                branch frame
+8223: 48                   PHA
+8224: ad 10 42             LDA $4210
+8227: e6 10 68 40          INC $10; PLA; RTI
+822b: 48                   PHA
+822c: ad 11 42             LDA $4211
+822f: e6 12 68 40          INC $12; PLA; RTI
+8233: a9 ff 8d 1e 00       LDA #$ff; STA $001e
+8238: a9 80 8d 00 21       LDA #$80; STA $2100
+823d: 80 fe                branch failed
+
+SPC700
+0200: 8f 6c f2 8f 20 f3    MOV $f2,#$6c; MOV $f3,#$20
+0206: 8f 0c f2 8f 7f f3    MOV $f2,#$0c; MOV $f3,#$7f
+020c: 8f 1c f2 8f 7f f3    MOV $f2,#$1c; MOV $f3,#$7f
+0212: 8f 00 f2 8f 7f f3    MOV $f2,#$00; MOV $f3,#$7f
+0218: 8f 01 f2 8f 7f f3    MOV $f2,#$01; MOV $f3,#$7f
+021e: 8f 02 f2 8f 00 f3    MOV $f2,#$02; MOV $f3,#$00
+0224: 8f 03 f2 8f 10 f3    MOV $f2,#$03; MOV $f3,#$10
+022a: 8f 04 f2 8f 00 f3    MOV $f2,#$04; MOV $f3,#$00
+0230: 8f 05 f2 8f 00 f3    MOV $f2,#$05; MOV $f3,#$00
+0236: 8f 07 f2 8f 7f f3    MOV $f2,#$07; MOV $f3,#$7f
+023c: 8f 5d f2 8f 05 f3    MOV $f2,#$5d; MOV $f3,#$05
+0242: 8f 5c f2 8f 00 f3    MOV $f2,#$5c; MOV $f3,#$00
+0248: 8f 4c f2 8f 01 f3    MOV $f2,#$4c; MOV $f3,#$01
+024e: 8f 01 fa 8f 02 fb 8f 03 fc 8f 07 f1 Enable all timers, targets [1, 2, 3]
+025a: 8f 00 f5 8f 5a f4    MOV $f5,#0; MOV $f4,#$5a (driver ready)
+0260: e4 fd                MOV A,$fd (timer read-and-clear)
+0262: f0 fc                branch idle
+0264: c4 f5                MOV $f5,A (timer tick proof)
+0266: e4 fe                MOV A,$fe (timer read-and-clear)
+0268: f0 f6                branch idle
+026a: c4 f6                MOV $f6,A (timer tick proof)
+026c: e4 ff                MOV A,$ff (timer read-and-clear)
+026e: f0 f0                branch idle
+0270: c4 f7                MOV $f7,A (timer tick proof)
+0272: 2f ec                branch idle
