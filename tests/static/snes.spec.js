@@ -54,6 +54,12 @@ cases += [(f'apu-clock-{internal}-{external}',dict(apu_check=f'clock-{internal}-
  for internal,external in [(0,0),(1,0),(0,1),(1,1),(2,0),(0,2),(2,2),(3,0),(0,3),(3,3)]]
 cases += [(f'apu-{check}',dict(apu_check=check)) for check in
  ['io-directory','io-directory-protect','io-directory-control']]
+cases += [(f'large-{mode}-bg{bg}',dict(mode=mode,effect=f'large-bg{bg}'))
+ for mode,bg in [(0,1),(0,2),(0,3),(0,4),(1,1),(3,1),(5,1),(5,2),(6,1)]]
+cases += [(name,dict(effect=name)) for name in ['pseudo-hires','pseudo-hires-swap']]
+cases += [(name,dict(mode=7,effect=name)) for name in ['extbg-bg2','extbg-bg12','extbg-off']]
+cases += [(f'extbg-bg12-obj-{priority}',dict(mode=7,effect='extbg-bg12',sprite_priority=priority)) for priority in range(4)]
+cases += [(f'extbg-bg2-obj-{priority}',dict(mode=7,effect='extbg-bg2',sprite_priority=priority)) for priority in range(2)]
 print(json.dumps([dict(name=name,bytes=list(build(**args)[0])) for name,args in cases]))`], { maxBuffer: 32 * 1024 * 1024 }));
 
 // Optional focused reruns still exercise browser compilation and the baseline
@@ -85,6 +91,38 @@ function pixel(name, x, y) {
   const blue = [0, 0, 255, 255], red = [255, 0, 0, 255], green = [0, 255, 0, 255];
   const hires = ["mode-5", "mode-6", "depth-5", "depth-6"].includes(name);
   let dot = hires ? x : x >> 1;
+  if (name.startsWith("large-")) {
+    const mode = Number(name.split("-")[1]);
+    const sampleX = [5, 6].includes(mode) ? x : x >> 1;
+    const flip = (sampleX >> 4) & 3;
+    const sx = (sampleX & 15) ^ (flip & 1 ? 15 : 0);
+    const sy = ((y + 1) & 15) ^ (flip & 2 ? 15 : 0);
+    let index = [1, 2, 3, 0][(sy >> 3) * 2 + (sx >> 3)];
+    if ((sx & 7) === 1 && (sy & 7) === 2) index = (index + 1) % 4;
+    return [blue, red, green, [255, 255, 255, 255]][index];
+  }
+  if (name.startsWith("pseudo-hires")) {
+    const main = dot & 1 ? red : blue, sub = dot & 1 ? blue : green;
+    return (x & 1) ^ Number(name.endsWith("swap")) ? main : sub;
+  }
+  if (name.startsWith("extbg-")) {
+    const value = [0, 1, 0x81, 0x80, 2, 0x82, 3, 0x83][dot & 7];
+    const bg1 = !name.startsWith("extbg-bg2") && value !== 0;
+    const bg2 = name !== "extbg-off" && (value & 127) !== 0;
+    const sprite = name.includes("-obj-") && dot >= 16 && dot < 24 && y >= 16 && y < 24;
+    const priority = Number(name.at(-1));
+    // Independent Mode 7 ordering (front to back): OBJ3, OBJ2, BG2-high,
+    // OBJ1, BG1, OBJ0, BG2-low, backdrop. $80 is transparent on BG2 only.
+    if (sprite && priority >= 2) return green;
+    const colors = { 0: blue, 1: red, 2: green, 3: [255, 255, 255, 255],
+      128: [255, 255, 255, 255], 129: [255, 255, 0, 255],
+      130: [255, 0, 255, 255], 131: [0, 255, 255, 255] };
+    if (bg2 && value & 128) return colors[value & 127];
+    if (sprite && priority === 1) return green;
+    if (bg1) return colors[value];
+    if (sprite) return green;
+    return bg2 ? colors[value & 127] : blue;
+  }
   if (name.startsWith("color-window-")) {
     const [clip, prevent] = name.split("-").slice(-2).map(Number);
     const inside = dot >= 64 && dot <= 127;

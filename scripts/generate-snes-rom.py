@@ -49,6 +49,9 @@ class Program:
 def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
           joycheck=None, transfer=None, audio=None, bus=None, apu_check=None):
     assert mode in range(8)
+    large_bg = bool(effect and effect.startswith("large-"))
+    extbg = bool(effect and effect.startswith("extbg-"))
+    graphics_far = large_bg or extbg or effect in ["m7-over2", "m7-over3"]
     apu = Program(0x200)
 
     def apu_expect(value):
@@ -505,6 +508,8 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
     if effect and effect.startswith("hires-bg2-"):
         assert mode == 5
         bpp = 2
+    if large_bg and effect.endswith("bg2") and mode == 5:
+        bpp = 2
     tile = bytes([0x55, 0] * 8 + [0] * (8 * bpp - 16))
     if effect and effect.startswith("hires-") and effect.endswith("reverse"):
         tile = bytes([0xaa, 0] * 8 + [0] * (8 * bpp - 16))
@@ -519,6 +524,16 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
     if effect == "offset":
         tile = bytes(v for y in range(8) for v in [255 if y & 1 else 0, 0]) + bytes(8 * bpp - 16)
     graphics = tile * (2 if mode in [5, 6] else 1)
+    if large_bg:
+        # Four distinct quadrants at character numbers 0,1,16,17. A single
+        # asymmetric pixel in each quadrant also exposes intra-tile flips.
+        graphics = bytearray(18 * 8 * bpp)
+        for number, color in [(0, 1), (1, 2), (16, 3), (17, 0)]:
+            for y in range(8):
+                for x in range(8):
+                    index = (color + 1) % 4 if (x, y) == (1, 2) else color
+                    for plane in range(bpp):
+                        graphics[number * 8 * bpp + (plane // 2) * 16 + y * 2 + plane % 2] |= ((index >> plane) & 1) << (7 - x)
     if mode == 7:
         graphics = bytes(v for y in range(8) for x in range(8) for v in [0, x % 2])
         if effect in ["m7-over2", "m7-over3"]:
@@ -527,12 +542,17 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
         if effect in ["m7-origin-positive", "m7-origin-negative"]:
             graphics = bytes(v for y in range(8) for x in range(8)
                              for v in [0, [2, 1, 0, 1, 0, 1, 0, 3][x]])
+        if extbg:
+            # BG1 uses all eight bits as color; BG2 uses bit 7 as priority
+            # and the low seven as color (zero is transparent even for $80).
+            graphics = bytes(v for y in range(8) for x in range(8)
+                             for v in [0, [0, 1, 0x81, 0x80, 2, 0x82, 3, 0x83][x]])
     # DMA cartridge graphics into VRAM through the normal alternating-byte port.
     write(0x2115, 0x80)
     stz(0x2116)
     write(0x2117, 0 if mode == 7 else 0x10)
     for address, value in [(0x4300, 1), (0x4301, 0x18), (0x4302, 0),
-                           (0x4303, 0x9b if effect in ["m7-over2", "m7-over3"] else 0x90), (0x4304, 0), (0x4305, len(graphics) & 255), (0x4306, len(graphics) >> 8), (0x420b, 1)]:
+                           (0x4303, 0x9b if graphics_far else 0x90), (0x4304, 0), (0x4305, len(graphics) & 255), (0x4306, len(graphics) >> 8), (0x420b, 1)]:
         write(address, value)
     if transfer == "reverse":
         # VRAM prefetch is reloaded by VMADD. B->A mode 1 must alternate
@@ -563,13 +583,13 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
                 write(0x4300 + channel * 16 + offset, value)
         write(0x420b, 0x24)
     if sprite_priority is not None:
-        assert mode == 0 and sprite_priority in [0, 3]
+        assert (mode == 0 and sprite_priority in [0, 3]) or (mode == 7 and extbg and sprite_priority in range(4))
         # Normally one green 8x8 object; larger fixtures share a 16-dot width.
         small_rect_interlace = bool(effect and effect.startswith("sprite-small-interlace-"))
         limit_tiles = bool(effect and effect.startswith("obj-limit-") and "tiles" in effect)
         large_sprite = limit_tiles or effect in ["sprite-edges", "sprite-interlace", "sprite-interlace-vflip",
                                   "sprite-rect", "sprite-rect-vflip"] or small_rect_interlace
-        write(0x2121, 130)
+        write(0x2121, 146 if extbg else 130)
         write(0x2122, 0xe0)
         write(0x2122, 3)
         if large_sprite:
@@ -597,6 +617,39 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
         # H-512 uses alternating main/sub samples. Both screens must enable BG1.
         write(0x212d, 1)
         write(0x2130, 0x30)
+    if large_bg:
+        bg = int(effect[-1]) - 1
+        write(0x2105, mode | (0x10 << bg))
+        write(0x210b if bg < 2 else 0x210c, 1 << (4 * (bg % 2)))
+        write(0x212c, 1 << bg)
+        if mode in [5, 6]: write(0x212d, 1 << bg)
+        # Mode 0 assigns a separate palette range to each background.
+        for index, color in [(1, 0x001f), (2, 0x03e0), (3, 0x7fff)]:
+            write(0x2121, (32 * bg if mode == 0 else 0) + index)
+            write(0x2122, color & 255)
+            write(0x2122, color >> 8)
+        stz(0x2116)
+        stz(0x2117)
+        for address, value in [(0x4302, 0), (0x4303, 0xa0), (0x4305, 0), (0x4306, 8), (0x420b, 1)]:
+            write(address, value)
+    if effect in ["pseudo-hires", "pseudo-hires-swap"]:
+        write(0x210b, 0x11)
+        write(0x2121, 33)
+        write(0x2122, 0xe0)
+        write(0x2122, 3)
+        write(0x210f, 1)  # BG2's green stripes offset one low-res dot
+        stz(0x210f)
+        write(0x212c, 2 if effect.endswith("swap") else 1)
+        write(0x212d, 1 if effect.endswith("swap") else 2)
+        write(0x2130, 0x30)  # color math disabled on both sample phases
+        write(0x2133, 8)
+    if extbg:
+        for index, color in [(128, 0x7fff), (129, 0x03ff), (130, 0x7c1f), (131, 0x7fe0)]:
+            write(0x2121, index)
+            write(0x2122, color & 255)
+            write(0x2122, color >> 8)
+        write(0x2133, 0 if effect == "extbg-off" else 0x40)
+        write(0x212c, (2 if effect.startswith("extbg-bg2") else 3) | (0x10 if sprite_priority is not None else 0))
     if effect and effect.startswith("hires-"):
         assert mode in [5, 6]
         if effect.startswith("hires-bg2-"):
@@ -844,8 +897,12 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
     cpu.branch(0x80, "failed")
     rom = bytearray([0xcb] * 32768)
     rom[:len(cpu.finish())] = cpu.data
-    graphics_offset = 0x1b00 if effect in ["m7-over2", "m7-over3"] else 0x1000
+    graphics_offset = 0x1b00 if graphics_far else 0x1000
     rom[graphics_offset:graphics_offset + len(graphics)] = graphics
+    if large_bg:
+        # Each map row repeats unflipped/H/V/HV entries, at both priorities.
+        rom[0x2000:0x2800] = b"".join(struct.pack("<H", ((x % 4) << 14) | ((x // 4 % 2) << 13))
+                                            for y in range(32) for x in range(32))
     if bus:
         rom[0x1070] = 0xa6
     rom[0x1080:0x1085] = bytes([127, 0, 97, 0, 0])
@@ -863,7 +920,7 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
             rom[0x1040:0x1060] = bytes(v for y in range(8) for v in [0, 0x80 >> (y >> 1)]) + bytes(16)
         oam = bytearray([0, 240, 0, 0] * 128 + [0] * 32)
         flip = 0x40 if effect == "sprite-hflip" else 0x80 if effect == "sprite-vflip" else 0
-        oam[:4] = bytes([16, 16, 0, (sprite_priority << 4) | flip])
+        oam[:4] = bytes([16, 16, 0, (sprite_priority << 4) | flip | (2 if extbg else 0)])
         if large_sprite:
             opaque = bytes([0, 255] * 8 + [0] * 16)
             upper = bytes(v for y in range(8) for v in [255 if y & 1 else 0, 255]) + bytes(16)

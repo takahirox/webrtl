@@ -678,7 +678,7 @@
     },
     "limits": "Local two-worker browser measurements do not establish Ubuntu CI performance or exhaustive base-console conformance. Compiler peak memory was not measured. Native trusted-local check remains failed; live Pages verification remains pending."
   },
-  "latestValidation": "finalImplementationValidation",
+  "latestValidation": "ppuPathReviewFixValidation",
   "baseFeatureReviewFixValidation": {
     "date": "2026-10-30",
     "sourceHashes": {
@@ -3670,5 +3670,372 @@
       "chromium": "156.0.8078.4",
       "firefox": "157.0"
     }
+  },
+  "ppuPathReviewFixValidation": {
+    "date": "2026-10-30",
+    "scope": "Address the PPU coverage finding for Issue #22: large BG tile quadrant/flip selection, pseudo-hires main/subscreen alternation, and Mode 7 EXTBG color/transparency/priority against BG1 and OBJ.",
+    "reviewedPrHead": "d0c3b93b60c9b58659d74b44afd579e5144ec9c2",
+    "comparisonBaseCommit": "c52de75e62e7c02fe85f48ebf1252c0791eedb87",
+    "host": "macOS-27.2-arm64-arm-64bit-Mach-O",
+    "python": {
+      "passed": 10,
+      "command": "python3 -m unittest discover -s tests -v"
+    },
+    "staticBuild": {
+      "passed": true,
+      "command": "npm run build:demo"
+    },
+    "syntaxAndWhitespace": {
+      "passed": true,
+      "commands": [
+        "node --check tests/static/snes.spec.js",
+        "git diff --check",
+        "git diff --cached --check"
+      ]
+    },
+    "reproduction": {
+      "retainedCartridgesByteIdentical": 179,
+      "newCartridges": 20,
+      "totalCartridges": 199,
+      "retainedTestedInputsByteIdentical": 48,
+      "changedPreviouslyTestedInputs": [
+        "scripts/generate-snes-rom.py",
+        "tests/static/snes.spec.js"
+      ],
+      "newRomLayoutsAndChecksumsValid": true,
+      "note": "Compared every retained cartridge against the generator at comparisonBaseCommit. All RTL, browser/compiler/runtime, baseline ROM and pinned tool inputs match the previous aramIoReviewFixValidation hashes. No RTL defects were exposed or RTL changes made."
+    },
+    "browsers": {
+      "chromium": {
+        "command": "WEBRTL_SNES_FIXTURES='^(large-|pseudo-hires|extbg-)' PLAYWRIGHT_JSON_OUTPUT_NAME=.build/ppu-paths-chromium.json npx playwright test --config=playwright.static.config.js --project=chromium --grep 'full SNES RTL' --output=.build/ppu-paths-chromium --reporter=line,json",
+        "stats": {
+          "startTime": "2026-10-30T11:01:25.322Z",
+          "duration": 261319.356,
+          "expected": 1,
+          "skipped": 0,
+          "unexpected": 0,
+          "flaky": 0
+        },
+        "reportSha256": "6a48b4690ddf6b38a5e4c570da30d181e3da9c2ea23244d2dacb79e63809b377",
+        "resultsSha256": "e69a45accb4bacb5547e772b67233dc5c91c2c8febfe48accebf74f3384a75ec",
+        "wasmSha256": "b550e1c0c9b4e43197d1539a3733e105f98585e47d5cd96486cc1cce704b5a90",
+        "cartridges": 20,
+        "exactPositiveFrames": 20,
+        "pixelMismatches": 0,
+        "comparedPixels": 2293760,
+        "exactPcmTailSamplesPerCartridge": 256,
+        "measurement": {
+          "browser": "chromium",
+          "compileMs": 68077.5,
+          "wasmBytes": 270506,
+          "cxxrtlBytes": 1630383,
+          "runtime": {
+            "samples": 2489,
+            "nonzero": 1399,
+            "pcmHash": 2024722791,
+            "hashes": [
+              698101324,
+              698101324,
+              3470071505,
+              3371206625
+            ],
+            "frameCycles": [
+              311296,
+              671744,
+              1032192,
+              1392640
+            ],
+            "hdmaWrites": 4,
+            "nmiVectors": 2,
+            "irqVectors": 687,
+            "memoryBytes": 20578304,
+            "pcmPeriod16": true,
+            "pcmMin": -14011,
+            "pcmMax": 14005,
+            "elapsedMs": 6390.199999999255,
+            "cycles": 1671168
+          }
+        },
+        "masterClocksPerSecond": 261520.45319398373,
+        "capturedFramesPerSecond": 0.6259584989515925,
+        "realTimeRatio": 0.012176615239924988
+      },
+      "firefox": {
+        "command": "WEBRTL_SNES_FIXTURES='^(large-|pseudo-hires|extbg-)' PLAYWRIGHT_JSON_OUTPUT_NAME=.build/ppu-paths-firefox.json npx playwright test --config=playwright.static.config.js --project=firefox --grep 'full SNES RTL' --output=.build/ppu-paths-firefox --reporter=line,json",
+        "stats": {
+          "startTime": "2026-10-30T11:06:37.275Z",
+          "duration": 308619.892,
+          "expected": 1,
+          "skipped": 0,
+          "unexpected": 0,
+          "flaky": 0
+        },
+        "reportSha256": "15fa819cb247f34d4dd5a356530f5f48ef3f4278bf6213125bea9e9326f0ae4c",
+        "resultsSha256": "e69a45accb4bacb5547e772b67233dc5c91c2c8febfe48accebf74f3384a75ec",
+        "wasmSha256": "b550e1c0c9b4e43197d1539a3733e105f98585e47d5cd96486cc1cce704b5a90",
+        "cartridges": 20,
+        "exactPositiveFrames": 20,
+        "pixelMismatches": 0,
+        "comparedPixels": 2293760,
+        "exactPcmTailSamplesPerCartridge": 256,
+        "measurement": {
+          "browser": "firefox",
+          "compileMs": 71911,
+          "wasmBytes": 270506,
+          "cxxrtlBytes": 1630383,
+          "runtime": {
+            "samples": 2489,
+            "nonzero": 1399,
+            "pcmHash": 2024722791,
+            "hashes": [
+              698101324,
+              698101324,
+              3470071505,
+              3371206625
+            ],
+            "frameCycles": [
+              311296,
+              671744,
+              1032192,
+              1392640
+            ],
+            "hdmaWrites": 4,
+            "nmiVectors": 2,
+            "irqVectors": 687,
+            "memoryBytes": 20578304,
+            "pcmPeriod16": true,
+            "pcmMin": -14011,
+            "pcmMax": 14005,
+            "elapsedMs": 7786,
+            "cycles": 1671168
+          }
+        },
+        "masterClocksPerSecond": 214637.55458515283,
+        "capturedFramesPerSecond": 0.5137426149499101,
+        "realTimeRatio": 0.009993707514276853
+      }
+    },
+    "sameFrameAndPcmDigestsAcrossBrowsers": true,
+    "cartridges": [
+      {
+        "name": "large-0-bg1",
+        "romSha256": "cb9f8b679242efbb115836a437f2ff989b331e445ce81c00b2b3033654dfd691",
+        "height": 224,
+        "pixelMismatches": 0,
+        "frameHash": 2464381704,
+        "pcmTailSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+      },
+      {
+        "name": "large-0-bg2",
+        "romSha256": "9da44d81642ac34494655716295c89e187b59a424bfd1ccb4bad49c8d5b3e6a3",
+        "height": 224,
+        "pixelMismatches": 0,
+        "frameHash": 2464381704,
+        "pcmTailSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+      },
+      {
+        "name": "large-0-bg3",
+        "romSha256": "cf9903c7b7142fc4c6b0d98371ce84cd5cc80a7396e95857e36f31cd8f3f176a",
+        "height": 224,
+        "pixelMismatches": 0,
+        "frameHash": 2464381704,
+        "pcmTailSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+      },
+      {
+        "name": "large-0-bg4",
+        "romSha256": "c4fcbdc41aa2ddc3fb962420571b6c82cc3398d2440f2c0bd881998a6c9480bc",
+        "height": 224,
+        "pixelMismatches": 0,
+        "frameHash": 2464381704,
+        "pcmTailSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+      },
+      {
+        "name": "large-1-bg1",
+        "romSha256": "f80e6984349a921128139417ad91f13202ce55c40dd2eeb01067c14fdf4a6d96",
+        "height": 224,
+        "pixelMismatches": 0,
+        "frameHash": 2464381704,
+        "pcmTailSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+      },
+      {
+        "name": "large-3-bg1",
+        "romSha256": "1cdc7e37c6c81dde0cab51838d63760955dee790614df52e6c43308de8ed5d4f",
+        "height": 224,
+        "pixelMismatches": 0,
+        "frameHash": 2464381704,
+        "pcmTailSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+      },
+      {
+        "name": "large-5-bg1",
+        "romSha256": "cbd8dcf2a18002fdae9a4a89e1b262fb31a631648a93d335f5c43d70edbe4dd6",
+        "height": 224,
+        "pixelMismatches": 0,
+        "frameHash": 3420507832,
+        "pcmTailSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+      },
+      {
+        "name": "large-5-bg2",
+        "romSha256": "ec3d6eb28d4e1e0081faf4b46bc7da4a91a2dfcfd692377584fd8902370286c4",
+        "height": 224,
+        "pixelMismatches": 0,
+        "frameHash": 3420507832,
+        "pcmTailSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+      },
+      {
+        "name": "large-6-bg1",
+        "romSha256": "3c25082d3c0a86db203dc7ff4dec43dda97f186568f0a6333fabe2ad5fb4c366",
+        "height": 224,
+        "pixelMismatches": 0,
+        "frameHash": 3420507832,
+        "pcmTailSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+      },
+      {
+        "name": "pseudo-hires",
+        "romSha256": "9636cf9b485e25771eebeac5ceb80464a9ec0d176c5e3db6e1247f97716a5943",
+        "height": 224,
+        "pixelMismatches": 0,
+        "frameHash": 1453711504,
+        "pcmTailSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+      },
+      {
+        "name": "pseudo-hires-swap",
+        "romSha256": "69934c56219cc0728d2f6ab5704251e34f1bec656545586cf5ace1d629759174",
+        "height": 224,
+        "pixelMismatches": 0,
+        "frameHash": 700800373,
+        "pcmTailSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+      },
+      {
+        "name": "extbg-bg2",
+        "romSha256": "0e82800d529a269e157d17bd26e6efd4feff57b50bcf7f89630e4d627e4fcfbc",
+        "height": 224,
+        "pixelMismatches": 0,
+        "frameHash": 212803929,
+        "pcmTailSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+      },
+      {
+        "name": "extbg-bg12",
+        "romSha256": "ec7cfdec199d2de838c505994bb72afbd584d7280c79ced355e33c6d35ad65cd",
+        "height": 224,
+        "pixelMismatches": 0,
+        "frameHash": 872056240,
+        "pcmTailSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+      },
+      {
+        "name": "extbg-off",
+        "romSha256": "4ee0199db35e4c6a1834977d85701353da13372324f67bd4b668a1df2dbda2d9",
+        "height": 224,
+        "pixelMismatches": 0,
+        "frameHash": 1121997851,
+        "pcmTailSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+      },
+      {
+        "name": "extbg-bg12-obj-0",
+        "romSha256": "cfd81eca31bb6f68de5539d5eb09e31d4f0d304ff905572af7917b7d356dbc01",
+        "height": 224,
+        "pixelMismatches": 0,
+        "frameHash": 2616301920,
+        "pcmTailSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+      },
+      {
+        "name": "extbg-bg12-obj-1",
+        "romSha256": "d67d4a82a6b3d60ace1f48b80dfb93eb5ff475768f0800f2f6635b80e779f89c",
+        "height": 224,
+        "pixelMismatches": 0,
+        "frameHash": 2286982865,
+        "pcmTailSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+      },
+      {
+        "name": "extbg-bg12-obj-2",
+        "romSha256": "8de888fbe2f14f920ef82502722bd9daa7040551469a99a45b7294440ee006be",
+        "height": 224,
+        "pixelMismatches": 0,
+        "frameHash": 2216720600,
+        "pcmTailSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+      },
+      {
+        "name": "extbg-bg12-obj-3",
+        "romSha256": "ec424205840568111bb6aae5ac00b0a275dff67bb338272803f118faa07eba98",
+        "height": 224,
+        "pixelMismatches": 0,
+        "frameHash": 2216720600,
+        "pcmTailSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+      },
+      {
+        "name": "extbg-bg2-obj-0",
+        "romSha256": "d3828854b21ad9b531bf8ade6876f3bec1111fcb405dbc4df93d04f393c830f3",
+        "height": 224,
+        "pixelMismatches": 0,
+        "frameHash": 3239781612,
+        "pcmTailSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+      },
+      {
+        "name": "extbg-bg2-obj-1",
+        "romSha256": "076939885454ff445baff10692d5e028db3d56af39cfcca9a782c5b794dca2d6",
+        "height": 224,
+        "pixelMismatches": 0,
+        "frameHash": 3239781612,
+        "pcmTailSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+      }
+    ],
+    "testedInputSha256": {
+      "build.py": "a53cce3471a703c92193ecf08a9c9bf8b6d186ce5716d245942113ff9c99775b",
+      "build_site.py": "1b0b1a4cd74356a40c302fb4ee8a6566bfcce4e5decb36b93bf3a2156d1541ec",
+      "examples/snes/LICENSE": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+      "examples/snes/README.md": "299f2db8050f9697b370baaf299dce916d8e4de68dc06b5c614af8b3a0b822b8",
+      "examples/snes/boot/LICENSE": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+      "examples/snes/boot/README.md": "d4348f6bc1e2abce2bcb37258b7d4e7960bd02b5fbb4bc32fb2f4d9608f49c0d",
+      "examples/snes/boot/docs/protocol.md": "84f563ab5742a88588246160a29a425487de24fcb4d114c3dff8a6f7fa4995b5",
+      "examples/snes/boot/docs/testing.md": "fed6b52ce3a804408005e222bed0fbd763bdeb9f68936ac204ef521cd18b94fe",
+      "examples/snes/boot/listing.txt": "000dc78c23af4688cdf7fda2f9206ad8db3ce608dc5a5ee45549bd03b216ee17",
+      "examples/snes/boot/spc700-boot-rom.bin": "69ef17c3f4ff6f44ca3d86a344360e785fb1eb0ff0f51305e46c70d594a7fb65",
+      "examples/snes/boot/spc700_boot_rom.h": "167f346894859ac837bd4b2cfa9094a4d8bd07b39568c4ce98250b69c9ae3cf6",
+      "examples/snes/boot/src/assemble.py": "95be0a96f434be03cf9e61efef619e38d83153a50b900debe29924c0cdcd14aa",
+      "examples/snes/snes-core.v": "08350ff7dd74f177a9fbed38b2f19b75c83bde2e87025e28b69355fc3a4c7679",
+      "examples/snes/snes.v": "0c707bd087c18279952a4a490045b954041475c8ec417f7dcaaa630e79fffec2",
+      "examples/snes/test-listing.txt": "982d76c135cb84d501581b0800a787f8313c6e6099f8244592037f4ff4c6bf83",
+      "examples/snes/test.sfc": "1f8ec0ba8bbc51e917c5104f771003e97705c8f2491258593f8181013da35fdb",
+      "examples/snes/upstream.json": "6118fd887337ebb9e17c431e023732833a3370029686187aed238722d9e9650e",
+      "package-lock.json": "541217566bd0ba90e22dd1c5358fd3b362853d705ac75d9c1f1e36139ef9e597",
+      "package.json": "07800e9a7e7b065aed8421b3ed238bf9be38611222904694eb3501598db87d76",
+      "playwright.config.js": "a305bfcc32c172ab9fb74fa8839dcec1340a41ca51b38d6e2cbd3a55361e7688",
+      "playwright.static.config.js": "8068db8aebfe9a627f5856e8c7db7091df49dc2f07d3f3ce25168d9c921d3de4",
+      "scripts/adapt_cpu816.py": "ca274a1f94d4a4afad407cd551d3be318dd24096c120c6c27aaf6ed5fe3e3838",
+      "scripts/adapt_snes.py": "e23b3488ac93571448cb9b9977a96f4a1d9990968b1b03a14c5ed570e0c785c1",
+      "scripts/generate-bg1-rom.py": "9d67729617c18273a23fdd9d468d4a706582a340a7a1e8d7be059a1a66fce07b",
+      "scripts/generate-snes-rom.py": "4928e0e16b7e55af0adcab2ea049626cbf5b1cf09894bceea4d3bb257b88f155",
+      "simulator.cpp": "cf51810c09407d7c313dd799d69c586f2bd9ce64a516c56adc996f6913ef3eaf",
+      "tests/browser/counter.spec.js": "4876539664c6bc441ae5ffbec63a887c6f017084087768976e6e5eddd4eb64cc",
+      "tests/serve_static.py": "31c24efba32525390fc2d43d331a289e54cab2e99da01613ba83b32ba6bf0290",
+      "tests/static/backdrop.spec.js": "7cca9827398df97dbdbcabb62b0f50919c3d3c926574bc6f2b13be0c2865741b",
+      "tests/static/bg1.spec.js": "14397faf0c1cab219fe286f59e7af120be3125852070ba6a98c4e1d263e2fc5c",
+      "tests/static/counter.spec.js": "b87f66acc16e0629bdd1773aeb736cc86d9aadfa677aa38f02328492161e2a45",
+      "tests/static/cpu-bus.spec.js": "66a72b658f5ea8a9fee9b3440a105c9b45803b958bc75ee6f8ef2bc73936bb74",
+      "tests/static/cpu816.spec.js": "4f078078db5ba05f67b290b848c706e30ab047a5488d2827d349417573396c27",
+      "tests/static/outputs.spec.js": "74295dfad6ab354de831431f5b1082ad38ef9817249ce8c7cd5e95f94fb1e98c",
+      "tests/static/snes.spec.js": "bfa12c75dd46b2ad233c7682ce46637154c92e9e13ca1c83601108f724b71595",
+      "tests/test_service.py": "62116f0e7d4d73b1e877b1d9142e7dba516845ac50d3e419f3e883d454c2a02d",
+      "tests/test_snes_assets.py": "3387e460186e8e3aebc73750dcc81ad18166d71de5a07448e6c93badc42d2834",
+      "web/app.js": "e7300ae748a49ef6b5f4f6c44079b6edbdcde3022019a1251c887d4ab409cfce",
+      "web/audio-output.js": "7ffea14c5bea930c3f6d31261f3fb8b208060464c8e4d159762b3490b61ad982",
+      "web/browser-client.js": "38b54c727b49fac21ccb777ca34b2eaf3650a9daf824614f45ea8c5047c11cb6",
+      "web/browser-simulator.cpp": "7f01a21f91241c8fd3dc0e15588bb61c64f3525d92a593ba37979db81da09fc4",
+      "web/compiler-worker.js": "d444cb2c60ad029fbb21cee421401a77f7c9f882f5e6b933ddeed93bcd17a7c4",
+      "web/compiler.js": "1694755644332981d93a73ac0550697e608c07b668f7100d74fa45a4407c3a1d",
+      "web/index.html": "d47c115f1e4b760085ec23d1c9d4556276e8aae1c607059622a4bb36f7a27d2b",
+      "web/output-contracts.js": "9bef190f1a3e9346835437e495d61a7c92828a5f833c64d9b33eb3d08418f97d",
+      "web/project.js": "cf06503c3634a638bafffd3f69f7c34e1b29fb3a4e1d898c07ddc2f635b90de5",
+      "web/simulator-worker.js": "35d5049d8cf718aef020069c044902ef3c02e3c74e1a58c86e53d938c43be661",
+      "web/snes-rom.js": "c1894003d4ae99596d2308b28fd3e0f7942f8f7a4f4466b0f2cedb842c5c8541",
+      "web/style.css": "f494df42a8a2c6764bb6e33d4ff6dc7860cb8f6869f7eb06f742ffe6fba7be3a",
+      "web/third-party-notices.txt": "97fae9b8cad693cb56b9508273cc99e86913e3b03015bb1eee55574721b6e746"
+    },
+    "versions": {
+      "node": "v26.12.1",
+      "playwright": "1.64.1",
+      "chromium": "156.0.8078.4",
+      "firefox": "157.0"
+    },
+    "limits": "This revision reran the 20 new cartridges and each browser batch retained baseline keyboard/gamepad effects during audio, LoROM/HiROM, DMA/HDMA, interrupts and deterministic power reset. The full 199-cartridge sweep and unrelated application/native regressions were not rerun; prior full-sweep/regression evidence remains recorded separately. These bounded PPU expectations do not establish exhaustive compatibility or real-time playability. Live Pages verification remains pending publication."
   }
 }

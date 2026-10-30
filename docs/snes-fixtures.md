@@ -6,7 +6,7 @@ uploads its SPC700 driver through the IPL protocol. The browser test compiles th
 RTL once per batch and power-cycles it for each cartridge. Expected pixels and
 PCM are calculated in the test; they are not recordings of this core's output.
 Pixel comparisons cover every RGBA sample, including its position and alpha.
-The 179-cartridge sweep runs in nine batches per browser, each with at most
+The 199-cartridge sweep runs in ten batches per browser, each with at most
 20 cartridges plus the AUX reset repeat. Each batch retains the baseline
 input/audio, LoROM/HiROM and deterministic-reset checks, compiles client-side,
 and has a 30-minute deadline. This replaces the single 120-cartridge test that
@@ -27,12 +27,29 @@ registers in section 3. In particular, H-512 alternates subscreen/main pixels,
 with both enabled in the cartridge. Mode 7 coordinates use scanlines 1–224 while
 the capture buffer starts at row 0.
 
+Large-tile expectations also follow the independent bsnes
+[background renderer](https://github.com/bsnes-emu/bsnes/blob/master/bsnes/sfc/ppu-fast/background.cpp):
+the right quadrant adds one character, the lower adds sixteen, and flips apply
+to both quadrant selection and the eight-pixel character interior. In modes 5/6,
+the map cell spans sixteen capture samples and large size selects sixteen source
+rows. Pseudo-hires sample order follows its
+[line renderer](https://github.com/bsnes-emu/bsnes/blob/master/bsnes/sfc/ppu-fast/line.cpp).
+EXTBG color/transparent-index expectations follow its
+[Mode 7 renderer](https://github.com/bsnes-emu/bsnes/blob/master/bsnes/sfc/ppu-fast/mode7.cpp),
+and the [video-mode priority table](https://github.com/bsnes-emu/bsnes/blob/master/bsnes/sfc/ppu-fast/io.cpp)
+specifies front-to-back order: OBJ3, OBJ2, BG2-high, OBJ1, BG1, OBJ0, BG2-low,
+backdrop. The ROM generator and JavaScript oracle independently encode these
+rules; the oracle never reads the generated ROM or RTL tables.
+
 | Fixtures | Independently specified observation |
 | --- | --- |
 | `mode-0`…`mode-7` | Blue transparent dots and red opaque dots; modes 5/6 have one sample per dot, other modes have two. |
 | `reject-mode5-as0` | Deliberately boots Mode 0, compares against Mode 5, and must reject over 50,000 pixels. This detects the mode substitution missed by color totals. |
 | `depth-0`…`depth-6` | Planes `$55/$33/$0f/$ff` produce indices 0–3, 0–7 or 16–23 according to 2/4/8bpp. Each nonzero index has an explicitly calculated distinct palette color. |
 | `hires-5/6-bg1-low/high-normal/reverse`, `hires-5-bg2-low/high-normal/reverse` | Both map priorities render plane-zero `$55` and `$aa` stripes at every 512-wide sample. BG1 uses 4bpp; Mode 5 BG2 uses 2bpp. Each sample's own index controls transparency. |
+| `large-0-bg1/2/3/4`, `large-1-bg1`, `large-3-bg1`, `large-5-bg1/2`, `large-6-bg1` | BGMODE bits 4–7 select large tiles. Characters 0/1/16/17 contain red/green/white/transparent quadrants and an asymmetric pixel at local (1,2). Every map row repeats no/H/V/HV flips at both priorities. Exact positions check quadrant selection, internal flips, map-cell boundaries, all four size bits, 2/4/8bpp addressing and high-resolution layouts. |
+| `pseudo-hires`, `pseudo-hires-swap` | SETINI=`$08` with Mode 0: BG1 red stripes on main, BG2 green stripes scrolled one dot on sub; the second ROM exchanges TM/TS. Even capture samples are sub, odd are main, so every dot's pair must be green/blue or blue/red (reversed in the second ROM), with no color math. |
+| `extbg-bg2`, `extbg-bg12`, `extbg-off`, `extbg-bg12-obj-0/1/2/3`, `extbg-bg2-obj-0/1` | Identity Mode 7 repeats pixel bytes `$00,$01,$81,$80,$02,$82,$03,$83`. SETINI=`$40` enables BG2's seven-bit color and bit-7 priority; `$80` stays transparent on BG2 but is opaque white on BG1. BG1's high palette entries are distinct yellow/magenta/cyan; BG2's low entries are red/green/white. Green objects at (16,16), with a separate OBJ palette, check priority against both BG layers. The disabled control retains BG1's full eight-bit colors. |
 | `bus-no-sram-lorom/hirom`, `bus-sram-lorom/hirom` | CPU reads unmapped `$006000/$005000/$806000`, valid ROM aliases, and present SRAM aliases/mirrors, storing results in `$7e3100` onward before checking them. Absent LoROM SRAM at `$706000/$f06000` also retains open bus. |
 | `bg2`, `bg3`, `bg4`, `layers` | Separate Mode 0 palettes; BG2 offset by one dot interleaves green with BG1 red. |
 | `priority-low`, `priority-high`, `bg3-priority-low/high` | Coincident BG1/BG2 stripes distinguish map priority; Mode 1 BG3 high-priority stripes distinguish its priority-promotion bit. |
