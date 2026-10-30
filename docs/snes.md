@@ -84,12 +84,12 @@ and CPU paths; it does not replace devices with host implementations.
 
 | Area | Integrated hardware | Automated coverage / limits |
 | --- | --- | --- |
-| CPU | P65C816 with 5A22 system timing, 24-bit bus, WRAM mirrors, reset/vector fetches | Original native-mode program, long reads, branches, stack/interrupts; existing CPU instruction examples retained. No exhaustive 65C816 instruction conformance suite. |
+| CPU | P65C816 with 5A22 system timing, 24-bit bus, WRAM mirrors, reset/vector fetches | Original native-mode program, long reads, branches, stack/interrupts; accumulator-width transitions with hidden-B retention, 16-bit absolute/long loads/stores across pages and binary/decimal ADC/SBC results and N/V/Z/C, with CPU-observed deterministic reset replay. Existing CPU instruction examples retained. No exhaustive 65C816 instruction conformance suite. |
 | System I/O | Multiply/divide, H/V timers, NMI/IRQ flags, refresh, CPU speed control | ROM checks `$0011`, `$7E0011`, `$800011`, multiply `$12*3=$36`, divide `$1234/3=$0611` remainder 1, RDIO driven/released levels; NMI service and H-only, V-only and combined H/V timer target positions, recurrence, TIMEUP acknowledgement, disabling and deterministic reset replay. Exact interrupt latency and timer reprogramming corner cases remain unverified. |
 | Memory | 128 KiB WRAM, two 32 KiB VRAM lanes, 256×15-bit CGRAM, 512+32-byte OAM, 64 KiB ARAM | DMA tiles, palette/OAM writes, CPU CGRAM readback with PPU1/PPU2 latch isolation, CPU WRAM checks and reset replay. Power-up memory is deliberately zeroed. |
 | Cartridge | Runtime-loaded LoROM/HiROM, mirroring via mask, up to 4 MiB ROM and 128 KiB SRAM | Both mappings boot the fixture; CPU checks cover unmapped reads, ROM aliases, and 2 KiB SRAM bank/size mirrors. Only power-of-two ROM sizes, optional 512-byte copier header, header types 0–2. SRAM persistence/export and exhaustive map boundaries remain unverified. |
 | BG modes | Modes 0–7, planar 2/4/8bpp, affine Mode 7, BG layers/tilemaps/scroll/mosaic | Exact pixels in all eight modes, higher bitplanes, BG2/3/4, 16×16 quadrants and internal/map flips on all four size bits, 2/4/8bpp and high-resolution large-tile layouts, both high-resolution stripe phases and BG1/BG2 priorities, scroll/mosaic, offset-per-tile in modes 2/4/6, direct color in modes 3/4/7, and identity/doubled/constant/rotated/flipped Mode 7 with fractional scaling. Screen-over modes 2/3 and signed origin clipping have bounded fixtures. Exhaustive affine boundary cases remain unverified. |
-| Objects | OAM/high OAM, sizes/flips, sprite fetch, priorities, sprite line buffer | Exact pixels for an original green 8×8 object at priority 0 and 3, BG occlusion, asymmetric horizontal/vertical flips, 16×16 left/right edge clipping and both interlaced fields with distinct source rows. Boundary fixtures additionally check 32/33-object range overflow, 34/35-tile time overflow with partial OBJ culling and CPU-visible STAT77 flags; small rectangular objects in size modes 6/7 are checked with interlace and vertical flip. Other sizes remain unverified. |
+| Objects | OAM/high OAM, sizes/flips, sprite fetch, priorities, sprite line buffer | Exact pixels for an original green 8×8 object at priority 0 and 3, BG occlusion, asymmetric horizontal/vertical flips, 16×16 left/right edge clipping and both interlaced fields with distinct source rows. Boundary fixtures additionally check 32/33-object range overflow, 34/35-tile time overflow with partial OBJ culling and CPU-visible STAT77 flags; small rectangular objects in size modes 6/7 are checked with interlace and vertical flip. Asymmetric 32×32, 64×64 and 32×64 large-object fixtures additionally check high-OAM size selection, character row/column wrap, all four flip combinations, partial left/right tiles, one surviving left pixel, bottom clipping and both interlace fields. Exhaustive size/mode/position combinations remain unverified. |
 | PPU composition | Windows, main/subscreen, priority, color math, brightness/blanking | Exact pixels for all four two-window Boolean operators, BG1/BG2 priorities, Mode 1 BG3 priority promotion, pseudo-hires main/subscreen alternation in both screen assignments, Mode 7 EXTBG seven-bit color/transparency and priority against BG1 and all four OBJ priorities, subscreen addition, fixed-color addition/subtraction and halving, and all sixteen CGWSEL color-window clipping/math-gating combinations. Exhaustive layer/window combinations remain unverified. |
 | Video timing | H/V counters, blanking, two long dots, NTSC short-line exception, overscan/interlace | 224/239/448-line captures and exact pixel positions tested; 357,368/357,364 master-clock noninterlaced field periods observed natively. No PAL board clock selector. |
 | DMA/HDMA | Eight channels, transfer modes, CPU stalls, direct/indirect HDMA | All eight DMA B-bus transfer patterns, reverse VRAM-to-WRAM DMA with CPU readback, and indirect HDMA data and 127-line timing; direct HDMA retained. Multi-channel checks cover DMA priority, direct/indirect HDMA ordering and HDMA interrupting/resuming active DMA. Additional cartridges cover A-bus I/O range boundaries/mirrors and both WRAM-collision directions, including WMADD preservation. Exhaustive channel interaction and interrupt-boundary timing remain unverified. |
@@ -493,6 +493,41 @@ Both browser checks, all ten Python tests and the static build passed.
 Final results are recorded under `timerIrqReviewFixValidation` in
 [snes-validation.json](snes-validation.json), separately from the previous full
 209-cartridge sweep. No console RTL or application behavior changed.
+
+### CPU width/arithmetic and large OBJ coverage review fixes (2026-10-30)
+
+Three original CPU cartridges now check REP/SEP accumulator-width transitions,
+hidden-B retention, 16-bit absolute/long loads and stores across pages, and eleven
+binary plus eleven decimal ADC/SBC vectors with independent result/N/V/Z/C
+expectations. The CPU publishes accumulator/P observations through WRAM before
+self-checking them. Every cartridge replays after power reset; timestamped
+observations, final frame and PCM must match exactly.
+
+Six original OBJ cartridges cover large 32×32, 64×64 and 32×64 objects, each with
+normal and interlaced display. They select large objects through high OAM, cross
+both character-number nibbles, distinguish all four flip combinations and test
+partial left/right tiles, a single surviving left pixel, Y wrap and bottom
+clipping. Asymmetric source pixels and alternating source rows expose both tile
+selection and intra-tile/field flips. Independent expectations and reproduction
+commands are in [snes-fixtures.md](snes-fixtures.md).
+
+All ten Python checks, the static build and four focused browser checks passed.
+Each browser ran 28 selected cartridges plus three CPU reset replays: all nine
+new variants, all 17 retained `sprite-*`/`obj-limit-*` variants and Mode 0/1
+controls. Each browser compared 4,587,520 pixels with zero mismatches and checked
+256 exact PCM samples per execution. Frame/PCM digests agree across browsers;
+all 215 retained cartridges remain byte-identical. The first fixture attempt
+exposed omitted Y-wrap expectations and unused offscreen OAM entries consuming
+the fetch budget; the final fixture setup and oracle correct both. No console
+RTL or application changes were required.
+
+All four compilations produced identical 270,593-byte Wasm; generated CXXRTL
+source measured 1,631,107 bytes. Chromium compiled in 67.50–73.09 seconds and Firefox in
+70.81–76.79 seconds; model memory remains 20,578,304 bytes. Actual results,
+CPU observations, source/cartridge hashes, measurements and validation limits
+are recorded under `cpuAndObjGeometryReviewFixValidation` in
+[snes-validation.json](snes-validation.json). This focused revision does not
+rerun the full 224-cartridge sweep or unrelated static/native regressions.
 
 ## Validation limits and publication
 

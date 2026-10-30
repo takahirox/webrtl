@@ -4475,5 +4475,1350 @@
       "examples/snes/snes.v": "0c707bd087c18279952a4a490045b954041475c8ec417f7dcaaa630e79fffec2"
     },
     "limits": "Focused timer checks only; the full 209-cartridge sweep and unrelated browser/native regressions were not rerun. All 209 retained cartridges were regenerated and compared byte-for-byte against the pre-fix versions; their earlier full-sweep evidence remains separate. Timing is bounded rather than exact interrupt-latency certification; dynamic timer reprogramming and other corner cases remain unverified. No claim of exhaustive console conformance, real-time playability or live publication verification."
+  },
+  "cpuAndObjGeometryReviewFixValidation": {
+    "date": "2026-10-30",
+    "scope": "Issue #22 review findings: native 16-bit accumulator/arithmetic and large OBJ geometry through the integrated cartridge/CPU/PPU path. No RTL or application changes.",
+    "commands": [
+      "python3 -m unittest discover -s tests -v",
+      "npm run build:demo",
+      "WEBRTL_SNES_FIXTURES='^(cpu-|obj-geometry-|sprite-|obj-limit-|mode-[01]$)' npx playwright test --config=playwright.static.config.js --grep 'full SNES RTL' --workers=4",
+      "node --check tests/static/snes.spec.js",
+      "git diff --check"
+    ],
+    "python": {
+      "passed": 10
+    },
+    "staticBuild": "passed",
+    "javascriptSyntax": "passed",
+    "browserChecks": {
+      "passed": 4,
+      "projects": [
+        "chromium",
+        "firefox"
+      ],
+      "requestedWorkers": 4,
+      "actualWorkers": 2,
+      "reason": "Tests in each project share a non-parallel file."
+    },
+    "initialFixtureAttempt": {
+      "failedBrowserChecks": 2,
+      "mismatchesPerBrowser": {
+        "obj-geometry-64x64": 2208,
+        "obj-geometry-32x64": 128
+      },
+      "cause": "The fixture oracle omitted vertical Y wrap; unused X=256 OAM entries consumed the tile budget. CPU width/binary/decimal and reset checks passed. Final fixtures use X=320 for unused OAM and Y=196 for the bottom object, keeping wrapped rows separate from the main row and maximum fetch demand at 32 tiles. A preparatory rerun was interrupted before assertions to apply the Y placement correction."
+    },
+    "cartridges": {
+      "retainedByteIdentical": 215,
+      "comparedAgainstCheckpoint": "78989623e4f285b782d27fe4720adde576fc7fa9",
+      "comparison": "Regenerated each retained variant using the current and checkpoint generators and required byte-for-byte equality. The Python case list in tests/static/snes.spec.js selects all variants.",
+      "new": [
+        {
+          "name": "cpu-width",
+          "sha256": "069baf4538b33d638a96812f9764d39407f5e64f20d31cd9797950ec5f067982"
+        },
+        {
+          "name": "cpu-binary",
+          "sha256": "fdf5364cbc157673e90be46b8bfb102a35de6fa0a41e3fcf1e5834d3ee5c2f6a"
+        },
+        {
+          "name": "cpu-decimal",
+          "sha256": "c50907051854090a6ec6f29182ea2a95f511ac7a44bcef1d285af79ae51efa8d"
+        },
+        {
+          "name": "obj-geometry-32x32",
+          "sha256": "90665e55a53bb7011ee480dd687a92fc6dd27bf35ac622cc3b5cfa862c38af89"
+        },
+        {
+          "name": "obj-geometry-32x32-interlace",
+          "sha256": "e9357155353bfdc6cd88731c356febf883dfff4c1b9e6d6f6b792fb8b4e15720"
+        },
+        {
+          "name": "obj-geometry-64x64",
+          "sha256": "cd8fe0a9b874a806589b9fa685da3441f69add500e8972dea152c1fe467d7547"
+        },
+        {
+          "name": "obj-geometry-64x64-interlace",
+          "sha256": "df3226e5355bdd2a58f52ba5346c41632025815e0a4b9114f8c4539774a2c38e"
+        },
+        {
+          "name": "obj-geometry-32x64",
+          "sha256": "482a57d72821fb4ca05c78bed5aa289490c5473b86fc8344d94997441b52b82f"
+        },
+        {
+          "name": "obj-geometry-32x64-interlace",
+          "sha256": "2cc4a23dfa45f563e01835b0078ed85ed93eec9945ab257d12a7c160370b2587"
+        }
+      ],
+      "totalAvailable": 224,
+      "selectedPerBrowser": 28,
+      "executionsPerBrowserIncludingCpuReplays": 31
+    },
+    "wasmSha256": "58c6eb4d43ba986251ff6cb9a5babe75a8400eb0d7f54370fe53155322874e06",
+    "metrics": [
+      {
+        "browser": "chromium",
+        "compileMs": 73094.5,
+        "wasmBytes": 270593,
+        "cxxrtlBytes": 1631107,
+        "runtime": {
+          "samples": 2489,
+          "nonzero": 1399,
+          "pcmHash": 2024722791,
+          "hashes": [
+            698101324,
+            698101324,
+            3470071505,
+            3371206625
+          ],
+          "frameCycles": [
+            311296,
+            671744,
+            1032192,
+            1392640
+          ],
+          "hdmaWrites": 4,
+          "nmiVectors": 2,
+          "irqVectors": 687,
+          "memoryBytes": 20578304,
+          "pcmPeriod16": true,
+          "pcmMin": -14011,
+          "pcmMax": 14005,
+          "elapsedMs": 6308.5,
+          "cycles": 1671168
+        }
+      },
+      {
+        "browser": "firefox",
+        "compileMs": 76789,
+        "wasmBytes": 270593,
+        "cxxrtlBytes": 1631107,
+        "runtime": {
+          "samples": 2489,
+          "nonzero": 1399,
+          "pcmHash": 2024722791,
+          "hashes": [
+            698101324,
+            698101324,
+            3470071505,
+            3371206625
+          ],
+          "frameCycles": [
+            311296,
+            671744,
+            1032192,
+            1392640
+          ],
+          "hdmaWrites": 4,
+          "nmiVectors": 2,
+          "irqVectors": 687,
+          "memoryBytes": 20578304,
+          "pcmPeriod16": true,
+          "pcmMin": -14011,
+          "pcmMax": 14005,
+          "elapsedMs": 7941,
+          "cycles": 1671168
+        }
+      },
+      {
+        "browser": "chromium",
+        "compileMs": 67500.90000000596,
+        "wasmBytes": 270593,
+        "cxxrtlBytes": 1631107,
+        "runtime": {
+          "samples": 2489,
+          "nonzero": 1399,
+          "pcmHash": 2024722791,
+          "hashes": [
+            698101324,
+            698101324,
+            3470071505,
+            3371206625
+          ],
+          "frameCycles": [
+            311296,
+            671744,
+            1032192,
+            1392640
+          ],
+          "hdmaWrites": 4,
+          "nmiVectors": 2,
+          "irqVectors": 687,
+          "memoryBytes": 20578304,
+          "pcmPeriod16": true,
+          "pcmMin": -14011,
+          "pcmMax": 14005,
+          "elapsedMs": 6341.79999999702,
+          "cycles": 1671168
+        }
+      },
+      {
+        "browser": "firefox",
+        "compileMs": 70811,
+        "wasmBytes": 270593,
+        "cxxrtlBytes": 1631107,
+        "runtime": {
+          "samples": 2489,
+          "nonzero": 1399,
+          "pcmHash": 2024722791,
+          "hashes": [
+            698101324,
+            698101324,
+            3470071505,
+            3371206625
+          ],
+          "frameCycles": [
+            311296,
+            671744,
+            1032192,
+            1392640
+          ],
+          "hdmaWrites": 4,
+          "nmiVectors": 2,
+          "irqVectors": 687,
+          "memoryBytes": 20578304,
+          "pcmPeriod16": true,
+          "pcmMin": -14011,
+          "pcmMax": 14005,
+          "elapsedMs": 7902,
+          "cycles": 1671168
+        }
+      }
+    ],
+    "browsers": {
+      "chromium": {
+        "fixtures": [
+          {
+            "name": "cpu-binary",
+            "height": 224,
+            "mismatches": 0,
+            "frameHash": 3371206625,
+            "sampleCount": 2489,
+            "cycles": 1671168,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b",
+            "accumulatorAndP": [
+              [
+                256,
+                4
+              ],
+              [
+                0,
+                7
+              ],
+              [
+                32768,
+                196
+              ],
+              [
+                0,
+                71
+              ],
+              [
+                21846,
+                4
+              ],
+              [
+                255,
+                5
+              ],
+              [
+                65535,
+                132
+              ],
+              [
+                32767,
+                69
+              ],
+              [
+                32768,
+                196
+              ],
+              [
+                0,
+                7
+              ],
+              [
+                4608,
+                5
+              ]
+            ],
+            "observationsSha256": "365ff4e74ad93608a496e1f52c047e9e1cd715ee98352a64e5a774f53edd7c1e"
+          },
+          {
+            "name": "cpu-binary-repeat",
+            "height": 224,
+            "mismatches": 0,
+            "frameHash": 3371206625,
+            "sampleCount": 2489,
+            "cycles": 1671168,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b",
+            "accumulatorAndP": [
+              [
+                256,
+                4
+              ],
+              [
+                0,
+                7
+              ],
+              [
+                32768,
+                196
+              ],
+              [
+                0,
+                71
+              ],
+              [
+                21846,
+                4
+              ],
+              [
+                255,
+                5
+              ],
+              [
+                65535,
+                132
+              ],
+              [
+                32767,
+                69
+              ],
+              [
+                32768,
+                196
+              ],
+              [
+                0,
+                7
+              ],
+              [
+                4608,
+                5
+              ]
+            ],
+            "observationsSha256": "365ff4e74ad93608a496e1f52c047e9e1cd715ee98352a64e5a774f53edd7c1e"
+          },
+          {
+            "name": "cpu-decimal",
+            "height": 224,
+            "mismatches": 0,
+            "frameHash": 3371206625,
+            "sampleCount": 2489,
+            "cycles": 1671168,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b",
+            "accumulatorAndP": [
+              [
+                16,
+                12
+              ],
+              [
+                256,
+                12
+              ],
+              [
+                4096,
+                12
+              ],
+              [
+                0,
+                15
+              ],
+              [
+                0,
+                79
+              ],
+              [
+                32768,
+                204
+              ],
+              [
+                2457,
+                13
+              ],
+              [
+                39321,
+                140
+              ],
+              [
+                31129,
+                77
+              ],
+              [
+                0,
+                15
+              ],
+              [
+                2457,
+                13
+              ]
+            ],
+            "observationsSha256": "cdb0c6d67066748f3172794cae15ee33b0c34ee6ee273679093a81e377a9f47b"
+          },
+          {
+            "name": "cpu-decimal-repeat",
+            "height": 224,
+            "mismatches": 0,
+            "frameHash": 3371206625,
+            "sampleCount": 2489,
+            "cycles": 1671168,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b",
+            "accumulatorAndP": [
+              [
+                16,
+                12
+              ],
+              [
+                256,
+                12
+              ],
+              [
+                4096,
+                12
+              ],
+              [
+                0,
+                15
+              ],
+              [
+                0,
+                79
+              ],
+              [
+                32768,
+                204
+              ],
+              [
+                2457,
+                13
+              ],
+              [
+                39321,
+                140
+              ],
+              [
+                31129,
+                77
+              ],
+              [
+                0,
+                15
+              ],
+              [
+                2457,
+                13
+              ]
+            ],
+            "observationsSha256": "cdb0c6d67066748f3172794cae15ee33b0c34ee6ee273679093a81e377a9f47b"
+          },
+          {
+            "name": "cpu-width",
+            "height": 224,
+            "mismatches": 0,
+            "frameHash": 3371206625,
+            "sampleCount": 2489,
+            "cycles": 1671168,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b",
+            "accumulatorAndP": [
+              [
+                42330,
+                132
+              ],
+              [
+                42300,
+                36
+              ],
+              [
+                4660,
+                4
+              ],
+              [
+                43572,
+                132
+              ],
+              [
+                4660,
+                4
+              ],
+              [
+                0,
+                6
+              ]
+            ],
+            "observationsSha256": "32e4051f68bb8f9aed351ef1a7c55c089e1135fe76efd01635f0a796da43cb44"
+          },
+          {
+            "name": "cpu-width-repeat",
+            "height": 224,
+            "mismatches": 0,
+            "frameHash": 3371206625,
+            "sampleCount": 2489,
+            "cycles": 1671168,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b",
+            "accumulatorAndP": [
+              [
+                42330,
+                132
+              ],
+              [
+                42300,
+                36
+              ],
+              [
+                4660,
+                4
+              ],
+              [
+                43572,
+                132
+              ],
+              [
+                4660,
+                4
+              ],
+              [
+                0,
+                6
+              ]
+            ],
+            "observationsSha256": "32e4051f68bb8f9aed351ef1a7c55c089e1135fe76efd01635f0a796da43cb44"
+          },
+          {
+            "name": "mode-0",
+            "height": 224,
+            "mismatches": 0,
+            "frameHash": 3371206625,
+            "sampleCount": 2489,
+            "cycles": 1671168,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+          },
+          {
+            "name": "mode-1",
+            "height": 224,
+            "mismatches": 0,
+            "frameHash": 3371206625,
+            "sampleCount": 2489,
+            "cycles": 1671168,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+          },
+          {
+            "name": "obj-geometry-32x32",
+            "height": 224,
+            "mismatches": 0,
+            "frameHash": 1929134724,
+            "sampleCount": 2489,
+            "cycles": 1671168,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "647dcdca7e0cb43b6f94d1f38d9f8a62c79dac6b6928091515d89cb42643acce"
+          },
+          {
+            "name": "obj-geometry-32x32-interlace",
+            "height": 448,
+            "mismatches": 0,
+            "frameHash": 1867845285,
+            "sampleCount": 3954,
+            "cycles": 2654208,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "70893a8c195102e662e828f879b1c36bff5998a507e3d12ddf7399d7a2bbbd79"
+          },
+          {
+            "name": "obj-geometry-32x64",
+            "height": 224,
+            "mismatches": 0,
+            "frameHash": 1640871572,
+            "sampleCount": 2489,
+            "cycles": 1671168,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "647dcdca7e0cb43b6f94d1f38d9f8a62c79dac6b6928091515d89cb42643acce"
+          },
+          {
+            "name": "obj-geometry-32x64-interlace",
+            "height": 448,
+            "mismatches": 0,
+            "frameHash": 2331102800,
+            "sampleCount": 3954,
+            "cycles": 2654208,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "70893a8c195102e662e828f879b1c36bff5998a507e3d12ddf7399d7a2bbbd79"
+          },
+          {
+            "name": "obj-geometry-64x64",
+            "height": 224,
+            "mismatches": 0,
+            "frameHash": 1895228976,
+            "sampleCount": 2489,
+            "cycles": 1671168,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "647dcdca7e0cb43b6f94d1f38d9f8a62c79dac6b6928091515d89cb42643acce"
+          },
+          {
+            "name": "obj-geometry-64x64-interlace",
+            "height": 448,
+            "mismatches": 0,
+            "frameHash": 1697346701,
+            "sampleCount": 3954,
+            "cycles": 2654208,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "70893a8c195102e662e828f879b1c36bff5998a507e3d12ddf7399d7a2bbbd79"
+          },
+          {
+            "name": "obj-limit-32",
+            "height": 224,
+            "mismatches": 0,
+            "frameHash": 827047812,
+            "sampleCount": 2489,
+            "cycles": 1671168,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+          },
+          {
+            "name": "obj-limit-33",
+            "height": 224,
+            "mismatches": 0,
+            "frameHash": 3761451404,
+            "sampleCount": 2489,
+            "cycles": 1671168,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+          },
+          {
+            "name": "obj-limit-34tiles",
+            "height": 224,
+            "mismatches": 0,
+            "frameHash": 1976213852,
+            "sampleCount": 2489,
+            "cycles": 1671168,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+          },
+          {
+            "name": "obj-limit-35tiles",
+            "height": 224,
+            "mismatches": 0,
+            "frameHash": 236248975,
+            "sampleCount": 2489,
+            "cycles": 1671168,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+          },
+          {
+            "name": "sprite-edges",
+            "height": 224,
+            "mismatches": 0,
+            "frameHash": 2791373224,
+            "sampleCount": 2489,
+            "cycles": 1671168,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+          },
+          {
+            "name": "sprite-hflip",
+            "height": 224,
+            "mismatches": 0,
+            "frameHash": 670676540,
+            "sampleCount": 2489,
+            "cycles": 1671168,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+          },
+          {
+            "name": "sprite-high",
+            "height": 224,
+            "mismatches": 0,
+            "frameHash": 3761451404,
+            "sampleCount": 2489,
+            "cycles": 1671168,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+          },
+          {
+            "name": "sprite-interlace",
+            "height": 448,
+            "mismatches": 0,
+            "frameHash": 2699949800,
+            "sampleCount": 3954,
+            "cycles": 2654208,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "cd517e2802873e57bfefb8373cab68344171af36e48bf44af500c94e8f5d7d3a"
+          },
+          {
+            "name": "sprite-interlace-vflip",
+            "height": 448,
+            "mismatches": 0,
+            "frameHash": 3172402412,
+            "sampleCount": 3954,
+            "cycles": 2654208,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "cd517e2802873e57bfefb8373cab68344171af36e48bf44af500c94e8f5d7d3a"
+          },
+          {
+            "name": "sprite-low",
+            "height": 224,
+            "mismatches": 0,
+            "frameHash": 3463251268,
+            "sampleCount": 2489,
+            "cycles": 1671168,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+          },
+          {
+            "name": "sprite-rect",
+            "height": 224,
+            "mismatches": 0,
+            "frameHash": 3006156492,
+            "sampleCount": 2489,
+            "cycles": 1671168,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+          },
+          {
+            "name": "sprite-rect-vflip",
+            "height": 224,
+            "mismatches": 0,
+            "frameHash": 4030928904,
+            "sampleCount": 2489,
+            "cycles": 1671168,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+          },
+          {
+            "name": "sprite-small-interlace-6",
+            "height": 448,
+            "mismatches": 0,
+            "frameHash": 2699949800,
+            "sampleCount": 3954,
+            "cycles": 2654208,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "cd517e2802873e57bfefb8373cab68344171af36e48bf44af500c94e8f5d7d3a"
+          },
+          {
+            "name": "sprite-small-interlace-6-vflip",
+            "height": 448,
+            "mismatches": 0,
+            "frameHash": 3172402412,
+            "sampleCount": 3954,
+            "cycles": 2654208,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "cd517e2802873e57bfefb8373cab68344171af36e48bf44af500c94e8f5d7d3a"
+          },
+          {
+            "name": "sprite-small-interlace-7",
+            "height": 448,
+            "mismatches": 0,
+            "frameHash": 2699949800,
+            "sampleCount": 3954,
+            "cycles": 2654208,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "cd517e2802873e57bfefb8373cab68344171af36e48bf44af500c94e8f5d7d3a"
+          },
+          {
+            "name": "sprite-small-interlace-7-vflip",
+            "height": 448,
+            "mismatches": 0,
+            "frameHash": 3172402412,
+            "sampleCount": 3954,
+            "cycles": 2654208,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "cd517e2802873e57bfefb8373cab68344171af36e48bf44af500c94e8f5d7d3a"
+          },
+          {
+            "name": "sprite-vflip",
+            "height": 224,
+            "mismatches": 0,
+            "frameHash": 2800113316,
+            "sampleCount": 2489,
+            "cycles": 1671168,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+          }
+        ],
+        "comparedPixels": 4587520,
+        "cpuResetReplays": [
+          "cpu-width",
+          "cpu-binary",
+          "cpu-decimal"
+        ]
+      },
+      "firefox": {
+        "fixtures": [
+          {
+            "name": "cpu-binary",
+            "height": 224,
+            "mismatches": 0,
+            "frameHash": 3371206625,
+            "sampleCount": 2489,
+            "cycles": 1671168,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b",
+            "accumulatorAndP": [
+              [
+                256,
+                4
+              ],
+              [
+                0,
+                7
+              ],
+              [
+                32768,
+                196
+              ],
+              [
+                0,
+                71
+              ],
+              [
+                21846,
+                4
+              ],
+              [
+                255,
+                5
+              ],
+              [
+                65535,
+                132
+              ],
+              [
+                32767,
+                69
+              ],
+              [
+                32768,
+                196
+              ],
+              [
+                0,
+                7
+              ],
+              [
+                4608,
+                5
+              ]
+            ],
+            "observationsSha256": "365ff4e74ad93608a496e1f52c047e9e1cd715ee98352a64e5a774f53edd7c1e"
+          },
+          {
+            "name": "cpu-binary-repeat",
+            "height": 224,
+            "mismatches": 0,
+            "frameHash": 3371206625,
+            "sampleCount": 2489,
+            "cycles": 1671168,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b",
+            "accumulatorAndP": [
+              [
+                256,
+                4
+              ],
+              [
+                0,
+                7
+              ],
+              [
+                32768,
+                196
+              ],
+              [
+                0,
+                71
+              ],
+              [
+                21846,
+                4
+              ],
+              [
+                255,
+                5
+              ],
+              [
+                65535,
+                132
+              ],
+              [
+                32767,
+                69
+              ],
+              [
+                32768,
+                196
+              ],
+              [
+                0,
+                7
+              ],
+              [
+                4608,
+                5
+              ]
+            ],
+            "observationsSha256": "365ff4e74ad93608a496e1f52c047e9e1cd715ee98352a64e5a774f53edd7c1e"
+          },
+          {
+            "name": "cpu-decimal",
+            "height": 224,
+            "mismatches": 0,
+            "frameHash": 3371206625,
+            "sampleCount": 2489,
+            "cycles": 1671168,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b",
+            "accumulatorAndP": [
+              [
+                16,
+                12
+              ],
+              [
+                256,
+                12
+              ],
+              [
+                4096,
+                12
+              ],
+              [
+                0,
+                15
+              ],
+              [
+                0,
+                79
+              ],
+              [
+                32768,
+                204
+              ],
+              [
+                2457,
+                13
+              ],
+              [
+                39321,
+                140
+              ],
+              [
+                31129,
+                77
+              ],
+              [
+                0,
+                15
+              ],
+              [
+                2457,
+                13
+              ]
+            ],
+            "observationsSha256": "cdb0c6d67066748f3172794cae15ee33b0c34ee6ee273679093a81e377a9f47b"
+          },
+          {
+            "name": "cpu-decimal-repeat",
+            "height": 224,
+            "mismatches": 0,
+            "frameHash": 3371206625,
+            "sampleCount": 2489,
+            "cycles": 1671168,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b",
+            "accumulatorAndP": [
+              [
+                16,
+                12
+              ],
+              [
+                256,
+                12
+              ],
+              [
+                4096,
+                12
+              ],
+              [
+                0,
+                15
+              ],
+              [
+                0,
+                79
+              ],
+              [
+                32768,
+                204
+              ],
+              [
+                2457,
+                13
+              ],
+              [
+                39321,
+                140
+              ],
+              [
+                31129,
+                77
+              ],
+              [
+                0,
+                15
+              ],
+              [
+                2457,
+                13
+              ]
+            ],
+            "observationsSha256": "cdb0c6d67066748f3172794cae15ee33b0c34ee6ee273679093a81e377a9f47b"
+          },
+          {
+            "name": "cpu-width",
+            "height": 224,
+            "mismatches": 0,
+            "frameHash": 3371206625,
+            "sampleCount": 2489,
+            "cycles": 1671168,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b",
+            "accumulatorAndP": [
+              [
+                42330,
+                132
+              ],
+              [
+                42300,
+                36
+              ],
+              [
+                4660,
+                4
+              ],
+              [
+                43572,
+                132
+              ],
+              [
+                4660,
+                4
+              ],
+              [
+                0,
+                6
+              ]
+            ],
+            "observationsSha256": "32e4051f68bb8f9aed351ef1a7c55c089e1135fe76efd01635f0a796da43cb44"
+          },
+          {
+            "name": "cpu-width-repeat",
+            "height": 224,
+            "mismatches": 0,
+            "frameHash": 3371206625,
+            "sampleCount": 2489,
+            "cycles": 1671168,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b",
+            "accumulatorAndP": [
+              [
+                42330,
+                132
+              ],
+              [
+                42300,
+                36
+              ],
+              [
+                4660,
+                4
+              ],
+              [
+                43572,
+                132
+              ],
+              [
+                4660,
+                4
+              ],
+              [
+                0,
+                6
+              ]
+            ],
+            "observationsSha256": "32e4051f68bb8f9aed351ef1a7c55c089e1135fe76efd01635f0a796da43cb44"
+          },
+          {
+            "name": "mode-0",
+            "height": 224,
+            "mismatches": 0,
+            "frameHash": 3371206625,
+            "sampleCount": 2489,
+            "cycles": 1671168,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+          },
+          {
+            "name": "mode-1",
+            "height": 224,
+            "mismatches": 0,
+            "frameHash": 3371206625,
+            "sampleCount": 2489,
+            "cycles": 1671168,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+          },
+          {
+            "name": "obj-geometry-32x32",
+            "height": 224,
+            "mismatches": 0,
+            "frameHash": 1929134724,
+            "sampleCount": 2489,
+            "cycles": 1671168,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "647dcdca7e0cb43b6f94d1f38d9f8a62c79dac6b6928091515d89cb42643acce"
+          },
+          {
+            "name": "obj-geometry-32x32-interlace",
+            "height": 448,
+            "mismatches": 0,
+            "frameHash": 1867845285,
+            "sampleCount": 3954,
+            "cycles": 2654208,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "70893a8c195102e662e828f879b1c36bff5998a507e3d12ddf7399d7a2bbbd79"
+          },
+          {
+            "name": "obj-geometry-32x64",
+            "height": 224,
+            "mismatches": 0,
+            "frameHash": 1640871572,
+            "sampleCount": 2489,
+            "cycles": 1671168,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "647dcdca7e0cb43b6f94d1f38d9f8a62c79dac6b6928091515d89cb42643acce"
+          },
+          {
+            "name": "obj-geometry-32x64-interlace",
+            "height": 448,
+            "mismatches": 0,
+            "frameHash": 2331102800,
+            "sampleCount": 3954,
+            "cycles": 2654208,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "70893a8c195102e662e828f879b1c36bff5998a507e3d12ddf7399d7a2bbbd79"
+          },
+          {
+            "name": "obj-geometry-64x64",
+            "height": 224,
+            "mismatches": 0,
+            "frameHash": 1895228976,
+            "sampleCount": 2489,
+            "cycles": 1671168,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "647dcdca7e0cb43b6f94d1f38d9f8a62c79dac6b6928091515d89cb42643acce"
+          },
+          {
+            "name": "obj-geometry-64x64-interlace",
+            "height": 448,
+            "mismatches": 0,
+            "frameHash": 1697346701,
+            "sampleCount": 3954,
+            "cycles": 2654208,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "70893a8c195102e662e828f879b1c36bff5998a507e3d12ddf7399d7a2bbbd79"
+          },
+          {
+            "name": "obj-limit-32",
+            "height": 224,
+            "mismatches": 0,
+            "frameHash": 827047812,
+            "sampleCount": 2489,
+            "cycles": 1671168,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+          },
+          {
+            "name": "obj-limit-33",
+            "height": 224,
+            "mismatches": 0,
+            "frameHash": 3761451404,
+            "sampleCount": 2489,
+            "cycles": 1671168,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+          },
+          {
+            "name": "obj-limit-34tiles",
+            "height": 224,
+            "mismatches": 0,
+            "frameHash": 1976213852,
+            "sampleCount": 2489,
+            "cycles": 1671168,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+          },
+          {
+            "name": "obj-limit-35tiles",
+            "height": 224,
+            "mismatches": 0,
+            "frameHash": 236248975,
+            "sampleCount": 2489,
+            "cycles": 1671168,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+          },
+          {
+            "name": "sprite-edges",
+            "height": 224,
+            "mismatches": 0,
+            "frameHash": 2791373224,
+            "sampleCount": 2489,
+            "cycles": 1671168,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+          },
+          {
+            "name": "sprite-hflip",
+            "height": 224,
+            "mismatches": 0,
+            "frameHash": 670676540,
+            "sampleCount": 2489,
+            "cycles": 1671168,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+          },
+          {
+            "name": "sprite-high",
+            "height": 224,
+            "mismatches": 0,
+            "frameHash": 3761451404,
+            "sampleCount": 2489,
+            "cycles": 1671168,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+          },
+          {
+            "name": "sprite-interlace",
+            "height": 448,
+            "mismatches": 0,
+            "frameHash": 2699949800,
+            "sampleCount": 3954,
+            "cycles": 2654208,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "cd517e2802873e57bfefb8373cab68344171af36e48bf44af500c94e8f5d7d3a"
+          },
+          {
+            "name": "sprite-interlace-vflip",
+            "height": 448,
+            "mismatches": 0,
+            "frameHash": 3172402412,
+            "sampleCount": 3954,
+            "cycles": 2654208,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "cd517e2802873e57bfefb8373cab68344171af36e48bf44af500c94e8f5d7d3a"
+          },
+          {
+            "name": "sprite-low",
+            "height": 224,
+            "mismatches": 0,
+            "frameHash": 3463251268,
+            "sampleCount": 2489,
+            "cycles": 1671168,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+          },
+          {
+            "name": "sprite-rect",
+            "height": 224,
+            "mismatches": 0,
+            "frameHash": 3006156492,
+            "sampleCount": 2489,
+            "cycles": 1671168,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+          },
+          {
+            "name": "sprite-rect-vflip",
+            "height": 224,
+            "mismatches": 0,
+            "frameHash": 4030928904,
+            "sampleCount": 2489,
+            "cycles": 1671168,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+          },
+          {
+            "name": "sprite-small-interlace-6",
+            "height": 448,
+            "mismatches": 0,
+            "frameHash": 2699949800,
+            "sampleCount": 3954,
+            "cycles": 2654208,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "cd517e2802873e57bfefb8373cab68344171af36e48bf44af500c94e8f5d7d3a"
+          },
+          {
+            "name": "sprite-small-interlace-6-vflip",
+            "height": 448,
+            "mismatches": 0,
+            "frameHash": 3172402412,
+            "sampleCount": 3954,
+            "cycles": 2654208,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "cd517e2802873e57bfefb8373cab68344171af36e48bf44af500c94e8f5d7d3a"
+          },
+          {
+            "name": "sprite-small-interlace-7",
+            "height": 448,
+            "mismatches": 0,
+            "frameHash": 2699949800,
+            "sampleCount": 3954,
+            "cycles": 2654208,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "cd517e2802873e57bfefb8373cab68344171af36e48bf44af500c94e8f5d7d3a"
+          },
+          {
+            "name": "sprite-small-interlace-7-vflip",
+            "height": 448,
+            "mismatches": 0,
+            "frameHash": 3172402412,
+            "sampleCount": 3954,
+            "cycles": 2654208,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "cd517e2802873e57bfefb8373cab68344171af36e48bf44af500c94e8f5d7d3a"
+          },
+          {
+            "name": "sprite-vflip",
+            "height": 224,
+            "mismatches": 0,
+            "frameHash": 2800113316,
+            "sampleCount": 2489,
+            "cycles": 1671168,
+            "pcmSamplesCompared": 256,
+            "pcmSha256": "b25a3d71902345b4bbd866d8096f4812569bc38e9e734a49812864a07e8e411b"
+          }
+        ],
+        "comparedPixels": 4587520,
+        "cpuResetReplays": [
+          "cpu-width",
+          "cpu-binary",
+          "cpu-decimal"
+        ]
+      }
+    },
+    "sourceSha256": {
+      "scripts/generate-snes-rom.py": "469a4bebba0e243a0beb67633d424f39e09ffaf293d35b1af9ae758198690bf7",
+      "tests/static/snes.spec.js": "23cc50db9fed2695028432f62a3ebd3f948e84e5f63e2bc5334b21585d247010",
+      "examples/snes/snes-core.v": "b4866d4e0940d69ce91f5b1c39edf8ebca5be22712c0314c10639ed154ea893d",
+      "examples/snes/snes.v": "0c707bd087c18279952a4a490045b954041475c8ec417f7dcaaa630e79fffec2",
+      "package-lock.json": "541217566bd0ba90e22dd1c5358fd3b362853d705ac75d9c1f1e36139ef9e597"
+    },
+    "limits": "Focused 28-cartridge selection, including all 17 retained sprite-* and obj-limit-* variants and Mode 0/1 controls, plus all baseline input/audio/LoROM/HiROM/reset checks. The full 224-cartridge sweep, unrelated static/native regressions and live Pages checks were not rerun. No exhaustive CPU or PPU conformance or real-time playability claim. Compiler peak memory was not measured."
   }
 }

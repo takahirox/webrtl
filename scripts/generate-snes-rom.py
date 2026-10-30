@@ -48,9 +48,13 @@ class Program:
 
 def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
           joycheck=None, transfer=None, audio=None, bus=None, apu_check=None, dma_check=None,
-          irq_check=None):
+          irq_check=None, cpu_check=None):
     assert mode in range(8)
     large_bg = bool(effect and effect.startswith("large-"))
+    geometry = bool(effect and effect.startswith("obj-geometry-"))
+    if geometry:
+        obj_width, obj_height = map(int, effect.split("-")[2].split("x"))
+        assert (obj_width, obj_height) in [(32, 32), (64, 64), (32, 64)]
     extbg = bool(effect and effect.startswith("extbg-"))
     graphics_far = large_bg or extbg or effect in ["m7-over2", "m7-over3"]
     apu = Program(0x200)
@@ -322,6 +326,75 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
     cpu.emit("SEI; CLD; CLC; XCE; REP #$10; LDX #$1fff; TXS", 0x78, 0xd8, 0x18, 0xfb, 0xc2, 0x10, 0xa2, 0xff, 0x1f, 0x9a)
     stz(0x4200)
     stz(0x420c)
+    if cpu_check:
+        # Capture the real accumulator and pre-comparison P through the CPU bus.
+        # PHP precedes REP/STA/SEP so even an 8-bit result retains its hidden B.
+        def cpu_observe(index, result, flags):
+            address = 0x3700 + index * 3
+            cpu.emit("PHP; REP #$20; STA result; SEP #$20; PLA; STA status",
+                     0x08, 0xc2, 0x20, 0x8f, address & 255, address >> 8, 0x7e,
+                     0xe2, 0x20, 0x68, 0x8f, (address + 2) & 255, (address + 2) >> 8, 0x7e)
+            cpu.emit("AND #$eb (N/V/M/D/Z/C)", 0x29, 0xeb)
+            check(flags)
+            for offset, value in [(0, result & 255), (1, result >> 8)]:
+                cpu.emit("LDA captured accumulator byte", 0xaf, (address + offset) & 255,
+                         (address + offset) >> 8, 0x7e)
+                check(value)
+
+        if cpu_check == "width":
+            cpu.emit("REP #$e1; LDA #$a55a", 0xc2, 0xe1, 0xa9, 0x5a, 0xa5)
+            cpu_observe(0, 0xa55a, 0x80)
+            cpu.emit("REP #$e1; LDA #$a55a; SEP #$20; LDA #$3c (preserve B)",
+                     0xc2, 0xe1, 0xa9, 0x5a, 0xa5, 0xe2, 0x20, 0xa9, 0x3c)
+            cpu_observe(1, 0xa53c, 0x20)
+            cpu.emit("REP #$e1; LDA #$1234; STA $02ff; STA $7e3fff; LDA #0; LDA $02ff",
+                     0xc2, 0xe1, 0xa9, 0x34, 0x12, 0x8d, 0xff, 2,
+                     0x8f, 0xff, 0x3f, 0x7e, 0xa9, 0, 0, 0xad, 0xff, 2)
+            cpu_observe(2, 0x1234, 0)
+            cpu.emit("LDA #$aa; STA $0300; REP #$e1; LDA $02ff (one-byte overwrite)",
+                     0xa9, 0xaa, 0x8d, 0, 3, 0xc2, 0xe1, 0xad, 0xff, 2)
+            cpu_observe(3, 0xaa34, 0x80)
+            cpu.emit("REP #$e1; LDA $7e3fff (long word across page)",
+                     0xc2, 0xe1, 0xaf, 0xff, 0x3f, 0x7e)
+            cpu_observe(4, 0x1234, 0)
+            cpu.emit("REP #$e1; LDA #0 (16-bit zero)", 0xc2, 0xe1, 0xa9, 0, 0)
+            cpu_observe(5, 0, 2)
+        else:
+            assert cpu_check in ["binary", "decimal"]
+            # Literal original vectors, independently checked in the browser.
+            # Each tuple is opcode, A, operand, carry-in, result, N/V/Z/C.
+            vectors = [
+                (0x69, 0x00ff, 1, 0, 0x0100, 0),
+                (0x69, 0xffff, 0, 1, 0, 3),
+                (0x69, 0x7fff, 1, 0, 0x8000, 0xc0),
+                (0x69, 0x8000, 0x8000, 0, 0, 0x43),
+                (0x69, 0x1234, 0x4321, 1, 0x5556, 0),
+                (0xe9, 0x0100, 1, 1, 0x00ff, 1),
+                (0xe9, 0, 1, 1, 0xffff, 0x80),
+                (0xe9, 0x8000, 1, 1, 0x7fff, 0x41),
+                (0xe9, 0x7fff, 0xffff, 1, 0x8000, 0xc0),
+                (0xe9, 0x1234, 0x1234, 1, 0, 3),
+                (0xe9, 0x1234, 0x0033, 0, 0x1200, 1),
+            ] if cpu_check == "binary" else [
+                (0x69, 0x0009, 1, 0, 0x0010, 0),
+                (0x69, 0x0099, 0, 1, 0x0100, 0),
+                (0x69, 0x0999, 1, 0, 0x1000, 0),
+                (0x69, 0x9999, 0, 1, 0, 3),
+                (0x69, 0x4999, 0x5000, 1, 0, 0x43),
+                (0x69, 0x3999, 0x4001, 0, 0x8000, 0xc0),
+                (0xe9, 0x1000, 1, 1, 0x0999, 1),
+                (0xe9, 0, 1, 1, 0x9999, 0x80),
+                (0xe9, 0x8000, 1, 1, 0x7999, 0x41),
+                (0xe9, 0x1234, 0x1234, 1, 0, 3),
+                (0xe9, 0x1000, 0, 0, 0x0999, 1),
+            ]
+            for index, (opcode, left, right, carry, result, flags) in enumerate(vectors):
+                cpu.emit("REP #$20; SED/CLD; CLC/SEC; LDA #word; ADC/SBC #word",
+                         0xc2, 0x20, 0xf8 if cpu_check == "decimal" else 0xd8,
+                         0x38 if carry else 0x18, 0xa9, left & 255, left >> 8,
+                         opcode, right & 255, right >> 8)
+                cpu_observe(index, result, flags | (8 if cpu_check == "decimal" else 0))
+        cpu.emit("SEP #$20; CLD (restore normal cartridge ABI)", 0xe2, 0x20, 0xd8)
     if dma_check:
         observations = []
 
@@ -655,7 +728,7 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
         write(0x420b, 0x24)
     if sprite_priority is not None:
         assert (mode == 0 and sprite_priority in [0, 3]) or (mode == 7 and extbg and sprite_priority in range(4))
-        # Normally one green 8x8 object; larger fixtures share a 16-dot width.
+        # Retain all original small-object fixtures alongside full-size probes.
         small_rect_interlace = bool(effect and effect.startswith("sprite-small-interlace-"))
         limit_tiles = bool(effect and effect.startswith("obj-limit-") and "tiles" in effect)
         large_sprite = limit_tiles or effect in ["sprite-edges", "sprite-interlace", "sprite-interlace-vflip",
@@ -670,11 +743,20 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
         if effect in ["sprite-rect", "sprite-rect-vflip"]: obsel = 0xc1
         if small_rect_interlace: obsel = 0xc1 if "-6" in effect else 0xe1
         if limit_tiles: obsel = 1
+        if geometry:
+            obsel = {(32, 32): 0x21, (64, 64): 0x41, (32, 64): 0xc1}[obj_width, obj_height]
+            for index in range(1, 16):
+                color = index | ((index * 3 & 31) << 5) | ((index * 7 & 31) << 10)
+                write(0x2121, 128 + index)
+                write(0x2122, color & 255)
+                write(0x2122, color >> 8)
         write(0x2101, obsel)
         stz(0x2116)
         write(0x2117, 0x20)
         sprite_source = 0x9b00 if large_sprite else 0x9040
         sprite_bytes = (34 if small_rect_interlace else 18) * 32 if large_sprite else 32
+        if geometry:
+            sprite_source, sprite_bytes = 0xa000, 256 * 32
         for address, value in [(0x4302, sprite_source & 255), (0x4303, sprite_source >> 8),
                                (0x4305, sprite_bytes & 255), (0x4306, sprite_bytes >> 8), (0x420b, 1)]:
             write(address, value)
@@ -1052,8 +1134,8 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
     cpu.label("failed")
     cpu.branch(0x80, "failed")
     rom = bytearray([0xcb] * 32768)
-    if dma_check:
-        assert len(cpu.finish()) < 0x1000, "DMA probe must not overlap cartridge data"
+    if dma_check or cpu_check or geometry:
+        assert len(cpu.finish()) < 0x1000, "Hardware probe must not overlap cartridge data"
     rom[:len(cpu.finish())] = cpu.data
     graphics_offset = 0x1b00 if graphics_far else 0x1000
     rom[graphics_offset:graphics_offset + len(graphics)] = graphics
@@ -1123,6 +1205,33 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
                 oam[4*i:4*i+4] = bytes([x, 16 if visible else 240, 0, 0x30])
                 if tiled and i < 17:
                     oam[512 + i//4] |= 2 << (2*(i%4))
+        if geometry:
+            # Populate all 256 characters so base $ee crosses both tile-number
+            # nibbles. Tile color, alternating rows and two asymmetric pixels
+            # distinguish character selection from flips within a character.
+            sprite_graphics = bytearray(8192)
+            for number in range(256):
+                for y in range(8):
+                    for x in range(8):
+                        color = 1 + ((number % 16 + 3 * (number // 16) + 5 * (y & 1)) % 15)
+                        if (x, y) == (1, 2): color = 0
+                        if (x, y) == (5, 6): color = color % 15 + 1
+                        for plane in range(4):
+                            sprite_graphics[number * 32 + (plane // 2) * 16 + y * 2 + plane % 2] |= ((color >> plane) & 1) << (7 - x)
+            rom[0x2000:0x4000] = sprite_graphics
+            # Four large objects show no/H/V/HV flips. Additional objects test
+            # partial first/last tiles, one remaining left pixel and bottom cut.
+            objects = [(i * 64, 16, i << 6) for i in range(4)]
+            objects += [(505, 88, 0x40), (513 - obj_width, 160, 0x80),
+                        (252, 160, 0xc0), (96, 196, 0xc0)]
+            # X=320 excludes unused entries from range evaluation, including
+            # size-mode 6's small rectangles that wrap vertically at Y=240.
+            oam = bytearray([64, 240, 0, 0] * 128 + [0x55] * 32)
+            for i, (x, y, flip) in enumerate(objects):
+                oam[4*i:4*i+4] = bytes([x & 255, y, 0xee, 0x30 | flip])
+                shift = 2 * (i % 4)
+                oam[512 + i//4] &= ~(3 << shift)
+                oam[512 + i//4] |= (2 | (x >> 8)) << shift
         rom[0x1800:0x1a20] = oam
     rom[0x1100:0x1600] = payload
     rom[0x7fc0:0x7fd5] = b"WEBRTL ORIGINAL TEST ".ljust(21)

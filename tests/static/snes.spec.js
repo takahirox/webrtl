@@ -66,6 +66,9 @@ cases += [(f'irq-{name}',dict(irq_check=args)) for name,args in [
  ('h-80',(1,80,192)),('h-260',(1,260,192)),
  ('v-64',(2,260,64)),('v-258',(2,80,258)),
  ('hv-64-80',(3,80,64)),('hv-192-260',(3,260,192))]]
+cases += [(f'cpu-{check}',dict(cpu_check=check)) for check in ['width','binary','decimal']]
+cases += [(f'obj-geometry-{size}{suffix}',dict(sprite_priority=3,display=display,effect=f'obj-geometry-{size}{suffix}'))
+ for size in ['32x32','64x64','32x64'] for suffix,display in [('',0),('-interlace',3)]]
 print(json.dumps([dict(name=name,bytes=list(build(**args)[0])) for name,args in cases]))`], { maxBuffer: 40 * 1024 * 1024 }));
 
 // Optional focused reruns still exercise browser compilation and the baseline
@@ -97,6 +100,29 @@ function pixel(name, x, y) {
   const blue = [0, 0, 255, 255], red = [255, 0, 0, 255], green = [0, 255, 0, 255];
   const hires = ["mode-5", "mode-6", "depth-5", "depth-6"].includes(name);
   let dot = hires ? x : x >> 1;
+  if (name.startsWith("obj-geometry-")) {
+    const [width, height] = name.split("-")[2].split("x").map(Number);
+    const interlace = name.includes("interlace");
+    const objects = [[0,16,0], [64,16,1], [128,16,2], [192,16,3],
+      [-7,88,1], [1-width,160,2], [252,160,3], [96,196,3]];
+    for (const [left, top, flip] of objects) {
+      const period = interlace ? 512 : 256;
+      const row = (y - top * (interlace ? 2 : 1) + period) % period;
+      if (dot < left || dot >= left + width || row >= height) continue;
+      const sx = flip & 1 ? width - 1 - (dot - left) : dot - left;
+      // Rectangles flip each width-by-width square separately. Interlaced
+      // rows already contain FIELD, so this reverses both field and tile row.
+      const sy = flip & 2 ? Math.floor(row / width) * width + width - 1 - row % width : row;
+      const tx = (14 + Math.floor(sx / 8)) % 16;
+      const ty = (14 + Math.floor(sy / 8)) % 16;
+      let index = (tx + 3 * ty + 5 * (sy % 2)) % 15 + 1;
+      if (sx % 8 === 1 && sy % 8 === 2) index = 0;
+      if (sx % 8 === 5 && sy % 8 === 6) index = index % 15 + 1;
+      if (!index) continue;
+      const expand = (v) => (v << 3) | (v >> 2);
+      return [expand(index), expand(index * 3 & 31), expand(index * 7 & 31), 255];
+    }
+  }
   if (name.startsWith("large-")) {
     const mode = Number(name.split("-")[1]);
     const sampleX = [5, 6].includes(mode) ? x : x >> 1;
@@ -495,8 +521,8 @@ test(`full SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: boots a lo
       await load(hirom);
       const hi = await run();
       const modeResults = [];
-      // Each timer cartridge is independently power-reset and replayed in full.
-      const runtimeCartridges = modeCartridges.flatMap((f) => f.name.startsWith("irq-") ?
+      // CPU and timer observations must replay exactly after a power reset.
+      const runtimeCartridges = modeCartridges.flatMap((f) => /^(irq|cpu)-/.test(f.name) ?
         [f, { ...f, name: `${f.name}-repeat` }] : [f]);
       for (const fixture of runtimeCartridges) {
         if (modeResults.length % 10 === 0 || fixture.name.startsWith("apu-")) {
@@ -521,6 +547,8 @@ test(`full SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: boots a lo
             const [cycle, address, value, flags] = output.trace.slice(j, j + 4);
             if (address === 0x7e3300 && (flags & 1)) observations.push([cycle, address, value, flags]);
             if (fixture.name.startsWith("irq-") && address >= 0x7e3600 && address <= 0x7e360a && (flags & 1))
+              observations.push([cycle, address, value, flags]);
+            if (fixture.name.startsWith("cpu-") && address >= 0x7e3700 && address < 0x7e3800 && (flags & 1))
               observations.push([cycle, address, value, flags]);
             if (fixture.name.startsWith("hdma-") && address >= 0x7e3500 && address < 0x7e3504 && (flags & 1))
               observations.push([cycle, address, value, flags]);
@@ -613,6 +641,27 @@ test(`full SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: boots a lo
       expect(pcmMatches(onset.slice(600, 768), expectedPcm("audio-echo"))).toBe(true);
     }
     expect(height, name).toBe(name.includes("interlace") ? 448 : name === "overscan" ? 239 : 224);
+    if (name.startsWith("cpu-")) {
+      // Literal result/NVZC expectations from WDC's programming model and
+      // independent 65816 arithmetic, not generator data or RTL ALU outputs.
+      const kind = name.split("-")[1];
+      const expected = {
+        width: [[0xa55a,0x80],[0xa53c,0x20],[0x1234,0],[0xaa34,0x80],[0x1234,0],[0,2]],
+        binary: [[0x0100,0],[0,3],[0x8000,0xc0],[0,0x43],[0x5556,0],
+          [0x00ff,1],[0xffff,0x80],[0x7fff,0x41],[0x8000,0xc0],[0,3],[0x1200,1]],
+        decimal: [[0x0010,0],[0x0100,0],[0x1000,0],[0,3],[0,0x43],[0x8000,0xc0],
+          [0x0999,1],[0x9999,0x80],[0x7999,0x41],[0,3],[0x0999,1]],
+      }[kind].flatMap(([word, flags]) => [word & 255, word >> 8, flags | 4 | (kind === "decimal" ? 8 : 0)]);
+      expect(observations.map(([, address, value]) => [address, value]), `${name} complete CPU accumulator/status observations`)
+        .toEqual(expected.map((value, i) => [0x7e3700 + i, value]));
+      fixtureEvidence.at(-1).cpu = observations;
+      if (name.endsWith("-repeat")) {
+        const original = results.modeResults.find((r) => r.name === name.slice(0, -7));
+        expect(observations, `${name} exact CPU reset replay`).toEqual(original.observations);
+        expect(results.modeResults.find((r) => r.name === name).frameHash).toBe(original.frameHash);
+        expect(pcm).toEqual(original.pcm);
+      }
+    }
     if (name.startsWith("irq-")) {
       const [, mode, first, second] = name.split("-");
       const targetH = mode === "v" ? 0 : Number(mode === "h" ? first : second);

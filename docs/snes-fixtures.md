@@ -6,13 +6,15 @@ uploads its SPC700 driver through the IPL protocol. The browser test compiles th
 RTL once per batch and power-cycles it for each cartridge. Expected pixels and
 PCM are calculated in the test; they are not recordings of this core's output.
 Pixel comparisons cover every RGBA sample, including its position and alpha.
-The 209-cartridge sweep runs in eleven batches per browser, each with at most
+The 224-cartridge sweep runs in twelve batches per browser, each with at most
 20 cartridges plus the AUX reset repeat. Each batch retains the baseline
 input/audio, LoROM/HiROM and deterministic-reset checks, compiles client-side,
 and has a 30-minute deadline. This replaces the single 120-cartridge test that
 timed out on the Ubuntu CI runner before reaching its assertions. No fixtures
 are omitted; the AUX pair stays in one batch for its cross-cartridge comparison.
 Each batch saves its own Wasm, fixture results and measurements.
+The three CPU cartridges additionally replay their complete execution after
+power reset, comparing timestamped accumulator/status observations, frame and PCM.
 For a focused DSP rerun (including baseline input/reset and LoROM/HiROM checks):
 
 ```sh
@@ -43,6 +45,9 @@ rules; the oracle never reads the generated ROM or RTL tables.
 
 | Fixtures | Independently specified observation |
 | --- | --- |
+| `cpu-width` | Switch M with REP/SEP, retain hidden B across an 8-bit immediate load, load/store words through absolute and long WRAM addresses crossing page boundaries, overwrite just the high byte, and check 16-bit zero/negative flags. |
+| `cpu-binary`, `cpu-decimal` | Eleven original 16-bit ADC/SBC vectors each check result and N/V/Z/C, including both carry inputs, carry/borrow propagation, signed overflow and zero. Decimal cases carry across each of the four BCD digits. Raw P additionally checks M/D/I/X. |
+| `obj-geometry-32x32/64x64/32x64`, with optional `-interlace` | High OAM selects the large object in OBSEL modes 1/2/6. Four objects show no/H/V/HV flips. Base character `$ee` crosses horizontal and vertical character-number wrap; all 256 characters contain distinct tile/row colors and asymmetric transparent/colored pixels. Additional objects at X=−7, 1−width and 252 check partial edge tiles and a single surviving left pixel. Y=196 checks the bottom capture boundary. Interlaced variants check both fields and the halved range height. |
 | `mode-0`…`mode-7` | Blue transparent dots and red opaque dots; modes 5/6 have one sample per dot, other modes have two. |
 | `reject-mode5-as0` | Deliberately boots Mode 0, compares against Mode 5, and must reject over 50,000 pixels. This detects the mode substitution missed by color totals. |
 | `depth-0`…`depth-6` | Planes `$55/$33/$0f/$ff` produce indices 0–3, 0–7 or 16–23 according to 2/4/8bpp. Each nonzero index has an explicitly calculated distinct palette color. |
@@ -370,4 +375,71 @@ reset checks still run in both browsers.
 ```sh
 npm run build:demo
 WEBRTL_SNES_FIXTURES='^irq-' npx playwright test --config=playwright.static.config.js --grep 'full SNES RTL' --workers=2
+```
+
+## 65C816 accumulator and arithmetic
+
+The CPU fixtures follow the [WDC W65C816S datasheet](https://www.westerndesigncenter.com/wdc/documentation/w65c816s.pdf)
+(accumulator/status model, opcode tables and accumulator switching) and the independent
+[bsnes 65816 arithmetic](https://github.com/bsnes-emu/bsnes/blob/master/bsnes/processor/wdc65816/algorithms.cpp).
+The original vectors below use valid BCD operands; they are bounded instruction
+checks, not exhaustive instruction/addressing-mode or invalid-BCD conformance.
+Expectations are literal constants separately encoded in the cartridge and browser.
+PHP captures flags before comparisons, REP or SEP. The CPU publishes each full
+accumulator word and raw P at `$7e3700 + 3*i` before self-checking it. A mismatch
+branches to the retained failure handler and prevents normal video/audio startup.
+The browser requires every observation in order; a missing/truncated sequence
+cannot pass. P includes I=1, X=0, M=0 for word operations and D as selected.
+
+| Operation | A | Operand | Carry in | Binary result / NVZC | Decimal result / NVZC |
+| --- | --- | --- | --- | --- | --- |
+| ADC | `$00ff` | `$0001` | 0 | `$0100 / $00` | — |
+| ADC | `$ffff` | `$0000` | 1 | `$0000 / $03` | — |
+| ADC | `$7fff` | `$0001` | 0 | `$8000 / $c0` | — |
+| ADC | `$8000` | `$8000` | 0 | `$0000 / $43` | — |
+| ADC | `$1234` | `$4321` | 1 | `$5556 / $00` | — |
+| SBC | `$0100` | `$0001` | 1 | `$00ff / $01` | — |
+| SBC | `$0000` | `$0001` | 1 | `$ffff / $80` | `$9999 / $80` |
+| SBC | `$8000` | `$0001` | 1 | `$7fff / $41` | `$7999 / $41` |
+| SBC | `$7fff` | `$ffff` | 1 | `$8000 / $c0` | — |
+| SBC | `$1234` | `$1234` | 1 | `$0000 / $03` | `$0000 / $03` |
+| SBC | `$1234` | `$0033` | 0 | `$1200 / $01` | — |
+| ADC | `$0009` | `$0001` | 0 | — | `$0010 / $00` |
+| ADC | `$0099` | `$0000` | 1 | — | `$0100 / $00` |
+| ADC | `$0999` | `$0001` | 0 | — | `$1000 / $00` |
+| ADC | `$9999` | `$0000` | 1 | — | `$0000 / $03` |
+| ADC | `$4999` | `$5000` | 1 | — | `$0000 / $43` |
+| ADC | `$3999` | `$4001` | 0 | — | `$8000 / $c0` |
+| SBC | `$1000` | `$0001` | 1 | — | `$0999 / $01` |
+| SBC | `$1000` | `$0000` | 0 | — | `$0999 / $01` |
+
+The width cartridge expects accumulator/P pairs `$a55a/$84`, `$a53c/$24`,
+`$1234/$04`, `$aa34/$84`, `$1234/$04`, `$0000/$06`. Absolute `$02ff` and long
+`$7e3fff` stores cross page boundaries; the subsequent 8-bit `$0300=$aa` write
+changes only the high byte of the first stored word. REP/SEP must change immediate
+operand length and preserve hidden B, while LDA sets N/Z at the selected width.
+
+## Large OBJ geometry
+
+The geometry oracle follows the independent [bsnes object renderer](https://github.com/bsnes-emu/bsnes/blob/master/bsnes/sfc/ppu-fast/object.cpp).
+Large-size mode selections are 32×32, 64×64 and 32×64. Character columns and rows
+wrap separately modulo sixteen; horizontal flip reverses character order and
+intra-character pixels. A rectangular vertical flip reverses each 32-row square
+separately. With interlace, a source row includes FIELD and the visible range is
+half the source height; both fields appear in the 448-line capture.
+
+Every geometry cartridge compares all 512×224 or 512×448 RGBA samples, including
+transparent pixels revealing the original BG, and retains the independent DSP
+PCM check. The four main objects at X=0/64/128/192, Y=16 use all flip combinations.
+Edge/bottom objects also use flips, including Y wrapping through 255 for 64-row
+objects; no scanline needs more than 32 fetched tiles. Unused OAM entries have
+X=320, excluding them from range evaluation even when their Y range wraps.
+These checks cover representative boundaries, not exhaustive size/position,
+priority, overflow and interlace combinations.
+
+Reproduce both review fixes and the retained `sprite-*`/`obj-limit-*` controls in both browsers:
+
+```sh
+npm run build:demo
+WEBRTL_SNES_FIXTURES='^(cpu-|obj-geometry-|sprite-|obj-limit-|mode-[01]$)' npx playwright test --config=playwright.static.config.js --grep 'full SNES RTL' --workers=4
 ```
