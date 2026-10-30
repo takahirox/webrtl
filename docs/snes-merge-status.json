@@ -1,0 +1,41 @@
+{
+  "pr": {
+    "number": 23,
+    "url": "https://github.com/takahirox/webrtl/pull/23",
+    "head_sha": "d5d3783f5152c162ca18a88425a9aa34d27d5a27"
+  },
+  "merged": true,
+  "merge_commit": "f4ae6e434f0d9ec0ff9b7a0be07eb0ea69426763",
+  "merged_at": "2026-10-30T23:33:30Z",
+  "method": "merge",
+  "source_issue": {
+    "number": 22,
+    "state_immediately_before_merge": "open",
+    "state_after_merge": "open"
+  },
+  "checks": {
+    "expected_head_confirmed": true,
+    "expected_head_sent_to_merge_api": true,
+    "recovery_commit_7b50ad4_retained": true,
+    "checkpoint_tree_matches_reviewed_head": true,
+    "main_protected": false,
+    "applicable_branch_rules": [],
+    "required_checks_or_reviews_bypassed": false,
+    "draft_marked_ready_under_merge_authorization": true,
+    "fresh_runtime_tests_in_merge_node": false,
+    "validation_basis": "Upstream review approved the exact head after fresh focused validation; historical full-suite results were not rerun or relabeled."
+  },
+  "post_merge_verification": {
+    "status": "pending_deployment",
+    "workflow_run": "https://github.com/takahirox/webrtl/actions/runs/41145188848",
+    "workflow_status_observed": "in_progress",
+    "live_site_probe": {
+      "url": "https://takahirox.github.io/webrtl/",
+      "status": 200,
+      "snes_source_url": "https://takahirox.github.io/webrtl/examples/snes/snes-core.v",
+      "snes_source_status": 404
+    },
+    "live_browser_integration_run": false,
+    "next_action": "After the merge deployment completes, run the existing SNES integration checks with WEBRTL_PUBLIC_URL=https://takahirox.github.io/webrtl/ and record actual frame/audio, local cartridge, controller and reset results separately. The HTTP probe is not a browser/runtime pass."
+  }
+}
