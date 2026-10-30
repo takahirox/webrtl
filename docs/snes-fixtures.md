@@ -6,15 +6,15 @@ uploads its SPC700 driver through the IPL protocol. The browser test compiles th
 RTL once per batch and power-cycles it for each cartridge. Expected pixels and
 PCM are calculated in the test; they are not recordings of this core's output.
 Pixel comparisons cover every RGBA sample, including its position and alpha.
-The 224-cartridge sweep runs in twelve batches per browser, each with at most
+The 230-cartridge sweep runs in twelve batches per browser, each with at most
 20 cartridges plus the AUX reset repeat. Each batch retains the baseline
 input/audio, LoROM/HiROM and deterministic-reset checks, compiles client-side,
 and has a 30-minute deadline. This replaces the single 120-cartridge test that
 timed out on the Ubuntu CI runner before reaching its assertions. No fixtures
 are omitted; the AUX pair stays in one batch for its cross-cartridge comparison.
 Each batch saves its own Wasm, fixture results and measurements.
-The three CPU cartridges additionally replay their complete execution after
-power reset, comparing timestamped accumulator/status observations, frame and PCM.
+The seven CPU cartridges additionally replay their complete execution after
+power reset, comparing timestamped CPU observations, frame and PCM.
 For a focused DSP rerun (including baseline input/reset and LoROM/HiROM checks):
 
 ```sh
@@ -56,6 +56,7 @@ rules; the oracle never reads the generated ROM or RTL tables.
 | `pseudo-hires`, `pseudo-hires-swap` | SETINI=`$08` with Mode 0: BG1 red stripes on main, BG2 green stripes scrolled one dot on sub; the second ROM exchanges TM/TS. Even capture samples are sub, odd are main, so every dot's pair must be green/blue or blue/red (reversed in the second ROM), with no color math. |
 | `extbg-bg2`, `extbg-bg12`, `extbg-off`, `extbg-bg12-obj-0/1/2/3`, `extbg-bg2-obj-0/1` | Identity Mode 7 repeats pixel bytes `$00,$01,$81,$80,$02,$82,$03,$83`. SETINI=`$40` enables BG2's seven-bit color and bit-7 priority; `$80` stays transparent on BG2 but is opaque white on BG1. BG1's high palette entries are distinct yellow/magenta/cyan; BG2's low entries are red/green/white. Green objects at (16,16), with a separate OBJ palette, check priority against both BG layers. The disabled control retains BG1's full eight-bit colors. |
 | `bus-no-sram-lorom/hirom`, `bus-sram-lorom/hirom` | CPU reads unmapped `$006000/$005000/$806000`, valid ROM aliases, and present SRAM aliases/mirrors, storing results in `$7e3100` onward before checking them. Absent LoROM SRAM at `$706000/$f06000` also retains open bus. |
+| `bus-multibank-lorom/hirom` | Original 256 KiB images retain three/two ROM bank bits. CPU reads distinguish every bank, high-bank and lower-half aliases, bank endpoints and size-mask wrapping. Full WRAM readback sequences are checked against independent literal expectations. |
 | `bg2`, `bg3`, `bg4`, `layers` | Separate Mode 0 palettes; BG2 offset by one dot interleaves green with BG1 red. |
 | `priority-low`, `priority-high`, `bg3-priority-low/high` | Coincident BG1/BG2 stripes distinguish map priority; Mode 1 BG3 high-priority stripes distinguish its priority-promotion bit. |
 | `sprite-low`, `sprite-high` | Green object occupies dots 16–23, rows 16–23. Low priority is hidden at opaque BG dots; high priority covers them. |
@@ -418,6 +419,39 @@ The width cartridge expects accumulator/P pairs `$a55a/$84`, `$a53c/$24`,
 `$7e3fff` stores cross page boundaries; the subsequent 8-bit `$0300=$aa` write
 changes only the high byte of the first stored word. REP/SEP must change immediate
 operand length and preserve hidden B, while LDA sets N/Z at the selected width.
+
+## Direct-page addressing and cartridge banks
+
+Four `cpu-dp-native/emulation-aligned/unaligned` cartridges set D to `$1200`
+or `$1201`. Distinct WRAM sentinels at `$1200/$1201/$1202/$12ff/$1300` expose
+discarded low bytes and missing page carry. `LDA $01` must return `$a5/$5a`;
+`LDA $ff` must return `$69/$c3`. `STA $02` writes `$96`, verified with an
+absolute read. These results apply in both CPU modes, following the independent
+[bsnes direct-page implementation](https://github.com/bsnes-emu/bsnes/blob/master/bsnes/processor/wdc65816/memory.cpp)
+and its [direct-read instruction sequence](https://github.com/bsnes-emu/bsnes/blob/master/bsnes/processor/wdc65816/instructions-read.cpp).
+Markers immediately before each load also verify the extra internal cycle when
+D's low byte is nonzero. With slow ROM/WRAM accesses, the interval covering
+`LDA dp; STA long` is 64 master clocks when aligned and 70 when unaligned.
+Every CPU observation, final frame and PCM must replay after power reset.
+
+The two multi-bank cartridges keep the original code/data in bank zero and add
+seven 32 KiB LoROM banks or three 64 KiB HiROM banks. At marker offset `$1070`
+(LoROM) or `$9070` (HiROM), bank zero contains `$a6` and bank N contains `$40+N`.
+Nonzero banks also contain `$60+N` at their first byte and `$50+N` at their last.
+The CPU checks every bank through `$01`–`$07` (LoROM) or `$01`–`$03` (HiROM),
+then verifies `$80/$c0` mirrors and full-bank lower-half aliases.
+Boundary probes read `$01ffff` then `$028000` (LoROM) or `$c20000` (HiROM),
+expecting `$51,$62`. The 256 KiB mask must wrap LoROM banks `$08/$09` and HiROM
+banks `$04/$05` to signatures `$a6/$41`; bank `$ff` must select `$47/$43`.
+CPU stores publish all results at `$7e3100` onward before self-comparison.
+The browser requires the complete independently specified sequence, every frame
+pixel and DSP PCM. These tests cover several retained bank bits and mask
+boundaries, rather than every supported ROM size or cartridge decoder.
+
+```sh
+npm run build:demo
+WEBRTL_SNES_FIXTURES='^(cpu-|bus-)' npx playwright test --config=playwright.static.config.js --grep 'full SNES RTL' --workers=2
+```
 
 ## Large OBJ geometry
 

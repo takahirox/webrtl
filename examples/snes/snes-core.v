@@ -6595,7 +6595,7 @@ module P65C816(
             else
                NextState = 4'b0000;
          3'b101 :
-            if (DLNoZero == 1'b1 & EF == 1'b0)
+            if (DLNoZero == 1'b1)
                NextState = STATE + 4'd1;
             else
                NextState = STATE + 4'd2;
@@ -9769,8 +9769,7 @@ module AddrGen(CLK, RST_N, EN, LOAD_PC, PCDec, GotInterrupt, ADDR_CTRL, IND_CTRL
    end
 
    assign InnerDS = (ABSCtrl == 2'b11 & (AALCtrl[2] == 1'b1 | AAHCtrl[2] == 1'b1)) ? S :
-                    (e6502 == 1'b0) ? D :
-                    {D[15:8], 8'h00};
+                    D;
 
    assign NewDL = (({1'b0, InnerDS[7:0]}) + ({1'b0, D_IN}));
    assign NewAAHWithCarry = (NewAAH + ({8'b00000000, SavedCarry}));

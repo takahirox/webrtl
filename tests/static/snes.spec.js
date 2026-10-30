@@ -67,6 +67,9 @@ cases += [(f'irq-{name}',dict(irq_check=args)) for name,args in [
  ('v-64',(2,260,64)),('v-258',(2,80,258)),
  ('hv-64-80',(3,80,64)),('hv-192-260',(3,260,192))]]
 cases += [(f'cpu-{check}',dict(cpu_check=check)) for check in ['width','binary','decimal']]
+cases += [(f'cpu-dp-{mode}-{alignment}',dict(cpu_check=f'dp-{mode}-{alignment}'))
+ for mode in ['native','emulation'] for alignment in ['aligned','unaligned']]
+cases += [(f'bus-multibank-{mapping}',dict(bus=f'multibank-{mapping}')) for mapping in ['lorom','hirom']]
 cases += [(f'obj-geometry-{size}{suffix}',dict(sprite_priority=3,display=display,effect=f'obj-geometry-{size}{suffix}'))
  for size in ['32x32','64x64','32x64'] for suffix,display in [('',0),('-interlace',3)]]
 print(json.dumps([dict(name=name,bytes=list(build(**args)[0])) for name,args in cases]))`], { maxBuffer: 40 * 1024 * 1024 }));
@@ -645,15 +648,28 @@ test(`full SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: boots a lo
       // Literal result/NVZC expectations from WDC's programming model and
       // independent 65816 arithmetic, not generator data or RTL ALU outputs.
       const kind = name.split("-")[1];
-      const expected = {
-        width: [[0xa55a,0x80],[0xa53c,0x20],[0x1234,0],[0xaa34,0x80],[0x1234,0],[0,2]],
-        binary: [[0x0100,0],[0,3],[0x8000,0xc0],[0,0x43],[0x5556,0],
-          [0x00ff,1],[0xffff,0x80],[0x7fff,0x41],[0x8000,0xc0],[0,3],[0x1200,1]],
-        decimal: [[0x0010,0],[0x0100,0],[0x1000,0],[0,3],[0,0x43],[0x8000,0xc0],
-          [0x0999,1],[0x9999,0x80],[0x7999,0x41],[0,3],[0x0999,1]],
-      }[kind].flatMap(([word, flags]) => [word & 255, word >> 8, flags | 4 | (kind === "decimal" ? 8 : 0)]);
-      expect(observations.map(([, address, value]) => [address, value]), `${name} complete CPU accumulator/status observations`)
-        .toEqual(expected.map((value, i) => [0x7e3700 + i, value]));
+      if (kind === "dp") {
+        const unaligned = name.includes("unaligned");
+        const expected = unaligned ? [1,0x5a,0x5a,0xc3,0x96] : [0,0xa5,0xa5,0x69,0x96];
+        expect(observations.map(([, address, value]) => [address, value]), `${name} D+operand loads, carry and store`)
+          .toEqual(expected.map((value, i) => [0x7e3700 + i, value]));
+        // LDA dp (3 bus cycles) + STA long (5) use slow 8-clock ROM/WRAM.
+        // D.l != 0 adds one six-clock internal cycle, in native and E modes.
+        for (const index of [0, 2]) {
+          const elapsed = observations[index + 1][0] - observations[index][0];
+          expect(elapsed, `${name} direct-page cycle penalty`).toBe(unaligned ? 70 : 64);
+        }
+      } else {
+        const expected = {
+          width: [[0xa55a,0x80],[0xa53c,0x20],[0x1234,0],[0xaa34,0x80],[0x1234,0],[0,2]],
+          binary: [[0x0100,0],[0,3],[0x8000,0xc0],[0,0x43],[0x5556,0],
+            [0x00ff,1],[0xffff,0x80],[0x7fff,0x41],[0x8000,0xc0],[0,3],[0x1200,1]],
+          decimal: [[0x0010,0],[0x0100,0],[0x1000,0],[0,3],[0,0x43],[0x8000,0xc0],
+            [0x0999,1],[0x9999,0x80],[0x7999,0x41],[0,3],[0x0999,1]],
+        }[kind].flatMap(([word, flags]) => [word & 255, word >> 8, flags | 4 | (kind === "decimal" ? 8 : 0)]);
+        expect(observations.map(([, address, value]) => [address, value]), `${name} complete CPU accumulator/status observations`)
+          .toEqual(expected.map((value, i) => [0x7e3700 + i, value]));
+      }
       fixtureEvidence.at(-1).cpu = observations;
       if (name.endsWith("-repeat")) {
         const original = results.modeResults.find((r) => r.name === name.slice(0, -7));
@@ -713,9 +729,14 @@ test(`full SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: boots a lo
     }
     if (name.startsWith("bus-")) {
       const hirom = name.endsWith("hirom"), sram = name.startsWith("bus-sram-");
+      const multibank = name.startsWith("bus-multibank-");
       const expected = [0x60, 0x50, 0x80,
         ...(!hirom && !sram ? [0x70, 0xf0] : []),
-        ...Array(hirom ? 4 : 6).fill(0xa6), ...(sram ? [0x5a, 0x3c] : [])];
+        ...Array(hirom ? 4 : 6).fill(0xa6),
+        ...(multibank ? (hirom ?
+          [0xa6,0xa6,0x41,0x42,0x43,0x41,0x41,0x41,0x41,0x51,0x62,0xa6,0xa6,0x41,0x43,0x63,0x53] :
+          [0xa6,0xa6,0x41,0x42,0x43,0x44,0x45,0x46,0x47,0x41,0x41,0x41,0x41,0x51,0x62,0xa6,0xa6,0x41,0x47,0x67,0x57]) : []),
+        ...(sram ? [0x5a, 0x3c] : [])];
       expect(writes.filter((t) => t[1] >= 0x7e3100 && t[1] < 0x7e3100 + expected.length)
         .map((t) => [t[1], t[2]]), `${name} CPU read results`).toEqual(
           expected.map((value, i) => [0x7e3100 + i, value]));

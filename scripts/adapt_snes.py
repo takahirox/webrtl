@@ -72,6 +72,14 @@ assign DMA_A_INVALID = DMA_ACTIVE && !INT_A[22] &&
             source = source.replace("reg [3:0] STATE2;", "")
             source = source.replace("STATE2 = STATE - 4'd1;", "")
             source = source.replace("STATE2[2:0]", "(STATE[2:0] - 3'd1)")
+        if name == "src/65C816/P65C816.v":
+            # An unaligned direct page costs a cycle in both CPU modes.
+            source = source.replace("DLNoZero == 1'b1 & EF == 1'b0",
+                                    "DLNoZero == 1'b1")
+        if name == "src/65C816/AddrGen.v":
+            # E does not clear D.l: D+operand uses the full direct register
+            # in both CPU modes.
+            source = source.replace("(e6502 == 1'b0) ? D :\n                    {D[15:8], 8'h00}", "D")
         if name == "src/dsp.v":
             # TEST controls only SMP ARAM writes. Keep the raw SMP write
             # strobe for DSPADDR/DSPDATA, and leave DSP sample/echo slots alone.

@@ -326,7 +326,33 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
     cpu.emit("SEI; CLD; CLC; XCE; REP #$10; LDX #$1fff; TXS", 0x78, 0xd8, 0x18, 0xfb, 0xc2, 0x10, 0xa2, 0xff, 0x1f, 0x9a)
     stz(0x4200)
     stz(0x420c)
-    if cpu_check:
+    if cpu_check and cpu_check.startswith("dp-"):
+        emulation = "emulation" in cpu_check
+        direct = 0x1201 if cpu_check.endswith("unaligned") else 0x1200
+        # Distinct sentinels expose a discarded D.l and carry into D.h.
+        for address, value in [(0x1200, 0x31), (0x1201, 0xa5), (0x1202, 0x5a),
+                               (0x12ff, 0x69), (0x1300, 0xc3)]:
+            write(address, value)
+        cpu.emit("REP #$20; LDA #D; TCD; SEP #$30 (8-bit A/X)",
+                 0xc2, 0x20, 0xa9, direct & 255, direct >> 8, 0x5b, 0xe2, 0x30)
+        if emulation:
+            cpu.emit("SEC; XCE (enter emulation without changing D)", 0x38, 0xfb)
+        # Each marker is immediately followed by LDA dp; STA long. The
+        # browser checks the six-master-clock unaligned-D penalty as well.
+        for index, (operand, expected) in enumerate([
+                (1, 0xa5 if direct == 0x1200 else 0x5a),
+                (0xff, 0x69 if direct == 0x1200 else 0xc3)]):
+            cpu.emit("STA timing marker", 0x8f, index * 2, 0x37, 0x7e)
+            cpu.emit(f"LDA ${operand:02x}; STA direct-page result",
+                     0xa5, operand, 0x8f, index * 2 + 1, 0x37, 0x7e)
+            check(expected)
+        cpu.emit("LDA #$96; STA $02 (direct-page write)", 0xa9, 0x96, 0x85, 2)
+        load(direct + 2)
+        cpu.emit("STA direct-page write readback", 0x8f, 4, 0x37, 0x7e)
+        check(0x96)
+        cpu.emit("CLC; XCE; REP #$30; LDA #0; TCD; LDX #$1fff; TXS; SEP #$20",
+                 0x18, 0xfb, 0xc2, 0x30, 0xa9, 0, 0, 0x5b, 0xa2, 0xff, 0x1f, 0x9a, 0xe2, 0x20)
+    elif cpu_check:
         # Capture the real accumulator and pre-comparison P through the CPU bus.
         # PHP precedes REP/STA/SEP so even an 8-bit result retains its hidden B.
         def cpu_observe(index, result, flags):
@@ -468,6 +494,7 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
     if bus:
         hirom = bus.endswith("hirom")
         has_sram = bus.startswith("sram-")
+        multibank = bus.startswith("multibank-")
         observations = []
 
         def observe(address, expected, absolute=False):
@@ -492,6 +519,28 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
         if not hirom: aliases += [0x401070, 0xc01070]
         for address in aliases:
             observe(address, 0xa6)
+        if multibank:
+            # A 256 KiB image retains three LoROM / two HiROM bank bits.
+            # Explicit CPU addresses include high-bank aliases, full-bank
+            # lower halves, consecutive-bank boundaries and mask wrapping.
+            probes = ([
+                (0x009070, 0xa6), (0x809070, 0xa6),
+                (0x019070, 0x41), (0x029070, 0x42), (0x039070, 0x43),
+                (0xc19070, 0x41), (0x419070, 0x41), (0x410070, 0x41),
+                (0xc10070, 0x41), (0x01ffff, 0x51), (0xc20000, 0x62),
+                (0x409070, 0xa6), (0x049070, 0xa6), (0x059070, 0x41),
+                (0xff9070, 0x43), (0x430000, 0x63), (0x43ffff, 0x53),
+            ] if hirom else [
+                (0x009070, 0xa6), (0x809070, 0xa6),
+                (0x019070, 0x41), (0x029070, 0x42), (0x039070, 0x43),
+                (0x049070, 0x44), (0x059070, 0x45), (0x069070, 0x46), (0x079070, 0x47),
+                (0x819070, 0x41), (0x419070, 0x41), (0x411070, 0x41),
+                (0xc11070, 0x41), (0x01ffff, 0x51), (0x028000, 0x62),
+                (0x409070, 0xa6), (0x089070, 0xa6), (0x099070, 0x41),
+                (0xff9070, 0x47), (0x478000, 0x67), (0x47ffff, 0x57),
+            ])
+            for address, expected in probes:
+                observe(address, expected)
         if has_sram:
             address, alias = (0x206000, 0xa06000) if hirom else (0x706000, 0xf06000)
             cpu.emit("LDA #$5a; STA SRAM", 0xa9, 0x5a, 0x8f, address & 255, (address >> 8) & 255, address >> 16)
@@ -1249,6 +1298,19 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
             rom = bytearray(32768) + rom
             rom[0xffd5] = 0x21
             rom[0xffd7] = 6
+    if bus and multibank:
+        bank_size = 65536 if hirom else 32768
+        rom.extend([0xcb] * (262144 - len(rom)))
+        for bank in range(1, len(rom) // bank_size):
+            start = bank * bank_size
+            rom[start] = 0x60 + bank
+            rom[start + bank_size - 1] = 0x50 + bank
+            rom[start + 0x1070] = 0x40 + bank
+            if hirom:
+                rom[start + 0x70] = rom[start + 0x9070] = 0x40 + bank
+        if hirom:
+            rom[0x9070] = 0xa6
+        rom[0xffd7 if hirom else 0x7fd7] = 8
     header = 0xffc0 if bus and hirom else 0x7fc0
     rom[header + 0x1c:header + 0x20] = bytes([0xff, 0xff, 0, 0])
     checksum = sum(rom) & 0xffff

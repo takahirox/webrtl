@@ -5820,5 +5820,151 @@
       "package-lock.json": "541217566bd0ba90e22dd1c5358fd3b362853d705ac75d9c1f1e36139ef9e597"
     },
     "limits": "Focused 28-cartridge selection, including all 17 retained sprite-* and obj-limit-* variants and Mode 0/1 controls, plus all baseline input/audio/LoROM/HiROM/reset checks. The full 224-cartridge sweep, unrelated static/native regressions and live Pages checks were not rerun. No exhaustive CPU or PPU conformance or real-time playability claim. Compiler peak memory was not measured."
+  },
+  "directPageAndBankReviewFixValidation": {
+    "date": "2026-10-30",
+    "commands": [
+      "python3 -m unittest discover -s tests -v",
+      "npm run build:demo",
+      "verilator --lint-only --top-module snes -Wno-fatal examples/snes/snes.v examples/snes/snes-core.v",
+      "WEBRTL_SNES_FIXTURES='^(cpu-|bus-)' npx playwright test --config=playwright.static.config.js --grep 'full SNES RTL' --workers=2",
+      "python3 scripts/adapt_snes.py /path/to/console /path/to/boot"
+    ],
+    "checks": {
+      "pythonPassed": 10,
+      "staticBuild": "passed",
+      "rtlLint": "passed; retained upstream width warnings",
+      "browsersPassed": 2,
+      "retainedCartridgesByteIdentical": 224,
+      "totalCartridges": 230,
+      "upstreamReproduction": "exact match from SHA-256-verified pinned inputs"
+    },
+    "browserResults": {
+      "chromium": {
+        "compileMs": 70067.60000000149,
+        "wasmBytes": 270474,
+        "cxxrtlBytes": 1630835,
+        "wasmSha256": "5a7cef004c9c5585d4d8391d00b0456b9cb1ed68fd04a5082db379b73c169409",
+        "comparedPixels": 2293760,
+        "modelMemoryBytes": 20578304,
+        "cartridges": 13,
+        "executionsIncludingCpuResetReplays": 20,
+        "zeroMismatchExecutions": 20,
+        "cpuResetReplays": 7,
+        "pcmSamplesComparedPerExecution": 256,
+        "directPageMasterClocks": {
+          "cpu-dp-native-aligned": [
+            64,
+            64
+          ],
+          "cpu-dp-native-unaligned": [
+            70,
+            70
+          ],
+          "cpu-dp-emulation-aligned": [
+            64,
+            64
+          ],
+          "cpu-dp-emulation-unaligned": [
+            70,
+            70
+          ]
+        },
+        "multiBankReadback": {
+          "bus-multibank-lorom": {
+            "bytes": 32,
+            "sha256": "3fc1e160fc5d8f267750ce1de8ed536f643191d536bd6bab0fba2ebe3e20ea99"
+          },
+          "bus-multibank-hirom": {
+            "bytes": 24,
+            "sha256": "c2414d0fc14ddab874c5d95ff62476866f0208093ddad88cb9cdc16b4003e2f5"
+          }
+        },
+        "allFixtureFrameAndPcmSha256": "1cd691f6b89d09f4acbea7b7172d09ada45739ead8cd5efce4e4f4c836b3ccbf"
+      },
+      "firefox": {
+        "compileMs": 73904,
+        "wasmBytes": 270474,
+        "cxxrtlBytes": 1630835,
+        "wasmSha256": "5a7cef004c9c5585d4d8391d00b0456b9cb1ed68fd04a5082db379b73c169409",
+        "comparedPixels": 2293760,
+        "modelMemoryBytes": 20578304,
+        "cartridges": 13,
+        "executionsIncludingCpuResetReplays": 20,
+        "zeroMismatchExecutions": 20,
+        "cpuResetReplays": 7,
+        "pcmSamplesComparedPerExecution": 256,
+        "directPageMasterClocks": {
+          "cpu-dp-native-aligned": [
+            64,
+            64
+          ],
+          "cpu-dp-native-unaligned": [
+            70,
+            70
+          ],
+          "cpu-dp-emulation-aligned": [
+            64,
+            64
+          ],
+          "cpu-dp-emulation-unaligned": [
+            70,
+            70
+          ]
+        },
+        "multiBankReadback": {
+          "bus-multibank-lorom": {
+            "bytes": 32,
+            "sha256": "3fc1e160fc5d8f267750ce1de8ed536f643191d536bd6bab0fba2ebe3e20ea99"
+          },
+          "bus-multibank-hirom": {
+            "bytes": 24,
+            "sha256": "c2414d0fc14ddab874c5d95ff62476866f0208093ddad88cb9cdc16b4003e2f5"
+          }
+        },
+        "allFixtureFrameAndPcmSha256": "1cd691f6b89d09f4acbea7b7172d09ada45739ead8cd5efce4e4f4c836b3ccbf"
+      }
+    },
+    "negativeControls": {
+      "previousCore": {
+        "wasmBytes": 270593,
+        "expectedEmulationUnalignedLda01": 90,
+        "actual": 165,
+        "result": "rejected by cartridge self-check and incomplete CPU observations"
+      },
+      "collapsedBankMasks": [
+        {
+          "mapping": "LoROM",
+          "mask": 32767,
+          "expectedBank1Signature": 65,
+          "actual": 166,
+          "cpuObservationsBeforeFailure": 14
+        },
+        {
+          "mapping": "HiROM",
+          "mask": 65535,
+          "expectedBank1Signature": 65,
+          "actual": 166,
+          "cpuObservationsBeforeFailure": 10
+        }
+      ],
+      "execution": "Node instantiated the browser-generated Wasm and supplied the original regression cartridges through the existing cartridge ABI; no CPU emulation."
+    },
+    "newCartridgeSha256": {
+      "cpu-dp-native-aligned": "2bd7658a084c588194d9b442e10b3c7e99c661eac80531f5f86d70715753f205",
+      "cpu-dp-native-unaligned": "7f18e35282fb1b9be9e843223d1d6a5e109b28fa8fcd1c5bac048490544bf98d",
+      "cpu-dp-emulation-aligned": "431263ad923ba3b0458e8fed49da3839483da6e01b320579944a679041576046",
+      "cpu-dp-emulation-unaligned": "4cf5ad18d68adee3145346173a5d767b22999faef43b9173f71666cceb6c807a",
+      "bus-multibank-lorom": "adcffda1ffffc27b2ab303f054f1b9742994bbf9dbc729ade7d4a483ba4fa4a4",
+      "bus-multibank-hirom": "8ed6d0bf1154f1c1f48221e6994bc40fad6bed4ee124272b8d4f6c567409829b"
+    },
+    "sourceSha256": {
+      "scripts/adapt_snes.py": "0cf716775ee82ac7eadfde4682c979627affe543d0dd413835b692671bee16d3",
+      "scripts/generate-snes-rom.py": "a4aba6cda5c5bf86addae4675e65e0b32491d7883316d5f26ba218225cfc7822",
+      "tests/static/snes.spec.js": "c0d98c34860d7851aaa6198285990baaa0db10230f65aa61cc49f939d56fcd51",
+      "examples/snes/snes-core.v": "60f37d5e1e46d7278b97414cc2346e1507a62940b22a2ea59f1a621a0c717758",
+      "examples/snes/snes.v": "0c707bd087c18279952a4a490045b954041475c8ec417f7dcaaa630e79fffec2"
+    },
+    "limits": "Focused CPU/bus selection: 13 cartridges plus seven CPU reset replays per browser, retaining baseline keyboard/gamepad, frame, PCM, LoROM/HiROM and reset checks. The complete 230-cartridge sweep, unrelated static/native suites and live Pages checks were not rerun. Coverage uses 256 KiB cartridge bank/mask boundaries, not every supported size or decoder; direct-page cases cover unindexed loads/stores. Compiler peak memory was not measured."
   }
 }
