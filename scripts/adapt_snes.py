@@ -73,6 +73,26 @@ assign DMA_A_INVALID = DMA_ACTIVE && !INT_A[22] &&
             source = source.replace("STATE2 = STATE - 4'd1;", "")
             source = source.replace("STATE2[2:0]", "(STATE[2:0] - 3'd1)")
         if name == "src/65C816/P65C816.v":
+            # These 65816-only stack operations use full-width S even in E.
+            # Restore S.h only after the instruction's final access (ares
+            # pushN/pullN), retaining page-$01 wrapping for ordinary pushes,
+            # pulls, JSR/RTS and interrupts.
+            source = source.replace("   wire LAST_CYCLE =", """   wire STACK_NATIVE = IR == 8'h0B || IR == 8'h2B || IR == 8'hAB ||
+                       IR == 8'hF4 || IR == 8'hD4 || IR == 8'h62 ||
+                       IR == 8'h22 || IR == 8'hFC || IR == 8'h6B;
+
+   wire LAST_CYCLE =""")
+            start = source.index("            case (MC.LOAD_SP)")
+            end = source.index("            endcase", start) + len("            endcase")
+            stack = source[start:end]
+            # Only the increment/decrement cases change; TCS/TXS still force
+            # S.h=$01 in E mode.
+            stack = stack.replace("if (EF == 1'b0)", "if (EF == 1'b0 || STACK_NATIVE)", 3)
+            source = source[:start] + stack + """
+            if (EF && STACK_NATIVE && LAST_CYCLE)
+               SP[15:8] <= 8'h01;""" + source[end:]
+            source = source.replace("if (EF == 1'b0)\n               ADDR_BUS[23:0] = {8'h00, SP};",
+                                    "if (EF == 1'b0 || STACK_NATIVE)\n               ADDR_BUS[23:0] = {8'h00, SP};")
             # An unaligned direct page costs a cycle in both CPU modes.
             source = source.replace("DLNoZero == 1'b1 & EF == 1'b0",
                                     "DLNoZero == 1'b1")

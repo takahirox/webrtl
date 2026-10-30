@@ -326,7 +326,146 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
     cpu.emit("SEI; CLD; CLC; XCE; REP #$10; LDX #$1fff; TXS", 0x78, 0xd8, 0x18, 0xfb, 0xc2, 0x10, 0xa2, 0xff, 0x1f, 0x9a)
     stz(0x4200)
     stz(0x420c)
-    if cpu_check and cpu_check.startswith(("indexed-", "pointer-")):
+    if cpu_check and cpu_check.startswith("stack-"):
+        _, group, mode_name = cpu_check.split("-")
+        emulation = mode_name == "emulation"
+        assert mode_name in ["native", "emulation"]
+        if emulation:
+            cpu.emit("SEC; XCE (emulation mode)", 0x38, 0xfb)
+        observation = 0
+
+        def observe_byte(expected):
+            nonlocal observation
+            cpu.emit("STA stack observation", 0x8f, observation, 0x37, 0x7e)
+            observation += 1
+            check(expected)
+
+        def observe_word(low, high):
+            # TSC/TDC always transfer sixteen bits, even with M=1.
+            # CMP does not change hidden B; XBA exposes the high byte.
+            observe_byte(low)
+            cpu.emit("XBA", 0xeb)
+            observe_byte(high)
+
+        def stack_pointer(value):
+            cpu.emit(f"LDX #${value:04x}; TXS", 0xa2, value & 255,
+                     *([] if emulation else [value >> 8]), 0x9a)
+
+        def stack_memory(pairs):
+            # Long stores also work while PLB has temporarily changed DBR.
+            for address, value in pairs:
+                cpu.emit(f"Initialize ${address:04x}", 0xa9, value,
+                         0x8f, address & 255, address >> 8, 0)
+
+        def observe_memory(pairs):
+            for address, value in pairs:
+                cpu.emit(f"LDA ${address:04x}", 0xaf, address & 255, address >> 8, 0)
+                observe_byte(value)
+
+        def observe_sp(value):
+            cpu.emit("TSC", 0x3b)
+            observe_word(value & 255, value >> 8)
+
+        def pad_to(address):
+            assert cpu.base + len(cpu.data) <= address
+            cpu.emit(f"NOP padding to ${address:04x}",
+                     *([0xea] * (address - cpu.base - len(cpu.data))))
+
+        if group == "push":
+            for operation in ["pea", "phd", "pei", "per"]:
+                stack_memory([(0x100, 0), (0xff, 0xa5), (0x1ff, 0x5a),
+                              (0xfe, 0x69), (0x1fe, 0xc3)])
+                stack_pointer(0x100)
+                if operation == "phd":
+                    # XBA assembles the full hidden-B accumulator in E mode.
+                    cpu.emit("LDA #$12; XBA; LDA #$34; TCD", 0xa9, 0x12, 0xeb, 0xa9, 0x34, 0x5b)
+                    cpu.emit("PHD", 0x0b)
+                elif operation == "pei":
+                    stack_memory([(0x40, 0x34), (0x41, 0x12)])
+                    cpu.emit("PEI ($40)", 0xd4, 0x40)
+                elif operation == "per":
+                    displacement = (0x1234 - (cpu.base + len(cpu.data) + 3)) & 65535
+                    cpu.emit("PER (push effective address $1234)", 0x62,
+                             displacement & 255, displacement >> 8)
+                else:
+                    cpu.emit("PEA $1234", 0xf4, 0x34, 0x12)
+                observe_sp(0x1fe if emulation else 0xfe)
+                cpu.emit("LDA #$96; PHA (following ordinary push)", 0xa9, 0x96, 0x48)
+                observe_sp(0x1fd if emulation else 0xfd)
+                observe_memory([(0x100, 0x12), (0xff, 0x34), (0x1ff, 0x5a),
+                                (0xfe, 0x69 if emulation else 0x96),
+                                (0x1fe, 0x96 if emulation else 0xc3)])
+                cpu.emit("LDA #0; XBA; LDA #0; TCD (restore D)", 0xa9, 0, 0xeb, 0xa9, 0, 0x5b)
+        elif group == "pull":
+            stack_memory([(0x1ff, 0x5a), (0x200, 0x12), (0x100, 0)])
+            stack_pointer(0x1fe)
+            cpu.emit("PLD; TDC", 0x2b, 0x7b)
+            observe_word(0x5a, 0x12)
+            observe_sp(0x100 if emulation else 0x200)
+            stack_pointer(0x1ff)
+            cpu.emit("PLB (read $0200=$12)", 0xab)
+            observe_sp(0x100 if emulation else 0x200)
+            # Use PHB/PLA to expose DBR after checking the restored full S.
+            cpu.emit("PHB; PLA", 0x8b, 0x68)
+            observe_byte(0x12)
+            stack_memory([(0x1ff, 0)])
+            stack_pointer(0x1fe)
+            cpu.emit("PLB (restore DBR); LDA #0; XBA; LDA #0; TCD",
+                     0xab, 0xa9, 0, 0xeb, 0xa9, 0, 0x5b)
+        elif group == "call":
+            for address, indexed in [(0x8200, False), (0x8300, True)]:
+                # A WRAM trampoline jumps back without pulling the stack, so
+                # each call's boundary bytes can be inspected independently.
+                continuation = address + (3 if indexed else 4)
+                stack_memory([(0x700, 0x4c), (0x701, continuation & 255),
+                              (0x702, continuation >> 8), (0x600, 0), (0x601, 7),
+                              (0x100, 0xa5), (0xff, 0xa5), (0xfe, 0xa5),
+                              (0x1ff, 0x5a), (0x1fe, 0x69)])
+                stack_pointer(0x100)
+                cpu.emit("LDX #0", 0xa2, 0, *([] if emulation else [0]))
+                pad_to(address)
+                cpu.emit("JSR ($0600,X)" if indexed else "JSL $000700",
+                         *([0xfc, 0, 6] if indexed else [0x22, 0, 7, 0]))
+                observe_sp((0x1fe if emulation else 0xfe) if indexed else
+                           (0x1fd if emulation else 0xfd))
+                observe_memory([(0x100, 0x83 if indexed else 0),
+                                (0xff, 2 if indexed else 0x82),
+                                (0xfe, 0xa5 if indexed else 3),
+                                (0x1ff, 0x5a), (0x1fe, 0x69)])
+            # RTL pulls all three bytes with full S and restores S.h afterward.
+            stack_memory([(0x1ff, 0xff), (0x200, 0x83), (0x201, 0),
+                          (0x100, 0), (0x101, 0xa5)])
+            stack_pointer(0x1fe)
+            cpu.emit("RTL (return to $008400)", 0x6b)
+            pad_to(0x8400)
+            observe_sp(0x101 if emulation else 0x201)
+            cpu.emit("PHK (following ordinary push)", 0x4b)
+            observe_memory([(0x101, 0 if emulation else 0xa5), (0x201, 0)])
+        else:
+            assert group == "ordinary"
+            stack_memory([(0x100, 0), (0xff, 0xa5), (0x1ff, 0x5a)])
+            stack_pointer(0x100)
+            cpu.emit("LDA #$12; PHA; LDA #$34; PHA", 0xa9, 0x12, 0x48, 0xa9, 0x34, 0x48)
+            observe_sp(0x1fe if emulation else 0xfe)
+            observe_memory([(0x100, 0x12), (0xff, 0xa5 if emulation else 0x34),
+                            (0x1ff, 0x34 if emulation else 0x5a)])
+            stack_memory([(0x1ff, 0x5a), (0x200, 0x12), (0x100, 0xa5)])
+            stack_pointer(0x1fe)
+            cpu.emit("PLA", 0x68)
+            observe_byte(0x5a)
+            cpu.emit("PLA (ordinary wrap at $01ff)", 0x68)
+            observe_byte(0xa5 if emulation else 0x12)
+            observe_sp(0x100 if emulation else 0x200)
+            stack_memory([(0x700, 0x60), (0xff, 0xa5), (0x1ff, 0x5a)])
+            stack_pointer(0x100)
+            pad_to(0x8200)
+            cpu.emit("JSR $0700; RTS (ordinary wrapping call/return)", 0x20, 0, 7)
+            observe_sp(0x100)
+            observe_memory([(0x100, 0x82), (0xff, 0xa5 if emulation else 2),
+                            (0x1ff, 2 if emulation else 0x5a)])
+        cpu.emit("CLC; XCE; REP #$10; LDX #$1fff; TXS (restore cartridge ABI)",
+                 0x18, 0xfb, 0xc2, 0x10, 0xa2, 0xff, 0x1f, 0x9a)
+    elif cpu_check and cpu_check.startswith(("indexed-", "pointer-")):
         emulation = "emulation" in cpu_check
         unaligned = cpu_check.endswith("unaligned")
         direct = 0x1201 if unaligned else 0x1200

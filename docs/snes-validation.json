@@ -1,6 +1,6 @@
 {
-  "latestValidation": "indexedDirectPageAndPointerReviewFixValidation",
-  "historyNote": "Top-level checks and measurements are the initial 2026-10-29 snapshot. Named review entries retain historical evidence; latestValidation identifies the current complete sweep.",
+  "latestValidation": "emulationStackBoundaryReviewFixValidation",
+  "historyNote": "Top-level checks and measurements are the initial 2026-10-29 snapshot. Named review entries retain historical evidence; latestValidation identifies the latest validation and its scope.",
   "issue": 22,
   "date": "2026-10-29",
   "host": "macOS arm64, Apple M4 Max",
@@ -6688,5 +6688,158 @@
       "package-lock.json": "541217566bd0ba90e22dd1c5358fd3b362853d705ac75d9c1f1e36139ef9e597"
     },
     "limits": "Complete retained suite plus new regressions passed on the corrected implementation. Fixtures remain bounded hardware-path coverage, not exhaustive CPU/console conformance or proof of complete Issue #22 acceptance. Timings are concurrent desktop-browser measurements, not a real-time playability guarantee. Circuit linear memory is measured; compiler peak memory is not. Safari/mobile and optional broader benchmarks were not run. Live Pages verification remains pending publication; no push or merge performed."
+  },
+  "emulationStackBoundaryReviewFixValidation": {
+    "date": "2026-10-31",
+    "timezone": "Asia/Tokyo",
+    "reviewedPrHead": "47987fec78837aeccd01b6dc4a432eaf3f9d123a",
+    "fix": "Use full-width stack increments/decrements and addresses for PHD, PLD, PLB, PEA, PEI, PER, JSL, JSR (abs,X) and RTL in emulation mode; restore S.h after the final instruction access. Preserve ordinary page-$01 wrapping.",
+    "checks": {
+      "pythonPassed": 10,
+      "rtlLint": "passed (warnings, no errors)",
+      "staticBuild": "passed",
+      "hashVerifiedUpstreamReproduction": "exact match",
+      "staticBrowsers": {
+        "startTime": "2026-10-30T14:56:02.046Z",
+        "duration": 1020312.785,
+        "expected": 46,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "otherStaticRegressionChecks": 42,
+      "retainedCartridgesByteIdentical": 238,
+      "retainedCartridgeHashManifestSha256": "b34e10609f531468c2742898f0a39352debcc6ffc9c51b4effadfb89e5a596d6"
+    },
+    "commands": [
+      "python3 -m unittest discover -s tests -v",
+      "verilator --lint-only --top-module snes -Wno-fatal examples/snes/snes.v examples/snes/snes-core.v",
+      "python3 scripts/adapt_snes.py /tmp/webrtl-22-upstream/console /tmp/webrtl-22-upstream/boot",
+      "npm run build:demo",
+      "WEBRTL_SNES_FIXTURES='^(cpu-|irq-|mode-[01]$|cgram-latch$|sprite-(interlace|rect)(-vflip)?$)' npx playwright test --config=playwright.static.config.js --workers=4 --reporter=line,json"
+    ],
+    "negativeControl": {
+      "browser": "chromium",
+      "expectedFailedTests": 1,
+      "method": "Serve the reviewed snes-core.v in the static build, with the new stack fixtures and unchanged adapter/runtime. Run the full SNES test with WEBRTL_SNES_FIXTURES=^cpu-stack-.",
+      "reviewedCoreSha256": "8d9c730e138ec9be0bb89952873b20f5399b3ffedc3af0c3dad8fb026a1a4e54",
+      "pea": "S=$0100: $00ff remains $a5 instead of $34; emulation push sequence stops after 6 of 36 observations.",
+      "pld": "S=$01fe: D=$005a instead of $125a; emulation pull sequence stops after 2 of 7 observations.",
+      "jsl": "S=$0100: $00ff remains $a5 instead of return-address high byte $82; emulation call sequence stops after 4 of 18 observations.",
+      "controls": "All four native groups and ordinary emulation stack controls reach the expected frame and non-silent PCM. All eight cartridges replay observations exactly."
+    },
+    "browsers": {
+      "chromium": {
+        "snesBatchesPassed": 2,
+        "cartridges": 36,
+        "resetReplays": 29,
+        "positivePixelSamples": 7684096,
+        "pixelMismatches": 0,
+        "exactPcmSamples": 16640,
+        "newStackCartridges": 8,
+        "newStackResetReplays": 8,
+        "newStackObservationBytes": 150
+      },
+      "firefox": {
+        "snesBatchesPassed": 2,
+        "cartridges": 36,
+        "resetReplays": 29,
+        "positivePixelSamples": 7684096,
+        "pixelMismatches": 0,
+        "exactPcmSamples": 16640,
+        "newStackCartridges": 8,
+        "newStackResetReplays": 8,
+        "newStackObservationBytes": 150
+      }
+    },
+    "measurements": [
+      {
+        "browser": "chromium",
+        "compileMs": 84908.5,
+        "wasmBytes": 270675,
+        "cxxrtlBytes": 1634032,
+        "runtime": {
+          "cycles": 1671168,
+          "elapsedMs": 6324.80000000447,
+          "memoryBytes": 20578304,
+          "samples": 2489,
+          "nonzero": 1399,
+          "pcmHash": 2024722791,
+          "masterClocksPerSecond": 264224.6395141062,
+          "estimatedNtscFieldsPerSecond": 0.739362896269689,
+          "realTimeRatio": 0.012302524460236622
+        }
+      },
+      {
+        "browser": "firefox",
+        "compileMs": 70900,
+        "wasmBytes": 270675,
+        "cxxrtlBytes": 1634032,
+        "runtime": {
+          "cycles": 1671168,
+          "elapsedMs": 7958,
+          "memoryBytes": 20578304,
+          "samples": 2489,
+          "nonzero": 1399,
+          "pcmHash": 2024722791,
+          "masterClocksPerSecond": 209998.49208343806,
+          "estimatedNtscFieldsPerSecond": 0.5876253388200344,
+          "realTimeRatio": 0.009777708809519928
+        }
+      },
+      {
+        "browser": "chromium",
+        "compileMs": 65698.70000000298,
+        "wasmBytes": 270675,
+        "cxxrtlBytes": 1634032,
+        "runtime": {
+          "cycles": 1671168,
+          "elapsedMs": 6388.20000000298,
+          "memoryBytes": 20578304,
+          "samples": 2489,
+          "nonzero": 1399,
+          "pcmHash": 2024722791,
+          "masterClocksPerSecond": 261602.32929451493,
+          "estimatedNtscFieldsPerSecond": 0.7320250534309589,
+          "realTimeRatio": 0.012180427460962913
+        }
+      },
+      {
+        "browser": "firefox",
+        "compileMs": 69256,
+        "wasmBytes": 270675,
+        "cxxrtlBytes": 1634032,
+        "runtime": {
+          "cycles": 1671168,
+          "elapsedMs": 7915,
+          "memoryBytes": 20578304,
+          "samples": 2489,
+          "nonzero": 1399,
+          "pcmHash": 2024722791,
+          "masterClocksPerSecond": 211139.35565382187,
+          "estimatedNtscFieldsPerSecond": 0.5908177443246789,
+          "realTimeRatio": 0.009830828389912772
+        }
+      }
+    ],
+    "crossBrowserNewStackObservationsSha256": "5bbab55665fa9b879a423d8c6f4e5893d1ba8fa83f9912176e65cdd78a3baec3",
+    "newCartridgeSha256": {
+      "cpu-stack-push-native": "d4a76373f093adb9d6d7dc05e3d5860d5cabb5c90481494a49ff40d40c04a48f",
+      "cpu-stack-push-emulation": "fdac76948f8900da1db225d72e19d38669ef8c30df1465f245a04f1c93be4cb3",
+      "cpu-stack-pull-native": "04f0dee68687796fbcc47c2c209943939424310b05e3748a49e2ff3708af9729",
+      "cpu-stack-pull-emulation": "cf528bc464630bf0e978a96073bba2d314f05a23ffb7f1d4b6a22b7142f6e6cf",
+      "cpu-stack-call-native": "408605805a15878cb9562f1584be762a56b113db7776e95d487ff56db6369134",
+      "cpu-stack-call-emulation": "0b5ccd59da72012f92391ac59c006b66ebfe6bff3098c46a38592989bf630bfb",
+      "cpu-stack-ordinary-native": "afef4313610d37931930405b2e7381ee13191b451194574602dcfd5ec3ef86d9",
+      "cpu-stack-ordinary-emulation": "33030d1fc4c708401f243392ab8f6644b2676f5286d77d38eea3fef430ad1da5"
+    },
+    "sourceSha256": {
+      "scripts/adapt_snes.py": "d262bfe851e327afcde8e798491f63870aa8e1c2f755191a627255eb8e702d9c",
+      "scripts/generate-snes-rom.py": "a5fe8f7e4089b69d4b3f0b7547a88ea46b0975169b15b02e9f1e7d6d33783e69",
+      "examples/snes/snes-core.v": "ba1f92653dafc221c78690bd76c849a4279af3f08ae95485bfd062fbdad60948",
+      "tests/static/snes.spec.js": "b9abeaadc98537cec9c43c9669956484f705e1e6f43312a65e1edc9cb09f9c19",
+      "examples/snes/test.sfc": "1f8ec0ba8bbc51e917c5104f771003e97705c8f2491258593f8181013da35fdb"
+    },
+    "limits": "Focused 36-cartridge selection plus all 42 other static checks. The full 246-cartridge sweep and unchanged trusted-local service tests were not rerun. Compiler peak memory, optional broad benchmarks and live Pages verification were not measured/performed. Publication remains pending."
   }
 }

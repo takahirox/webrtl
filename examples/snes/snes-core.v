@@ -6616,6 +6616,10 @@ module P65C816(
             ;
       endcase
 
+   wire STACK_NATIVE = IR == 8'h0B || IR == 8'h2B || IR == 8'hAB ||
+                       IR == 8'hF4 || IR == 8'hD4 || IR == 8'h62 ||
+                       IR == 8'h22 || IR == 8'hFC || IR == 8'h6B;
+
    wire LAST_CYCLE = (NextState == 4'b0000) ? 1'b1 : 1'b0;
 
    always @(posedge CLK)
@@ -6752,20 +6756,20 @@ module P65C816(
                3'b000 :
                   ;
                3'b001 :
-                  if (EF == 1'b0)
+                  if (EF == 1'b0 || STACK_NATIVE)
                      SP <= (SP + 16'd1);
                   else
                      SP[7:0] <= ((SP[7:0]) + 8'd1);
                3'b010 :
                   if (MC.BYTE_SEL[1] == 1'b0 & w16 == 1'b1)
                   begin
-                     if (EF == 1'b0)
+                     if (EF == 1'b0 || STACK_NATIVE)
                         SP <= SP + 16'd1;
                      else
                         SP[7:0] <= SP[7:0] + 8'd1;
                   end
                3'b011 :
-                  if (EF == 1'b0)
+                  if (EF == 1'b0 || STACK_NATIVE)
                      SP <= SP - 16'd1;
                   else
                      SP[7:0] <= SP[7:0] - 8'd1;
@@ -6782,6 +6786,8 @@ module P65C816(
                default :
                   ;
             endcase
+            if (EF && STACK_NATIVE && LAST_CYCLE)
+               SP[15:8] <= 8'h01;
          end
       end
 
@@ -7048,7 +7054,7 @@ module P65C816(
             ADDR_BUS[23:0] = (({DBR, 16'h0000}) + ({8'h00, (AA[15:0])}) +
                               ({8'h00, ADDR_INC}));
          3'b010 :
-            if (EF == 1'b0)
+            if (EF == 1'b0 || STACK_NATIVE)
                ADDR_BUS[23:0] = {8'h00, SP};
             else
                ADDR_BUS[23:0] = {8'h00, 8'h01, SP[7:0]};

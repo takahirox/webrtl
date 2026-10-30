@@ -6,14 +6,14 @@ uploads its SPC700 driver through the IPL protocol. The browser test compiles th
 RTL once per batch and power-cycles it for each cartridge. Expected pixels and
 PCM are calculated in the test; they are not recordings of this core's output.
 Pixel comparisons cover every RGBA sample, including its position and alpha.
-The 238-cartridge sweep runs in twelve batches per browser, each with at most
+The 246-cartridge sweep runs in thirteen batches per browser, each with at most
 20 cartridges plus the AUX reset repeat. Each batch retains the baseline
 input/audio, LoROM/HiROM and deterministic-reset checks, compiles client-side,
 and has a 30-minute deadline. This replaces the single 120-cartridge test that
 timed out on the Ubuntu CI runner before reaching its assertions. No fixtures
 are omitted; the AUX pair stays in one batch for its cross-cartridge comparison.
 Each batch saves its own Wasm, fixture results and measurements.
-The seven CPU cartridges additionally replay their complete execution after
+All CPU cartridges additionally replay their complete execution after
 power reset, comparing timestamped CPU observations, frame and PCM.
 For a focused DSP rerun (including baseline input/reset and LoROM/HiROM checks):
 
@@ -468,6 +468,35 @@ boundaries, rather than every supported ROM size or cartridge decoder.
 ```sh
 npm run build:demo
 WEBRTL_SNES_FIXTURES='^(cpu-|bus-)' npx playwright test --config=playwright.static.config.js --grep 'full SNES RTL' --workers=2
+```
+
+## 65C816 stack boundaries
+
+Eight original `cpu-stack-{push,pull,call,ordinary}-{native,emulation}` cartridges
+follow ares' independent [stack primitives](https://github.com/ares-emulator/ares/blob/master/ares/component/processor/wdc65816/memory.cpp),
+[stack instructions](https://github.com/ares-emulator/ares/blob/master/ares/component/processor/wdc65816/instructions-other.cpp)
+and [call/return instructions](https://github.com/ares-emulator/ares/blob/master/ares/component/processor/wdc65816/instructions-pc.cpp).
+PHD, PLD, PLB, PEA, PEI, PER, JSL, JSR (abs,X) and RTL use full-width S during
+execution, then restore S.h to `$01` if E=1. Ordinary pushes/pulls and JSR/RTS
+instead wrap within page `$01` in emulation mode.
+
+| Group | Independently specified boundary checks |
+| --- | --- |
+| `push` | With S=`$0100`, PEA/PHD/PEI/PER each push `$1234` to `$0100/$00ff`, preserving `$01ff=$5a`. S ends at `$01fe` (E) or `$00fe` (native). A following PHA of `$96` must write `$01fe` or `$00fe`, respectively. |
+| `pull` | With S=`$01fe`, PLD reads `$01ff=$5a`, `$0200=$12` to produce D=`$125a`, ignoring `$0100=0`. With S=`$01ff`, PLB reads `$0200=$12`; PHB/PLA exposes DBR. Both leave S=`$0100` (E) or `$0200` (native). |
+| `call` | JSL at `$8200` pushes `$00,$82,$03` to `$0100,$00ff,$00fe`; indexed-indirect JSR at `$8300` pushes `$83,$02` to `$0100,$00ff`. WRAM trampolines jump back without pulling, allowing inspection of those bytes and untouched page-$01 sentinels. RTL starting at S=`$01fe` pulls `$ff,$83,$00` from `$01ff,$0200,$0201` and returns to `$008400`, leaving S=`$0101` (E) or `$0201` (native). A following PHK checks restoration. |
+| `ordinary` | Two PHA operations from S=`$0100` write `$0100/$01ff` (E), versus `$0100/$00ff` (native). Two PLA operations from S=`$01fe` read `$01ff/$0100` (E), versus `$01ff/$0200` (native). Ordinary JSR/RTS at `$8200` checks the same page wrapping and full S restoration. |
+
+The cartridge publishes every byte of the observed memory, S, D and DBR at
+`$7e3700` onward before self-comparing. Browser assertions independently require
+the entire literal sequence. Each cartridge replays after power reset with exact
+timestamped observations, frame hash and PCM comparisons, and retains the full
+pixel and DSP audio checks. Existing fixtures and the bundled cartridge are
+unchanged. These are bounded boundary regressions, not exhaustive CPU conformance.
+
+```sh
+npm run build:demo
+WEBRTL_SNES_FIXTURES='^cpu-stack-' npx playwright test --config=playwright.static.config.js --grep 'full SNES RTL' --workers=2
 ```
 
 ## Large OBJ geometry

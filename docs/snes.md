@@ -84,7 +84,7 @@ and CPU paths; it does not replace devices with host implementations.
 
 | Area | Integrated hardware | Automated coverage / limits |
 | --- | --- | --- |
-| CPU | P65C816 with 5A22 system timing, 24-bit bus, WRAM mirrors, reset/vector fetches | Original native-mode program, long reads, branches, stack/interrupts; accumulator-width transitions with hidden-B retention, 16-bit absolute/long loads/stores across pages and binary/decimal ADC/SBC results and N/V/Z/C, with CPU-observed deterministic reset replay. Aligned/unaligned direct-page loads, stores, X/Y indexing, indirect pointer page wrapping and the extra internal cycle are checked in native/emulation modes, including long-indirect carry controls. Existing CPU instruction examples retained. No exhaustive 65C816 instruction conformance suite. |
+| CPU | P65C816 with 5A22 system timing, 24-bit bus, WRAM mirrors, reset/vector fetches | Original native-mode program, long reads, branches, stack/interrupts; accumulator-width transitions with hidden-B retention, 16-bit absolute/long loads/stores across pages and binary/decimal ADC/SBC results and N/V/Z/C, with CPU-observed deterministic reset replay. Aligned/unaligned direct-page loads, stores, X/Y indexing, indirect pointer page wrapping and the extra internal cycle are checked in native/emulation modes, including long-indirect carry controls. Instruction-specific full-width emulation stack operations check boundary memory, S.h restoration, D/DBR and ordinary page-wrapping controls. Existing CPU instruction examples retained. No exhaustive 65C816 instruction conformance suite. |
 | System I/O | Multiply/divide, H/V timers, NMI/IRQ flags, refresh, CPU speed control | ROM checks `$0011`, `$7E0011`, `$800011`, multiply `$12*3=$36`, divide `$1234/3=$0611` remainder 1, RDIO driven/released levels; NMI service and H-only, V-only and combined H/V timer target positions, recurrence, TIMEUP acknowledgement, disabling and deterministic reset replay. Exact interrupt latency and timer reprogramming corner cases remain unverified. |
 | Memory | 128 KiB WRAM, two 32 KiB VRAM lanes, 256×15-bit CGRAM, 512+32-byte OAM, 64 KiB ARAM | DMA tiles, palette/OAM writes, CPU CGRAM readback with PPU1/PPU2 latch isolation, CPU WRAM checks and reset replay. Power-up memory is deliberately zeroed. |
 | Cartridge | Runtime-loaded LoROM/HiROM, mirroring via mask, up to 4 MiB ROM and 128 KiB SRAM | Both mappings boot the fixture; CPU checks cover unmapped reads, 256 KiB images with distinct bank signatures, ROM aliases, bank boundaries, size-mask wrapping, and 2 KiB SRAM bank/size mirrors. Only power-of-two ROM sizes, optional 512-byte copier header, header types 0–2. SRAM persistence/export and exhaustive map boundaries remain unverified. |
@@ -601,6 +601,38 @@ toolchain provenance and measurements are recorded under
 `latestValidation` field. This supersedes the outstanding complete-sweep and
 native-toolchain validation gaps. Optional broad benchmarks and live Pages
 checks remain unperformed; publication verification is still pending.
+
+### Emulation stack boundary review fix (2026-10-31)
+
+The reproducible P65C816 adaptation now uses full-width S for PHD, PLD, PLB,
+PEA, PEI, PER, JSL, JSR (abs,X) and RTL in emulation mode, restoring S.h to `$01`
+after the final instruction access. Ordinary pushes, pulls, JSR/RTS and interrupts
+retain page-$01 wrapping. Eight original native/emulation cartridges check
+boundary memory, full S, D/DBR and following ordinary stack operations; their
+independent expectations are in [the fixture guide](snes-fixtures.md#65c816-stack-boundaries).
+All 238 retained cartridges remain byte-identical; the suite now contains 246.
+
+The reviewed RTL reproduces the PEA (`$00ff=$a5`, expected `$34`), PLD
+(D=`$005a`, expected `$125a`) and JSL boundary failures, while all native groups
+and ordinary emulation controls reach the expected frame and non-silent PCM.
+The corrected RTL passed all 46 selected static checks in 17.0 minutes: four
+SNES batches plus all 42 other regressions, without failures, skips or retries.
+Each browser ran 36 cartridges and 29 CPU/IRQ reset replays, comparing 7,684,096
+pixels with zero mismatches and 16,640 exact PCM samples. All eight new stack
+cartridges matched their full literal observation sequences and exact reset
+replays; observations, frames and PCM also matched across browsers.
+All ten Python tests, the static build, RTL lint and hash-verified upstream
+reproduction passed.
+
+Four browser compilations took 65.70–84.91 seconds, producing 270,675-byte Wasm
+(up 54 bytes) and 1,634,032-byte CXXRTL source. Baseline simulation measured
+209,998–264,225 master clocks/s (0.588–0.739 estimated NTSC fields/s and
+0.00978–0.01230 of real time); circuit linear memory was 20,578,304 bytes.
+Commands, hashes, negative controls and per-browser evidence are recorded in
+`emulationStackBoundaryReviewFixValidation` in [snes-validation.json](snes-validation.json).
+This is a focused rerun; the full 246-cartridge sweep and unchanged trusted-local
+service tests were not rerun. Compiler peak memory, optional broad benchmarks
+and live Pages verification remain unmeasured/unperformed.
 
 ## Validation limits and publication
 
