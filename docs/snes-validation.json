@@ -2,7 +2,7 @@
   "issue": 22,
   "date": "2026-10-29",
   "host": "macOS arm64, Apple M4 Max",
-  "scope": "Experimental complete-core integration; broader base-console conformance coverage remains outstanding (docs/snes.md).",
+  "scope": "Integrated base-console RTL with bounded mandatory hardware-path validation; the feature matrix records unverified conformance corners and runtime limits.",
   "checks": {
     "python": {
       "passed": 10
@@ -677,5 +677,366 @@
       "tests/static/snes.spec.js": "7de6f04d92d8682d1473a72f7e6bc42e2c68e8f3e6203e8009ceaea1e9c0c612"
     },
     "limits": "Local two-worker browser measurements do not establish Ubuntu CI performance or exhaustive base-console conformance. Compiler peak memory was not measured. Native trusted-local check remains failed; live Pages verification remains pending."
+  },
+  "latestValidation": "baseFeatureReviewFixValidation",
+  "baseFeatureReviewFixValidation": {
+    "date": "2026-10-30",
+    "sourceHashes": {
+      "examples/snes/snes-core.v": "4791f8892e945b34b74251d792d37cbb11cfcf3739ec2a43765c68d1adf07354",
+      "scripts/adapt_snes.py": "12ed51727f663ba8c18041d764b19d419ff90791a388d03a125654d54690b3f6",
+      "scripts/generate-snes-rom.py": "e4c7ed2981c7d7fda4c2a112ee7544c4f3864c3cf91c50b6114954e34cb3fb71",
+      "tests/static/snes.spec.js": "2144add7a57f4bc525d6b88830d1fe8a1ed4597ff0db843e93ad5da1e1b35473",
+      "playwright.static.config.js": "8068db8aebfe9a627f5856e8c7db7091df49dc2f07d3f3ce25168d9c921d3de4",
+      "tests/serve_static.py": "31c24efba32525390fc2d43d331a289e54cab2e99da01613ba83b32ba6bf0290"
+    },
+    "sweepSourceHashes": {
+      "examples/snes/snes-core.v": "4791f8892e945b34b74251d792d37cbb11cfcf3739ec2a43765c68d1adf07354",
+      "scripts/adapt_snes.py": "12ed51727f663ba8c18041d764b19d419ff90791a388d03a125654d54690b3f6",
+      "scripts/generate-snes-rom.py": "42f1cc3734f0f07b0a61374c60c6db18ee2120de4c3d9fd2bc86b2c12be45976",
+      "tests/static/snes.spec.js": "23de321b07ad2237bf79a8373b7bddd10b96327b9ba0dfa2b72d3a9e53509f0b",
+      "playwright.static.config.js": "8068db8aebfe9a627f5856e8c7db7091df49dc2f07d3f3ce25168d9c921d3de4",
+      "tests/serve_static.py": "31c24efba32525390fc2d43d331a289e54cab2e99da01613ba83b32ba6bf0290"
+    },
+    "checks": {
+      "python": {
+        "passed": 10
+      },
+      "fullBrowserSweep": {
+        "status": "passed after two corrected assertion rechecks",
+        "uniqueChecksPassed": 58,
+        "initialAttempt": {
+          "startTime": "2026-10-30T05:29:06.411Z",
+          "duration": 2809534.616,
+          "expected": 56,
+          "skipped": 0,
+          "unexpected": 2,
+          "flaky": 0
+        }
+      },
+      "correctedEchoBatchRerun": {
+        "startTime": "2026-10-30T06:17:47.841Z",
+        "duration": 311993.493,
+        "expected": 2,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "finalFocusedChecks": {
+        "startTime": "2026-10-30T06:23:36.726Z",
+        "duration": 182742.27899999998,
+        "expected": 2,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "uniqueBrowserChecksPassed": 58,
+      "explanation": "The complete 58-check sweep passed 56 checks; both echo batches failed only an overly strict onset-length assertion (2048 expected, 1404 available). The delay oracle needs 768 samples. Correcting that minimum and rerunning both 20-ROM batches passed. Final test-only strengthening made tile-35 culling visible at a unique OBJ position and required nonempty ADSR transition captures; six affected cases then passed in both browsers. RTL and static application sources were unchanged throughout these runs.",
+      "trustedLocal": {
+        "status": "passed",
+        "passed": 1,
+        "elapsedSeconds": 15.1,
+        "port": 18765,
+        "verilator": "5.020 (unmodified v5.020 source)",
+        "emscripten": "6.0.13-git",
+        "host": "macOS arm64",
+        "method": "Scoped PATH and VERILATOR_ROOT select the locally built reference Verilator version. Temporary Playwright config changes only service port/baseURL to 18765 and result directory. Original tests/browser/counter.spec.js passes. No Ubuntu or GitHub CI result is inferred."
+      },
+      "pinnedSourceRegeneration": "byte-identical",
+      "priorCartridgesPreserved": 123,
+      "newCartridges": 33,
+      "livePages": "pending publication; not performed"
+    },
+    "commands": [
+      "python3 -m unittest discover -s tests -v",
+      "npm run build:demo",
+      "npx playwright test --config=playwright.static.config.js --workers=2 --reporter=line,json",
+      "npx playwright test --config=playwright.static.config.js --workers=2 --grep 'full SNES RTL batch 5/8:' --output .build/rerun-results --reporter=line,json",
+      "WEBRTL_SNES_FIXTURES='^(obj-limit-(34|35)tiles|audio-(decay-sustain|sustain|adsr-release|echo))$' npx playwright test --config=playwright.static.config.js --workers=2 --grep 'full SNES RTL' --output .build/final-focused-results --reporter=line,json"
+    ],
+    "measurementsByBrowser": {
+      "chromium": {
+        "compilations": 8,
+        "compileMs": {
+          "min": 67333,
+          "max": 73898.29999999888
+        },
+        "wasmBytes": [
+          268665
+        ],
+        "cxxrtlBytes": [
+          1618010
+        ],
+        "masterClocksPerSecond": {
+          "min": 261197.54302052342,
+          "max": 265568.26849737746
+        },
+        "capturedFramesPerSecond": {
+          "min": 0.6251856019754409,
+          "max": 0.6356470887364465
+        },
+        "realTimeRatio": {
+          "min": 0.012161580266976363,
+          "max": 0.012365084971105613
+        },
+        "linearMemoryBytes": [
+          20578304
+        ],
+        "baselinePcmHashes": [
+          2024722791
+        ],
+        "baselineFrameHashes": [
+          698101324,
+          698101324,
+          3470071505,
+          3371206625
+        ]
+      },
+      "firefox": {
+        "compilations": 8,
+        "compileMs": {
+          "min": 67913,
+          "max": 76607
+        },
+        "wasmBytes": [
+          268665
+        ],
+        "cxxrtlBytes": [
+          1618010
+        ],
+        "masterClocksPerSecond": {
+          "min": 210926.16433169253,
+          "max": 219399.76368649074
+        },
+        "capturedFramesPerSecond": {
+          "min": 0.5048592704783541,
+          "max": 0.5251411316791388
+        },
+        "realTimeRatio": {
+          "min": 0.009820902020214512,
+          "max": 0.010215440029691424
+        },
+        "linearMemoryBytes": [
+          20578304
+        ],
+        "baselinePcmHashes": [
+          2024722791
+        ],
+        "baselineFrameHashes": [
+          698101324,
+          698101324,
+          3470071505,
+          3371206625
+        ]
+      }
+    },
+    "finalFocusedMeasurementsByBrowser": {
+      "chromium": {
+        "compilations": 1,
+        "compileMs": {
+          "min": 71349.59999999963,
+          "max": 71349.59999999963
+        },
+        "wasmBytes": [
+          268665
+        ],
+        "cxxrtlBytes": [
+          1618010
+        ],
+        "masterClocksPerSecond": {
+          "min": 266147.6963259224,
+          "max": 266147.6963259224
+        },
+        "capturedFramesPerSecond": {
+          "min": 0.6370339698364793,
+          "max": 0.6370339698364793
+        },
+        "realTimeRatio": {
+          "min": 0.01239206362474944,
+          "max": 0.01239206362474944
+        },
+        "linearMemoryBytes": [
+          20578304
+        ],
+        "baselinePcmHashes": [
+          2024722791
+        ],
+        "baselineFrameHashes": [
+          698101324,
+          698101324,
+          3470071505,
+          3371206625
+        ]
+      },
+      "firefox": {
+        "compilations": 1,
+        "compileMs": {
+          "min": 74846,
+          "max": 74846
+        },
+        "wasmBytes": [
+          268665
+        ],
+        "cxxrtlBytes": [
+          1618010
+        ],
+        "masterClocksPerSecond": {
+          "min": 213458.67926938305,
+          "max": 213458.67926938305
+        },
+        "capturedFramesPerSecond": {
+          "min": 0.510920934985311,
+          "max": 0.510920934985311
+        },
+        "realTimeRatio": {
+          "min": 0.009938818074614839,
+          "max": 0.009938818074614839
+        },
+        "linearMemoryBytes": [
+          20578304
+        ],
+        "baselinePcmHashes": [
+          2024722791
+        ],
+        "baselineFrameHashes": [
+          698101324,
+          698101324,
+          3470071505,
+          3371206625
+        ]
+      }
+    },
+    "fixtures": {
+      "firefox": {
+        "cartridges": 156,
+        "positiveFrameMatches": 155,
+        "negativeControlMismatches": 57344,
+        "newFixtureNames": [
+          "sprite-small-interlace-6",
+          "sprite-small-interlace-6-vflip",
+          "sprite-small-interlace-7",
+          "sprite-small-interlace-7-vflip",
+          "m7-over2",
+          "m7-over3",
+          "m7-origin-positive",
+          "m7-origin-negative",
+          "color-window-0-0",
+          "color-window-0-1",
+          "color-window-0-2",
+          "color-window-0-3",
+          "color-window-1-0",
+          "color-window-1-1",
+          "color-window-1-2",
+          "color-window-1-3",
+          "color-window-2-0",
+          "color-window-2-1",
+          "color-window-2-2",
+          "color-window-2-3",
+          "color-window-3-0",
+          "color-window-3-1",
+          "color-window-3-2",
+          "color-window-3-3",
+          "obj-limit-32",
+          "obj-limit-33",
+          "obj-limit-34tiles",
+          "obj-limit-35tiles",
+          "multi",
+          "audio-feedback",
+          "audio-decay-sustain",
+          "audio-sustain",
+          "audio-adsr-release"
+        ],
+        "stat77": {
+          "obj-limit-32": [
+            0,
+            0
+          ],
+          "obj-limit-33": [
+            64,
+            64
+          ],
+          "obj-limit-34tiles": [
+            0,
+            0
+          ],
+          "obj-limit-35tiles": [
+            128,
+            128
+          ]
+        },
+        "newAudioPcmDigests": {
+          "audio-feedback": "10a05633f019c99d1a78eaa86481ff852e183b28f28ee0ba1ae7192ca4cd1709",
+          "audio-decay-sustain": "d8a8c72c059976e4b3aa91386f1ab8ee69c4ad5e3f915c32d09d76f426114c6e",
+          "audio-sustain": "ba1a044f61b898097c4a7903423468fa78e59900ca0791c91e56e57110899165",
+          "audio-adsr-release": "ba1a044f61b898097c4a7903423468fa78e59900ca0791c91e56e57110899165"
+        },
+        "allFixtureResultsDigest": "15cc3adc48be1fd9b0497b8ebc20c6b05dfacfa297953819cdcfb13a0b09027d"
+      },
+      "chromium": {
+        "cartridges": 156,
+        "positiveFrameMatches": 155,
+        "negativeControlMismatches": 57344,
+        "newFixtureNames": [
+          "sprite-small-interlace-6",
+          "sprite-small-interlace-6-vflip",
+          "sprite-small-interlace-7",
+          "sprite-small-interlace-7-vflip",
+          "m7-over2",
+          "m7-over3",
+          "m7-origin-positive",
+          "m7-origin-negative",
+          "color-window-0-0",
+          "color-window-0-1",
+          "color-window-0-2",
+          "color-window-0-3",
+          "color-window-1-0",
+          "color-window-1-1",
+          "color-window-1-2",
+          "color-window-1-3",
+          "color-window-2-0",
+          "color-window-2-1",
+          "color-window-2-2",
+          "color-window-2-3",
+          "color-window-3-0",
+          "color-window-3-1",
+          "color-window-3-2",
+          "color-window-3-3",
+          "obj-limit-32",
+          "obj-limit-33",
+          "obj-limit-34tiles",
+          "obj-limit-35tiles",
+          "multi",
+          "audio-feedback",
+          "audio-decay-sustain",
+          "audio-sustain",
+          "audio-adsr-release"
+        ],
+        "stat77": {
+          "obj-limit-32": [
+            0,
+            0
+          ],
+          "obj-limit-33": [
+            64,
+            64
+          ],
+          "obj-limit-34tiles": [
+            0,
+            0
+          ],
+          "obj-limit-35tiles": [
+            128,
+            128
+          ]
+        },
+        "newAudioPcmDigests": {
+          "audio-feedback": "10a05633f019c99d1a78eaa86481ff852e183b28f28ee0ba1ae7192ca4cd1709",
+          "audio-decay-sustain": "d8a8c72c059976e4b3aa91386f1ab8ee69c4ad5e3f915c32d09d76f426114c6e",
+          "audio-sustain": "ba1a044f61b898097c4a7903423468fa78e59900ca0791c91e56e57110899165",
+          "audio-adsr-release": "ba1a044f61b898097c4a7903423468fa78e59900ca0791c91e56e57110899165"
+        },
+        "allFixtureResultsDigest": "15cc3adc48be1fd9b0497b8ebc20c6b05dfacfa297953819cdcfb13a0b09027d"
+      }
+    },
+    "limits": "Bounded feature checks are not exhaustive conformance or broad game compatibility. Compiler peak memory was not measured. Real-time playability is not established. Live Pages checks remain pending publication."
   }
 }

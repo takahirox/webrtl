@@ -188,3 +188,37 @@ For a focused rerun of these PPU regressions:
 npm run build:demo
 WEBRTL_SNES_FIXTURES='^(sprite-edges|sprite-interlace(-vflip)?|sprite-rect(-vflip)?|cgram-latch)$' npx playwright test --config=playwright.static.config.js --grep 'full SNES RTL'
 ```
+
+
+## Base-feature review fixtures
+
+The additional cartridges leave every prior cartridge byte-identical.
+Expectations come from the independent bsnes implementations of
+[objects](https://github.com/bsnes-emu/bsnes/blob/master/bsnes/sfc/ppu-fast/object.cpp),
+[Mode 7](https://github.com/bsnes-emu/bsnes/blob/master/bsnes/sfc/ppu-fast/mode7.cpp),
+[color windows](https://github.com/bsnes-emu/bsnes/blob/master/bsnes/sfc/ppu-fast/window.cpp),
+[DMA](https://github.com/bsnes-emu/bsnes/blob/master/bsnes/sfc/cpu/dma.cpp), and
+[DSP envelopes/echo](https://github.com/bsnes-emu/bsnes/blob/master/bsnes/sfc/dsp/SPC_DSP.cpp).
+The browser checks newly compiled RTL using generated cartridges, without running
+an emulator or taking expected values from RTL output.
+
+| Cartridge | Independent expectation |
+| --- | --- |
+| `sprite-small-interlace-{6,7}[-vflip]` | OBSEL `$c1`/`$e1`, small OBJ, SETINI `$03`. Interlace uses a 16-row source height before halving the visible range, including the size-mode 6/7 hardware exception. Both fields are checked: green/white rows at capture 32–39, or white/green at 40–47 when flipped. Colored source rows 16–23 must never appear. |
+| `m7-over2`, `m7-over3` | Identity matrix, horizontal offset 1016, nonzero map tile 1 (solid green). Dots 0–7 remain green; outside the 1024-dot map, screen-over 2 is transparent (blue backdrop), while screen-over 3 fetches striped tile 0. |
+| `m7-origin-positive`, `m7-origin-negative` | A=`$0081`, B=`$0060`, D=`$0100`, center=(3,5); offset-center deltas are (+1025,−1025) or (−1025,+1025). Clip deltas to signed ten bits before multiplying, truncate each origin product's six low bits, and compare an asymmetric eight-dot palette sequence at every pixel. |
+| `color-window-{clip}-{prevent}` | All sixteen CGWSEL clipping/math-gating combinations, using color window 1 at inclusive dots 64–127 and fixed green addition on BG1/backdrop. Independently check never/outside/inside/always conditions, clipping to black before allowed math, and all boundary pixels. |
+| `obj-limit-32`, `obj-limit-33` | 32 small objects fit; the 33rd is rejected and sets STAT77 bit 6. A distinct final object at X=80 detects admission/rejection; overlapping earlier objects remain visible at X=16. The CPU stores masked VBlank STAT77 at `$7e3300`, checked separately from the frame. |
+| `obj-limit-34tiles`, `obj-limit-35tiles` | Seventeen large 16×16 objects consume 34 tiles without time overflow. An extra small object consumes tile 35, sets STAT77 bit 7, and exercises reverse object-fetch order. The first object is fetched last at X=112: the 34-tile control shows both tiles, while the 35-tile case must cull its right tile on rows 16–23, where the extra small object consumes the budget; rows 24–31 show both tiles. Check exact frame pixels and CPU flag observations. |
+| `multi` | DMA channels 2/5 must emit `$21`–`$28` in priority order. Direct HDMA channel 2 and indirect channel 5 write `$31,$51` then `$32,$52` on their shared scanlines. Long DMA on channels 0/7 starts at VBlank's end: HBlank HDMA interrupts channel 0, runs in priority order, and the DMA byte stream resumes before channel 7. |
+| `audio-feedback` | EFB=`$40`, EDL=1, FIR tap 0=`$40`, EVOL=`$40`, and EON=1. An independent integer echo-ring recurrence includes 512-sample memory delay, seven-sample FIR history, signed feedback, truncation and saturation; compare the settled PCM period after a bounded longer run. |
+| `audio-decay-sustain`, `audio-sustain`, `audio-adsr-release` | Original constant BRR source makes the envelope directly observable. Compare exact PCM through rate-30 exponential decay and rate-0 hold or rate-31 sustain. Allow the two legitimate global-counter phases; KON does not reset that counter. The release cartridge also checks the complete KOFF ramp (subtract eight envelope units per sample) through silence. |
+
+These checks sample distinct hardware paths rather than claiming exhaustive
+conformance. Focused reruns still retain the baseline cartridge's input, audio,
+LoROM/HiROM and deterministic reset checks:
+
+```sh
+npm run build:demo
+WEBRTL_SNES_FIXTURES='^(sprite-small-interlace-|m7-|color-window-|obj-limit-|multi$|audio-(feedback|decay-sustain|sustain|adsr-release))' npx playwright test --config=playwright.static.config.js --grep 'full SNES RTL'
+```

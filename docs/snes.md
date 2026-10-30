@@ -3,8 +3,8 @@
 The selectable **SNES · experimental base console RTL** example integrates real
 CPU, PPU, APU, DMA/HDMA and controller hardware. Its source is compiled into a new
 Wasm circuit in the browser. This is an integration attempt with explicit
-validation limits, not a claim of complete SNES compatibility. **Keep #22 open
-until its remaining acceptance gaps below are resolved.**
+validation limits, not a claim of complete SNES compatibility. The supported feature
+matrix, validation evidence and limitations are recorded below.
 
 ## Run locally
 
@@ -88,12 +88,12 @@ and CPU paths; it does not replace devices with host implementations.
 | System I/O | Multiply/divide, H/V timers, NMI/IRQ flags, refresh, CPU speed control | ROM checks `$0011`, `$7E0011`, `$800011`, multiply `$12*3=$36`, divide `$1234/3=$0611` remainder 1, RDIO driven/released levels; NMI and horizontal IRQ service. Timing corner cases remain unverified. |
 | Memory | 128 KiB WRAM, two 32 KiB VRAM lanes, 256×15-bit CGRAM, 512+32-byte OAM, 64 KiB ARAM | DMA tiles, palette/OAM writes, CPU CGRAM readback with PPU1/PPU2 latch isolation, CPU WRAM checks and reset replay. Power-up memory is deliberately zeroed. |
 | Cartridge | Runtime-loaded LoROM/HiROM, mirroring via mask, up to 4 MiB ROM and 128 KiB SRAM | Both mappings boot the fixture; CPU checks cover unmapped reads, ROM aliases, and 2 KiB SRAM bank/size mirrors. Only power-of-two ROM sizes, optional 512-byte copier header, header types 0–2. SRAM persistence/export and exhaustive map boundaries remain unverified. |
-| BG modes | Modes 0–7, planar 2/4/8bpp, affine Mode 7, BG layers/tilemaps/scroll/mosaic | Exact pixels in all eight modes, higher bitplanes, BG2/3/4, both high-resolution stripe phases and BG1/BG2 priorities, scroll/mosaic, offset-per-tile in modes 2/4/6, direct color in modes 3/4/7, and identity/doubled/constant/rotated/flipped Mode 7 with fractional scaling. Affine clipping and map-boundary corner cases remain unverified. |
-| Objects | OAM/high OAM, sizes/flips, sprite fetch, priorities, sprite line buffer | Exact pixels for an original green 8×8 object at priority 0 and 3, BG occlusion, asymmetric horizontal/vertical flips, 16×16 left/right edge clipping and both interlaced fields with distinct source rows. Sprite limits and other sizes remain unverified. |
-| PPU composition | Windows, main/subscreen, priority, color math, brightness/blanking | Exact pixels for all four two-window Boolean operators, BG1/BG2 priorities, Mode 1 BG3 priority promotion, subscreen addition, fixed-color addition/subtraction and halving. Exhaustive layer/window/color-window combinations remain unverified. |
+| BG modes | Modes 0–7, planar 2/4/8bpp, affine Mode 7, BG layers/tilemaps/scroll/mosaic | Exact pixels in all eight modes, higher bitplanes, BG2/3/4, both high-resolution stripe phases and BG1/BG2 priorities, scroll/mosaic, offset-per-tile in modes 2/4/6, direct color in modes 3/4/7, and identity/doubled/constant/rotated/flipped Mode 7 with fractional scaling. Screen-over modes 2/3 and signed origin clipping have bounded fixtures. Exhaustive affine boundary cases remain unverified. |
+| Objects | OAM/high OAM, sizes/flips, sprite fetch, priorities, sprite line buffer | Exact pixels for an original green 8×8 object at priority 0 and 3, BG occlusion, asymmetric horizontal/vertical flips, 16×16 left/right edge clipping and both interlaced fields with distinct source rows. Boundary fixtures additionally check 32/33-object range overflow, 34/35-tile time overflow with partial OBJ culling and CPU-visible STAT77 flags; small rectangular objects in size modes 6/7 are checked with interlace and vertical flip. Other sizes remain unverified. |
+| PPU composition | Windows, main/subscreen, priority, color math, brightness/blanking | Exact pixels for all four two-window Boolean operators, BG1/BG2 priorities, Mode 1 BG3 priority promotion, subscreen addition, fixed-color addition/subtraction and halving, and all sixteen CGWSEL color-window clipping/math-gating combinations. Exhaustive layer/window combinations remain unverified. |
 | Video timing | H/V counters, blanking, two long dots, NTSC short-line exception, overscan/interlace | 224/239/448-line captures and exact pixel positions tested; 357,368/357,364 master-clock noninterlaced field periods observed natively. No PAL board clock selector. |
-| DMA/HDMA | Eight channels, transfer modes, CPU stalls, direct/indirect HDMA | All eight DMA B-bus transfer patterns, reverse VRAM-to-WRAM DMA with CPU readback, and indirect HDMA data and 127-line timing; direct HDMA retained. Exhaustive channel interaction and interrupt-boundary timing remain unverified. |
-| APU | SPC700, CPU ports, three timers, ARAM, eight-voice DSP, BRR/interpolation/envelopes/noise/echo | CPU uploads the driver, directory and BRR sample via standard IPL ports. All three timers, including target zero, must tick before video starts. AUX readback/reset, DIV results/flags and read-only DSP mirrors are checked. Independently calculated PCM covers BRR filters/range handling/Gaussian wrap, gain, pitch, negative pitch modulation, eight-voice mixing, ADSR, gain attack, KOFF, mute, noise and delayed FIR echo; sample rate and reset digest checked. Other pitch modulation cases, arbitrary FIR/feedback configurations and exhaustive envelope rates remain unverified. |
+| DMA/HDMA | Eight channels, transfer modes, CPU stalls, direct/indirect HDMA | All eight DMA B-bus transfer patterns, reverse VRAM-to-WRAM DMA with CPU readback, and indirect HDMA data and 127-line timing; direct HDMA retained. Multi-channel checks cover DMA priority, direct/indirect HDMA ordering and HDMA interrupting/resuming active DMA. Exhaustive channel interaction and interrupt-boundary timing remain unverified. |
+| APU | SPC700, CPU ports, three timers, ARAM, eight-voice DSP, BRR/interpolation/envelopes/noise/echo | CPU uploads the driver, directory and BRR sample via standard IPL ports. All three timers, including target zero, must tick before video starts. AUX readback/reset, DIV results/flags and read-only DSP mirrors are checked. Independently calculated PCM covers BRR filters/range handling/Gaussian wrap, gain, pitch, negative pitch modulation, eight-voice mixing, ADSR, gain attack, KOFF, mute, noise and delayed FIR echo; sample rate and reset digest checked. Bounded fixtures additionally check nonzero echo feedback and exact ADSR decay, sustain and release PCM. Other pitch modulation cases, arbitrary FIR/feedback configurations and exhaustive envelope rates remain unverified. |
 | Controllers | Serial pad, CPU manual reads and system auto-joypad logic | Keyboard and standard gamepad B alter CPU-programmed palette during sound playback; a ROM variant reads automatic joypad results. A mixed twelve-button mask checks the complete 24-read serial sequence, signature and connection detection; second port is checked disconnected. |
 | Runtime | Compile, ROM import, Run/Pause, bounded batches, power Reset, Canvas, Web Audio | Static browser integration and repeatable frame/PCM checks; not real-time playability. |
 
@@ -144,7 +144,8 @@ sample's own transparency bits for BG1/BG2 at both priorities. Mode 7 advances
 its source coordinate after the synchronous VRAM sample, and color addition is
 halved before saturation. Sprite fetching distinguishes wrapped negative X from
 the visible right edge. Interlaced sprite range evaluation uses half height while
-tile addressing retains the full source-height mask. Vertical flip includes the
+tile addressing retains the source-height mask. Small rectangular objects in
+size modes 6/7 use the hardware's 16-row interlace source-height exception. Vertical flip includes the
 interlace field bit and flips rectangular objects within each width-sized square.
 CGRAM reads update PPU2 MDR;
 OAM reads update only PPU1 MDR. Flipped Mode 7 coordinates are zero-extended before
@@ -176,6 +177,12 @@ python3 -m unittest discover -s tests -v
 npm run build:demo
 npx playwright test --config=playwright.static.config.js
 ```
+
+The static test server uses a 128-connection backlog on loopback. Python 3.13's
+five-connection default stalled parallel Chromium downloads of the 13-file CPU
+examples before compilation. [serve_static.py](../tests/serve_static.py) retains
+the same static directory and port, and the tests retain their original assertion
+timeouts.
 
 The integration test imports a browser-local file, checks exact stable Mode 0
 pixels and DSP PCM, changes input with keyboard and gamepad adapters, checks Pause
@@ -260,29 +267,52 @@ rerun. The trusted-local suite and direct native compile reproduced the linker
 failure below. Results, batch timings and source hashes are recorded under
 `spriteFlipAndSweepReviewFixValidation` above. Ubuntu CI was not rerun here.
 
-The trusted-local counter test could not pass with this host's native tools:
-Verilator 5.052 and Emscripten 6.0.13 fail to link `pthread_getaffinity_np`,
-`sched_getcpu` and `pthread_setaffinity_np`, the incompatibility already recorded
-in the [setup guide](../README.md#local-setup). The initial default-port attempt
-encountered an existing service on 8765; the independent retry used 18765. Native
-`build.py` reproduced the link error without browser involvement. This check
-remains failed here; the supported Ubuntu toolchain/CI result is not inferred.
+Earlier trusted-local runs failed with Verilator 5.052 and Emscripten 6.0.13:
+`pthread_getaffinity_np`, `sched_getcpu` and `pthread_setaffinity_np` did not link,
+as recorded in the [setup guide](../README.md#local-setup). The final revision
+passed the complete trusted-local Chromium test in 15.1 seconds using the
+reference Verilator 5.020 version, built unmodified on this macOS arm64 host,
+with Emscripten 6.0.13. Its scoped PATH and VERILATOR_ROOT selected that build;
+port 18765 avoided the existing service on 8765. This supersedes the earlier
+native failure; no Ubuntu or GitHub CI result is inferred.
+
+The base-feature review revision passed all 10 Python checks and all 58 browser
+checks across the complete sweep and two corrected-assertion rechecks. The sweep
+initially passed 56 checks; both echo batches failed because a newly enlarged
+capture buffer was incorrectly required to contain 2,048 post-onset samples,
+although its delay oracle needs only 768. Both complete 20-ROM batches passed
+with the corrected minimum. Six final focused cases also passed in both browsers,
+including distinct pixels for tile-35 culling and nonempty ADSR transition captures.
+Each browser exercised 156 cartridges: 155 exact frame expectations and the retained
+negative control. All 123 prior cartridges remain byte-identical, and pinned-input
+regeneration reproduces the corrected core. Source hashes, the initial sweep and
+successful rechecks, fixture counts/flags/digests, and revised measurement ranges
+are recorded under `baseFeatureReviewFixValidation` in
+[snes-validation.json](snes-validation.json).
+
+| Browser | Compile range | Wasm bytes | Master clocks/s | Captured frames/s | Real-time ratio |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Chromium | 67.33–73.90 s | 268,665 | 261,198–265,568 | 0.625–0.636 | 0.01216–0.01237× |
+| Firefox | 67.91–76.61 s | 268,665 | 210,926–219,400 | 0.505–0.525 | 0.00982–0.01022× |
+
+These ranges cover the eight standard cartridge batches per browser, including
+startup. All compilations produced 1,618,010 CXXRTL bytes; observed model linear
+memory remained 20,578,304 bytes. Compiler peak memory was not measured.
 
 The opt-in Slang source limit is 2 MiB and its compile timeout 300 seconds; legacy
 projects retain 128 KiB and 120 seconds. Each simulation/ROM-write request retains
 the 10-second watchdog. A larger cartridge takes more loading requests and more
 wall time, without increasing any single request's bound.
 
-## Remaining acceptance gaps and publication
+## Validation limits and publication
 
-The full hardware source is present, and the end-to-end fixture is executable.
-The feature fixtures now cover the previously untested BG layers/composition,
-reverse DMA/indirect HDMA and essential DSP processing through the browser RTL
-runtime. They are not exhaustive conformance tests: the matrix retains specific
-unverified boundary cases, combinations and DSP configurations. Real-time
-audio/video playability is also not achieved by the measured runtime. Do not turn
-upstream compatibility claims into locally verified results or close #22 based
-only on the checkerboard/one-voice fixture.
+The integrated hardware and executable fixtures now cover the mandatory paths
+identified in review, including Mode 7 clipping/screen-over, color-window gating,
+OBJ limits/interlace, DMA/HDMA arbitration and DSP feedback/envelope transitions.
+These are bounded checks rather than exhaustive conformance tests: the matrix
+retains specific unverified corners, combinations and DSP configurations.
+Real-time audio/video playability is not established by the measured runtime.
+Upstream compatibility claims are not substituted for locally verified results.
 
 **Post-merge live-site verification remains pending.** After publication, run the
 SNES integration test with `WEBRTL_PUBLIC_URL=https://takahirox.github.io/webrtl/`

@@ -10,7 +10,7 @@ module.exports = defineConfig({
   ],
   use: { baseURL: "http://127.0.0.1:8766/webrtl/" },
   webServer: {
-    command: "python3 -m http.server 8766 --bind 127.0.0.1 --directory .build/pages",
+    command: "python3 tests/serve_static.py",
     url: "http://127.0.0.1:8766/webrtl/",
     reuseExistingServer: false,
   },

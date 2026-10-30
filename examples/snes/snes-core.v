@@ -3291,6 +3291,9 @@ always @(posedge CLK) begin : calc_sprite_range
             W = SprWidth({OAM_OBJ_S, OBJSIZE});
             H = SprHeight({OAM_OBJ_S, OBJSIZE});
 
+            // Small rectangular objects use a 16-row source in interlace.
+            if (OBJINTERLACE && !OAM_OBJ_S && OBJSIZE >= 3'd6)
+                H = 6'd15;
             RANGE_H = OBJINTERLACE ? {1'b0, H[5:1]} : H;
 
             // OBJ_RANGE: Collect visible tile addresses into OAM_RANGE[]

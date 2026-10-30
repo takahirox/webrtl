@@ -92,7 +92,10 @@ def adapt(sources, boot):
             # Preserve the full height mask for OBJ_TILE_ROW addressing.
             source = source.replace("reg [5:0] W, H, H2;", "reg [5:0] W, H, RANGE_H;")
             source, count = re.subn(r"if \(OBJINTERLACE\)\s+H = \{1'b0, H\[5:1\]\};\s+else\s+H2 = H;",
-                                    "RANGE_H = OBJINTERLACE ? {1'b0, H[5:1]} : H;", source)
+                                    """// Small rectangular objects use a 16-row source in interlace.
+            if (OBJINTERLACE && !OAM_OBJ_S && OBJSIZE >= 3'd6)
+                H = 6'd15;
+            RANGE_H = OBJINTERLACE ? {1'b0, H[5:1]} : H;""", source)
             assert count == 1
             source = source.replace("(SCREEN_Y - OAM_OBJ_Y) <= {2'b0, H}",
                                     "(SCREEN_Y - OAM_OBJ_Y) <= {2'b0, RANGE_H}")

@@ -37,8 +37,16 @@ cases += [(f'apu-{check}',dict(apu_check=check)) for check in
   'div-zero-divisor','div-nine-bit','div-boundary','div-zero-result','div-half-clear',
   'dsp-mirror-volume','dsp-mirror-flg','dsp-mirror-kon','endx']]
 cases += [('apu-aux-repeat',dict(apu_check='aux'))]
+cases += [(f'sprite-small-interlace-{size}{flip}',dict(sprite_priority=3,display=3,effect=f'sprite-small-interlace-{size}{flip}'))
+ for size in [6,7] for flip in ['', '-vflip']]
+cases += [(name,dict(mode=7,effect=name)) for name in ['m7-over2','m7-over3','m7-origin-positive','m7-origin-negative']]
+cases += [(f'color-window-{clip}-{prevent}',dict(effect=f'color-window-{clip}-{prevent}'))
+ for clip in range(4) for prevent in range(4)]
+cases += [(name,dict(sprite_priority=3,effect=name)) for name in ['obj-limit-32','obj-limit-33','obj-limit-34tiles','obj-limit-35tiles']]
+cases += [('multi',dict(transfer='multi'))]
+cases += [(f'audio-{audio}',dict(audio=audio)) for audio in ['feedback','decay-sustain','sustain','adsr-release']]
 cases += [('reject-mode5-as0',dict(mode=0))]
-print(json.dumps([dict(name=name,bytes=list(build(**args)[0])) for name,args in cases]))`], { maxBuffer: 24 * 1024 * 1024 }));
+print(json.dumps([dict(name=name,bytes=list(build(**args)[0])) for name,args in cases]))`], { maxBuffer: 32 * 1024 * 1024 }));
 
 // Optional focused reruns still exercise browser compilation and the baseline
 // cartridge's input, audio, LoROM/HiROM and deterministic reset checks.
@@ -69,6 +77,37 @@ function pixel(name, x, y) {
   const blue = [0, 0, 255, 255], red = [255, 0, 0, 255], green = [0, 255, 0, 255];
   const hires = ["mode-5", "mode-6", "depth-5", "depth-6"].includes(name);
   let dot = hires ? x : x >> 1;
+  if (name.startsWith("color-window-")) {
+    const [clip, prevent] = name.split("-").slice(-2).map(Number);
+    const inside = dot >= 64 && dot <= 127;
+    const disabled = (mode) => mode === 3 || (mode === 1 && !inside) || (mode === 2 && inside);
+    const base = disabled(clip) ? [0, 0, 0, 255] : dot & 1 ? red : blue;
+    return disabled(prevent) ? base : [base[0], 255, base[2], 255];
+  }
+  if (name === "m7-over2" || name === "m7-over3") {
+    if (dot < 8) return green; // map tile 1
+    return name === "m7-over2" ? blue : dot & 1 ? red : blue; // transparent vs tile 0
+  }
+  if (name.startsWith("m7-origin-")) {
+    // Signed 13-bit offset-center differences are clipped to signed ten bits
+    // before 8.8 matrix products; each origin product discards six low bits.
+    const sign = name.endsWith("positive") ? 1 : -1;
+    const clip = (n) => n & 0x2000 ? n | ~1023 : n & 1023;
+    const origin = ((0x81 * clip(sign * 1025)) & ~63) +
+      ((0x60 * clip(-sign * 1025)) & ~63) + ((0x60 * (y + 1)) & ~63) + (3 << 8);
+    const sourceX = (origin + 0x81 * dot) >> 8;
+    return [green, red, blue, red, blue, red, blue, [255, 255, 255, 255]][sourceX & 7];
+  }
+  if (name.startsWith("sprite-small-interlace-") && dot >= 16 && dot < 32) {
+    const top = name.endsWith("-vflip") ? 40 : 32;
+    if (y >= top && y < top + 8) return (y & 1) ^ Number(name.endsWith("-vflip")) ? [255, 255, 255, 255] : green;
+  }
+  if (name.startsWith("obj-limit-")) {
+    const tiled = name.endsWith("tiles");
+    if (dot >= 16 && dot < 16 + (tiled ? 16 : 8) && y >= 16 && y < 16 + (tiled ? 16 : 8)) return green;
+    if (tiled && dot >= 112 && dot < (name === "obj-limit-34tiles" || y >= 24 ? 128 : 120) && y >= 16 && y < 32) return green;
+    if (["obj-limit-32", "obj-limit-35tiles"].includes(name) && dot >= 80 && dot < 88 && y >= 16 && y < 24) return green;
+  }
   if (name.startsWith("hires-")) return (x & 1) ^ Number(name.endsWith("reverse")) ? red : blue;
   if (name.includes("flip") && !name.startsWith("sprite-")) {
     // bsnes Mode 7: flip unsigned screen coordinates before signed 8.8
@@ -195,6 +234,20 @@ function expectedPcm(name) {
     const partial = ((terms[0] + terms[1] + terms[2]) << 16) >> 16;
     return Math.max(-32768, Math.min(32767, partial + terms[3])) & ~1;
   });
+  if (name === "audio-feedback") {
+    // 512-sample echo buffer, tap 0 delayed by seven more samples. Each
+    // write adds signed EFB=$40 times FIR. Iterate to an exact integer period.
+    const voice = wave.map((s) => (((s * env) >> 11) & ~1) * 127 >> 7);
+    const memory = Array(512).fill(0), history = Array(8).fill(0), output = [];
+    for (let n = 0; n < 32768; n++) {
+      history.shift(); history.push(memory[n % 512] >> 1);
+      const fir = (history[0] & ~1); // $40/64, cleared low bit
+      const v = voice[n % voice.length];
+      memory[n % 512] = Math.max(-32768, Math.min(32767, v + ((fir * 64) >> 7))) & ~1;
+      output.push(Math.max(-32768, Math.min(32767, ((v * 127) >> 7) + ((fir * 64) >> 7))));
+    }
+    return output.slice(-16);
+  }
   if (name === "audio-echo") {
     // EDL=1: 512 stereo samples; FIR tap 0 reads seven samples back.
     // No feedback. FIR=$40, EVOL=$40, EON=1, echo writes clear bit 0.
@@ -203,6 +256,33 @@ function expectedPcm(name) {
       ((((voice[(i + 16 - 7) % 16] & ~1) >> 1) & ~1) >> 1));
   }
   return wave.map(volume);
+}
+
+// This envelope oracle follows the independent DSP equations. KON does not
+// reset the global rate counter, so test its two possible rate-30 phases.
+function envelopePcm(name, phase) {
+  const interpolated = [370, 1305, 374, 0].reduce((sum, coefficient) =>
+    sum + ((14336 * coefficient) >> 11), 0) & ~1;
+  const sample = (env) => ((((((interpolated * env) >> 11) & ~1) * 127) >> 7) * 127) >> 7;
+  let env = 0, stage = "attack";
+  const curve = [];
+  for (let n = 0; n < 1600; n++) {
+    curve.push(sample(env));
+    let candidate = env, rate;
+    if (stage === "attack") { candidate += 1024; rate = 1; }
+    else {
+      candidate--; candidate -= candidate >> 8;
+      rate = stage === "decay" ? 2 : name === "audio-sustain" ? 1 : Infinity;
+      if (stage === "decay" && candidate >> 8 === 4) stage = "sustain";
+    }
+    if (candidate > 2047) { candidate = 2047; stage = "decay"; }
+    if (rate !== Infinity && (n + phase) % rate === 0) env = candidate;
+  }
+  const onset = curve.slice(1);
+  const release = [];
+  for (let level = env; level > 0; level = Math.max(0, level - 8)) release.push(sample(level));
+  release.push(0, 0, 0, 0);
+  return { onset, release, settled: sample(env) };
 }
 
 function pcmMatches(actual, expected) {
@@ -369,10 +449,12 @@ test(`full SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: boots a lo
         }
         await load(new Uint8Array(fixture.bytes));
         let frame, height;
-        const trace = [], pcm = [], hdma = [];
-        // Zero targets need a full 256 timer ticks before display is enabled,
-        // followed by a complete frame, rather than the short-target window.
-        const batches = fixture.name.includes("interlace") || fixture.name.startsWith("apu-timer-zero-") ? 224 : 164;
+        const trace = [], pcm = [], hdma = [], observations = [];
+        // Allow feedback to settle and the large Mode 7 map to initialize.
+        // Interlace needs both fields; zero timers need 256 ticks plus a frame.
+        const batches = fixture.name === "audio-feedback" ? 664 :
+          fixture.name.startsWith("m7-over") ? 264 :
+          fixture.name.includes("interlace") || fixture.name.startsWith("apu-timer-zero-") ? 224 : 164;
         for (let i = 0; i < batches; i++) {
           const output = await call({ action: "batch", batchCycles: i < 64 ? 512 : 16384,
             buttons: fixture.name === "auto" ? 2048 : fixture.name === "serial" ? 0xa55 : 0 });
@@ -381,6 +463,7 @@ test(`full SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: boots a lo
           if (i < 64) trace.push(...output.trace);
           for (let j = 0; j < output.trace.length; j += 4) {
             const [cycle, address, value, flags] = output.trace.slice(j, j + 4);
+            if (address === 0x7e3300 && (flags & 1)) observations.push([cycle, address, value, flags]);
             if (cycle > 1000000 && address === 0x2121 && (flags & 1)) hdma.push([cycle, value]);
           }
         }
@@ -395,7 +478,7 @@ test(`full SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: boots a lo
         }
         const onset = pcm.findIndex((sample) => sample !== 0);
         modeResults.push({ name: fixture.name, height, mismatches, examples, frameHash: frame && frameHash(frame),
-          trace, pcm: pcm.slice(-256), onset: pcm.slice(onset, onset + 768), hdma });
+          trace, pcm: pcm.slice(-256), onset: pcm.slice(onset, onset + 2048), hdma, observations });
       }
       return { first, repeat, hi, modeResults, metrics: window.compiled.metrics,
         validWasm: WebAssembly.validate(window.compiled.wasm) };
@@ -423,12 +506,25 @@ test(`full SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: boots a lo
     expect(auxRepeat.pcm).toEqual(aux.pcm);
   }
   const fixtureEvidence = [];
-  for (const { name, height, mismatches, examples, trace, pcm, onset, hdma } of results.modeResults) {
+  for (const { name, height, mismatches, examples, trace, pcm, onset, hdma, observations } of results.modeResults) {
     fixtureEvidence.push({ name, height, mismatches, examples, pcm: pcm.slice(0, 32), hdma });
     if (name.startsWith("reject-")) expect(mismatches, name).toBeGreaterThan(50000);
     else expect.soft({ mismatches, examples }, name).toEqual({ mismatches: 0, examples: [] });
     expect(pcm.length, `${name} retains the PCM sample clock`).toBe(256);
-    expect.soft(pcmMatches(pcm, expectedPcm(name)), `${name} independently calculated PCM`).toBe(true);
+    if (["audio-decay-sustain", "audio-sustain", "audio-adsr-release"].includes(name)) {
+      const phases = [0, 1].map((phase) => envelopePcm(name, phase));
+      // Skip only interpolation startup. Compare every subsequent sample
+      // through exponential decay and into the distinct sustain rate.
+      const curveEnd = name === "audio-adsr-release" ? 224 : 512;
+      expect(onset.length, `${name} captures the envelope transition`).toBeGreaterThanOrEqual(curveEnd);
+      expect.soft(phases.some((e) => onset.slice(8, curveEnd).every((v, i) => v === e.onset[i + 8])),
+        `${name} exact ADSR decay/sustain curve`).toBe(true);
+      if (name === "audio-adsr-release") {
+        expect.soft(phases.some((e) => onset.some((_, offset) => offset >= 224 &&
+          e.release.every((v, i) => onset[offset + i] === v))), "ADSR KOFF subtracts eight per sample through zero").toBe(true);
+        expect(pcm.every((v) => v === 0)).toBe(true);
+      } else expect.soft(phases.some((e) => pcm.every((v) => v === e.settled)), `${name} settled envelope`).toBe(true);
+    } else expect.soft(pcmMatches(pcm, expectedPcm(name)), `${name} independently calculated PCM`).toBe(true);
     if (name === "audio-ramp") {
       expect(Math.max(...onset.slice(0, 16).map(Math.abs))).toBeLessThan(6000);
       expect(Math.max(...onset.slice(64, 96).map(Math.abs))).toBeGreaterThan(13000);
@@ -437,7 +533,7 @@ test(`full SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: boots a lo
     if (name === "audio-keyoff") expect(onset.filter((sample) => sample !== 0).length).toBeGreaterThan(10);
     if (name === "apu-endx") expect(onset.some((sample) => sample !== 0)).toBe(true);
     if (name === "audio-echo") {
-      expect(onset.length).toBe(768);
+      expect(onset.length).toBeGreaterThanOrEqual(768);
       expect(pcmMatches(onset.slice(64, 500), expectedPcm("mode-0")), "echo's 512-sample delay").toBe(true);
       expect(pcmMatches(onset.slice(600, 768), expectedPcm("audio-echo"))).toBe(true);
     }
@@ -461,6 +557,24 @@ test(`full SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: boots a lo
       expect(writes.filter((t) => t[1] >= 0x7e3200 && t[1] < 0x7e3200 + expected.length)
         .map((t) => [t[1], t[2]]), "CPU CGRAM readback and PPU1/PPU2 latch isolation").toEqual(
           expected.map((value, i) => [0x7e3200 + i, value]));
+    }
+    if (name.startsWith("obj-limit-")) {
+      const flag = {"obj-limit-32": 0, "obj-limit-33": 0x40, "obj-limit-34tiles": 0, "obj-limit-35tiles": 0x80}[name];
+      expect(observations.length, `${name} VBlank STAT77 observations`).toBeGreaterThanOrEqual(2);
+      expect(observations.map(([, , value]) => value)).toEqual(Array(observations.length).fill(flag));
+    }
+    if (name === "multi") {
+      expect(writes.filter((t) => t[1] === 0x2121 && t[2] >= 0x21 && t[2] <= 0x28)
+        .map((t) => t[2]), "DMA channels 2 then 5 complete in priority order").toEqual([0x21,0x22,0x23,0x24,0x25,0x26,0x27,0x28]);
+      const transfers = hdma.filter(([, value]) => [0x31, 0x51, 0x32, 0x52].includes(value));
+      expect(transfers.length).toBeGreaterThanOrEqual(8);
+      expect(transfers.map(([, value]) => value)).toEqual(transfers.map((_, i) => [0x31,0x51,0x32,0x52][i % 4]));
+      expect(transfers.every(([cycle], i) => i % 2 === 0 || cycle - transfers[i - 1][0] <= 40)).toBe(true);
+      const arbitration = hdma.filter(([, value]) => [0x29, 0x2a, 0x31, 0x51].includes(value));
+      const interrupt = arbitration.findIndex(([, value], i) => value === 0x31 && i > 0 && arbitration[i - 1][1] === 0x29);
+      expect(interrupt, "HBlank HDMA interrupts active DMA").toBeGreaterThan(0);
+      expect(arbitration.slice(interrupt, interrupt + 3).map(([, value]) => value)).toEqual([0x31, 0x51, 0x29]);
+      expect(arbitration.some(([, value]) => value === 0x2a), "second DMA channel completes after resume").toBe(true);
     }
     if (name.startsWith("dma-")) {
       const offsets = [[0], [0, 1], [0, 0], [0, 0, 1, 1], [0, 1, 2, 3], [0, 1, 0, 1], [0, 0], [0, 0, 1, 1]][Number(name.at(-1))];

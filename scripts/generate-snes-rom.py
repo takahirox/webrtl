@@ -99,6 +99,10 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
     if audio == "pitch": registers += [(0x03, 0x08)]
     if audio == "noise": registers += [(0x3d, 1), (0x6c, 0x3f)]
     if audio == "adsr": registers += [(0x05, 0x8f), (0x06, 0xe0)]
+    if audio in ["decay-sustain", "adsr-release"]:
+        registers += [(0x05, 0xff), (0x06, 0x80)]  # decay rate 30, sustain level 4, hold
+    if audio == "sustain":
+        registers += [(0x05, 0xff), (0x06, 0x9f)]  # sustain rate 31 (every sample)
     if audio == "ramp": registers += [(0x07, 0xdf)]  # linear gain increase, rate 31
     if audio == "voices":
         for voice in range(1, 8):
@@ -113,9 +117,9 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
         registers += [(0x10 + r, v) for r, v in
                       [(0, 0x7f), (1, 0x7f), (2, 0x27), (3, 0x0e), (4, 1), (5, 0), (7, 0x7f)]]
         registers += [(0x2d, 2)]  # PMON: modulate voice 1 only
-    if audio == "echo":
+    if audio in ["echo", "feedback"]:
         registers += [(0x6c, 0), (0x2c, 0x40), (0x3c, 0x40), (0x4d, 1),
-                      (0x6d, 0x20), (0x7d, 1), (0x0d, 0)]
+                      (0x6d, 0x20), (0x7d, 1), (0x0d, 0x40 if audio == "feedback" else 0)]
         registers += [(0x0f + tap * 16, 0x40 if tap == 0 else 0) for tap in range(8)]
     if audio == "echo-wrap":
         # EDL=0 repeatedly reads the same stereo pair. FLG=$20 keeps echo
@@ -152,6 +156,7 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
     targets = [1, 2, 3]
     if apu_check and apu_check.startswith("timer-zero-"):
         targets[int(apu_check[-1])] = 0
+    if audio == "adsr-release": apu.emit("Clear release timer counter", 0x8f, 0, 0x12)
     apu.emit(f"Enable all timers, targets {targets}",
              0x8f, targets[0], 0xfa, 0x8f, targets[1], 0xfb, 0x8f, targets[2], 0xfc, 0x8f, 7, 0xf1)
     zero_timer = apu_check and apu_check.startswith("timer-zero-")
@@ -174,6 +179,12 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
         apu.branch(0xf0, f"next_timer{index}" if zero_timer else "idle")
         apu.emit(f"MOV ${port:02x},A (timer tick proof)", 0xc4, port)
         if zero_timer: apu.label(f"next_timer{index}")
+    if audio == "adsr-release":
+        # Wait through decay into the sustain plateau before requesting KOFF.
+        apu.emit("INC $12; MOV A,$12; CMP A,#64", 0xab, 0x12, 0xe4, 0x12, 0x68, 64)
+        apu.branch(0x90, "no_release")  # BCC
+        apu.emit("KOFF voice 0 after ADSR decay", 0x8f, 0x5c, 0xf2, 0x8f, 1, 0xf3)
+        apu.label("no_release")
     if audio == "keyoff":
         apu.emit("KOFF voice 0 after timer ticks", 0x8f, 0x5c, 0xf2, 0x8f, 1, 0xf3)
     apu.branch(0x2f, "idle")
@@ -187,6 +198,8 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
     payload[:len(apu.finish())] = apu.data
     payload[0x300:0x304] = bytes([0, 6, 0, 6])  # sample directory: start and loop $0600
     payload[0x400:0x409] = bytes([0xb3] + [0x77] * 4 + [0x99] * 4)  # original looping BRR square wave
+    if audio in ["decay-sustain", "sustain", "adsr-release"]:
+        payload[0x401:0x409] = bytes([0x77] * 8)  # constant positive source for envelope oracle
     if apu_check == "endx":
         # Play a normal block before the silent end block (END without LOOP).
         # Its loop pointer continues into zeroed ARAM, preventing another end
@@ -333,6 +346,8 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
                  "vflip-fraction": 2, "vflip-scale": 2}
         if effect in flips:
             write(0x211a, flips[effect])
+        if effect in ["m7-over2", "m7-over3"]:
+            write(0x211a, 0x80 if effect == "m7-over2" else 0xc0)
         for reg in [0x210d, 0x210e, 0x211b, 0x211c, 0x211d, 0x211e, 0x211f, 0x2120]:
             value = 0x100 if reg in [0x211b, 0x211e] else 0
             if effect == "zoom" and reg == 0x211b: value = 0x200
@@ -345,8 +360,25 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
                 # Vertical cases feed Y through M7B to the striped X axis.
                 value = ({0x211c: scale, 0x211d: 0x100} if effect.startswith("vflip") else
                          {0x211b: scale, 0x211e: 0x100}).get(reg, 0)
+            if effect in ["m7-over2", "m7-over3"] and reg == 0x210d:
+                value = 1016
+            if effect in ["m7-origin-positive", "m7-origin-negative"]:
+                positive = effect.endswith("positive")
+                value = {0x211b: 0x81, 0x211c: 0x60, 0x211e: 0x100,
+                         0x211f: 3, 0x2120: 5,
+                         0x210d: 1028 if positive else (-1022 & 0x1fff),
+                         0x210e: (-1020 & 0x1fff) if positive else 1030}.get(reg, 0)
             write(reg, value & 255)
             write(reg, value >> 8)
+        if effect in ["m7-over2", "m7-over3"]:
+            stz(0x2115)  # increment after low-byte writes
+            stz(0x2116)
+            stz(0x2117)
+            cpu.emit("LDX #$4000 (Mode 7 map words)", 0xa2, 0, 0x40)
+            cpu.label("m7map")
+            write(0x2118, 1)
+            cpu.emit("DEX", 0xca)
+            cpu.branch(0xd0, "m7map")
     stz(0x2121)
     for value in [0, 0x7c, 0x1f, 0, 0xe0, 3, 0xff, 0x7f]:
         write(0x2122, value)
@@ -370,12 +402,18 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
     graphics = tile * (2 if mode in [5, 6] else 1)
     if mode == 7:
         graphics = bytes(v for y in range(8) for x in range(8) for v in [0, x % 2])
+        if effect in ["m7-over2", "m7-over3"]:
+            graphics = bytes(v for tile in range(2) for y in range(8) for x in range(8)
+                             for v in [1, 2 if tile else x % 2])
+        if effect in ["m7-origin-positive", "m7-origin-negative"]:
+            graphics = bytes(v for y in range(8) for x in range(8)
+                             for v in [0, [2, 1, 0, 1, 0, 1, 0, 3][x]])
     # DMA cartridge graphics into VRAM through the normal alternating-byte port.
     write(0x2115, 0x80)
     stz(0x2116)
     write(0x2117, 0 if mode == 7 else 0x10)
     for address, value in [(0x4300, 1), (0x4301, 0x18), (0x4302, 0),
-                           (0x4303, 0x90), (0x4304, 0), (0x4305, len(graphics)), (0x4306, 0), (0x420b, 1)]:
+                           (0x4303, 0x9b if effect in ["m7-over2", "m7-over3"] else 0x90), (0x4304, 0), (0x4305, len(graphics) & 255), (0x4306, len(graphics) >> 8), (0x420b, 1)]:
         write(address, value)
     if transfer == "reverse":
         # VRAM prefetch is reloaded by VMADD. B->A mode 1 must alternate
@@ -398,23 +436,35 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
         for address in range(0x210d, 0x2115):
             stz(address)
             stz(address)
+    if transfer == "multi":
+        # Both channels write the same latch. Lower numbered channel must
+        # complete all bytes before the next; its final state is observable.
+        for channel, source in [(2, 0xa0), (5, 0xa4)]:
+            for offset, value in [(0, 0), (1, 0x21), (2, source), (3, 0x90), (4, 0), (5, 4), (6, 0)]:
+                write(0x4300 + channel * 16 + offset, value)
+        write(0x420b, 0x24)
     if sprite_priority is not None:
         assert mode == 0 and sprite_priority in [0, 3]
         # Normally one green 8x8 object; larger fixtures share a 16-dot width.
-        large_sprite = effect in ["sprite-edges", "sprite-interlace", "sprite-interlace-vflip",
-                                  "sprite-rect", "sprite-rect-vflip"]
+        small_rect_interlace = bool(effect and effect.startswith("sprite-small-interlace-"))
+        limit_tiles = bool(effect and effect.startswith("obj-limit-") and "tiles" in effect)
+        large_sprite = limit_tiles or effect in ["sprite-edges", "sprite-interlace", "sprite-interlace-vflip",
+                                  "sprite-rect", "sprite-rect-vflip"] or small_rect_interlace
         write(0x2121, 130)
         write(0x2122, 0xe0)
         write(0x2122, 3)
         if large_sprite:
             write(0x2122, 0xff)  # palette 131: white for odd source rows
             write(0x2122, 0x7f)
-        write(0x2101, 0xc1 if effect in ["sprite-rect", "sprite-rect-vflip"] else
-              0x61 if large_sprite else 1)
+        obsel = 0x61 if large_sprite else 1
+        if effect in ["sprite-rect", "sprite-rect-vflip"]: obsel = 0xc1
+        if small_rect_interlace: obsel = 0xc1 if "-6" in effect else 0xe1
+        if limit_tiles: obsel = 1
+        write(0x2101, obsel)
         stz(0x2116)
         write(0x2117, 0x20)
         sprite_source = 0x9b00 if large_sprite else 0x9040
-        sprite_bytes = 18 * 32 if large_sprite else 32
+        sprite_bytes = (34 if small_rect_interlace else 18) * 32 if large_sprite else 32
         for address, value in [(0x4302, sprite_source & 255), (0x4303, sprite_source >> 8),
                                (0x4305, sprite_bytes & 255), (0x4306, sprite_bytes >> 8), (0x420b, 1)]:
             write(address, value)
@@ -522,6 +572,11 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
         for address, value in [(0x2123, 0x0a), (0x2126, 64), (0x2127, 127),
                                (0x2128, 96), (0x2129, 159), (0x212a, logic), (0x212e, 1)]:
             write(address, value)
+    if effect and effect.startswith("color-window-"):
+        clip, prevent = map(int, effect.split("-")[-2:])
+        for address, value in [(0x2125, 0x20), (0x2126, 64), (0x2127, 127),
+                               (0x2130, (clip << 6) | (prevent << 4)), (0x2131, 0x21), (0x2132, 0x5f)]:
+            write(address, value)
     if effect == "math":
         for address, value in [(0x2130, 0), (0x2131, 1), (0x2132, 0x5f)]:
             write(address, value)
@@ -577,6 +632,14 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
                            (0x4313, 0x90), (0x4314, 0), (0x420c, 2)]:
         write(address, value)
     if transfer == "indirect": stz(0x4317)
+    if transfer == "multi":
+        # Direct channel 2 and indirect channel 5 contend for CGADD on the
+        # same two scanlines. Their table values must alternate in priority order.
+        for channel, source, indirect in [(2, 0xc0, False), (5, 0xd0, True)]:
+            for offset, value in [(0, 0x40 if indirect else 0), (1, 0x21), (2, source),
+                                  (3, 0x90), (4, 0), (7, 0)]:
+                write(0x4300 + channel * 16 + offset, value)
+        write(0x420c, 0x24)
     # NMI increments WRAM $10; main loop waits for it, then samples controller B.
     stz(0x10)
     write(0x4207, 128)
@@ -590,6 +653,23 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
     load(0x10)
     cpu.branch(0xf0, "frame")
     stz(0x10)
+    if transfer == "multi":
+        # Start long DMA at the end of VBlank. HBlank HDMA must interrupt it
+        # and the DMA byte stream must resume before channel 7 starts.
+        cpu.label("dma_visible")
+        load(0x4212)
+        cpu.emit("AND #$80", 0x29, 0x80)
+        cpu.branch(0xd0, "dma_visible")
+        for channel, source in [(0, 0xe2), (7, 0xe3)]:
+            for offset, value in [(0, 8), (1, 0x21), (2, source), (3, 0x90), (4, 0), (5, 0), (6, 4)]:
+                write(0x4300 + channel * 16 + offset, value)
+        write(0x420b, 0x81)
+    if effect and effect.startswith("obj-limit-"):
+        # Read sticky range/time flags in VBlank and publish CPU observation.
+        load(0x213e)
+        cpu.emit("AND #$c0; STA $7e3300", 0x29, 0xc0, 0x8f, 0, 0x33, 0x7e)
+        check({"obj-limit-32": 0, "obj-limit-33": 0x40,
+               "obj-limit-34tiles": 0, "obj-limit-35tiles": 0x80}[effect])
     if autojoy:
         cpu.label("joybusy")
         load(0x4212)
@@ -606,12 +686,20 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
     write(0x2121, 1)
     write(0x2122, 0xe0)
     write(0x2122, 3)
-    cpu.branch(0x80, "frame")
+    if transfer == "multi":
+        cpu.jumps.append((len(cpu.data) + 1, "frame"))
+        cpu.emit("JMP frame", 0x4c, 0, 0)
+    else:
+        cpu.branch(0x80, "frame")
     cpu.label("red")
     write(0x2121, 1)
     write(0x2122, 0x1f)
     write(0x2122, 0)
-    cpu.branch(0x80, "frame")
+    if transfer == "multi":
+        cpu.jumps.append((len(cpu.data) + 1, "frame"))
+        cpu.emit("JMP frame", 0x4c, 0, 0)
+    else:
+        cpu.branch(0x80, "frame")
     cpu.label("nmi")
     cpu.emit("PHA", 0x48)
     load(0x4210)
@@ -627,7 +715,8 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
     cpu.branch(0x80, "failed")
     rom = bytearray([0xcb] * 32768)
     rom[:len(cpu.finish())] = cpu.data
-    rom[0x1000:0x1000 + len(graphics)] = graphics
+    graphics_offset = 0x1b00 if effect in ["m7-over2", "m7-over3"] else 0x1000
+    rom[graphics_offset:graphics_offset + len(graphics)] = graphics
     if bus:
         rom[0x1070] = 0xa6
     rom[0x1080:0x1085] = bytes([127, 0, 97, 0, 0])
@@ -635,6 +724,10 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
         rom[0x1080:0x1087] = bytes([127, 0xb0, 0x90, 97, 0xb1, 0x90, 0])
         rom[0x10b0:0x10b2] = bytes([0x10, 0x20])
     rom[0x10a0:0x10a8] = bytes(range(0x21, 0x29))
+    if transfer == "multi":
+        rom[0x10c0:0x10c5] = bytes([127, 0x31, 97, 0x32, 0])
+        rom[0x10d0:0x10d7] = bytes([127, 0xe0, 0x90, 97, 0xe1, 0x90, 0])
+        rom[0x10e0:0x10e4] = bytes([0x51, 0x52, 0x29, 0x2a])
     if sprite_priority is not None:
         rom[0x1040:0x1060] = bytes([0, 255] * 8 + [0] * 16)
         if effect in ["sprite-hflip", "sprite-vflip"]:
@@ -645,16 +738,38 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
         if large_sprite:
             opaque = bytes([0, 255] * 8 + [0] * 16)
             upper = bytes(v for y in range(8) for v in [255 if y & 1 else 0, 255]) + bytes(16)
-            sprite_graphics = bytearray(18 * 32)
+            sprite_graphics = bytearray(sprite_bytes)
             for tile_index in [0, 1, 16, 17]:
                 tile_data = (upper if tile_index < 2 else bytes(32)) if effect != "sprite-edges" else opaque
                 sprite_graphics[tile_index * 32:(tile_index + 1) * 32] = tile_data
+            if small_rect_interlace:
+                # Colored source rows 16-23 expose an incorrectly tall range.
+                for tile_index in [32, 33]:
+                    sprite_graphics[tile_index * 32:(tile_index + 1) * 32] = upper
             rom[0x1b00:0x1b00 + len(sprite_graphics)] = sprite_graphics
             xs = [0, 248, 252, 508, 504, 500] if effect == "sprite-edges" else [16]
             for i, x in enumerate(xs):
                 attributes = (sprite_priority << 4) | (0x80 if effect.endswith("-vflip") else 0)
                 oam[4 * i:4 * i + 4] = bytes([x & 255, 16 + i * 24, 0, attributes])
                 oam[512 + i // 4] |= (x >> 8) << (2 * (i % 4))
+        if effect and effect.startswith("obj-limit-"):
+            tiled = "tiles" in effect
+            count = 18 if tiled else int(effect.split("-")[-1])
+            # 17 large 16-dot objects consume exactly 34 tiles; one extra small
+            # object consumes tile 35. Range control uses 32/33 small objects.
+            if tiled:
+                # All four 16x16 source tiles are opaque green.
+                for tile_index in [0, 1, 16, 17]:
+                    start = 0x1b00 + tile_index * 32
+                    rom[start:start + 32] = bytes([0, 255] * 8 + [0] * 16)
+            for i in range(count):
+                visible = not tiled or i < 17 or effect == "obj-limit-35tiles"
+                # First object is fetched last. Give it a unique position so
+                # tile 35's rejection is visible, independently of STAT77.
+                x = 112 if tiled and i == 0 else 80 if i == count-1 else 16
+                oam[4*i:4*i+4] = bytes([x, 16 if visible else 240, 0, 0x30])
+                if tiled and i < 17:
+                    oam[512 + i//4] |= 2 << (2*(i%4))
         rom[0x1800:0x1a20] = oam
     rom[0x1100:0x1600] = payload
     rom[0x7fc0:0x7fd5] = b"WEBRTL ORIGINAL TEST ".ljust(21)
