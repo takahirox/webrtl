@@ -1038,5 +1038,411 @@
       }
     },
     "limits": "Bounded feature checks are not exhaustive conformance or broad game compatibility. Compiler peak memory was not measured. Real-time playability is not established. Live Pages checks remain pending publication."
+  },
+  "testMemoryControlsReviewFixValidation": {
+    "date": "2026-10-30",
+    "reviewedPrHead": "8fd87a4c21e31a95c4209c448c89bb9f31440d2d",
+    "parentCheckpoint": "f641f2dcf093f86629d83d5c2fa54d108ccfa7dd",
+    "sourceSha256": {
+      "examples/snes/snes-core.v": "61b57cad71edaea173e5949adbf2d65f6c52ffbd84761f42c9c174f6595a75f5",
+      "scripts/adapt_snes.py": "87adbab6e32ec486b588184b825ce1043fa54ce1b46dc7983f106e837dfafc36",
+      "scripts/generate-snes-rom.py": "cf7bad9f8fba03115e5d49eaf810850f5717b1d648db041e14c6a7a9d36ef720",
+      "tests/static/snes.spec.js": "72c9b08fb192c805c427d91b4babb8fc2cf18322a3578e0d1dd745f10544a587"
+    },
+    "regeneration": "All pinned upstream input hashes verified; adapted core is byte-identical. All 158 prior cartridges remain byte-identical.",
+    "python": {
+      "command": "python3 -m unittest discover -s tests -v",
+      "passed": 10
+    },
+    "staticBuild": {
+      "command": "npm run build:demo",
+      "passed": true
+    },
+    "staticChecks": {
+      "command": "WEBRTL_SNES_FIXTURES='^(apu-|audio-)' npx playwright test --config=.build/smp-static.config.cjs --output=.build/smp-final --reporter=json",
+      "configuration": "Repository static config with two workers and loopback port 18766; test contents unchanged.",
+      "initialStats": {
+        "startTime": "2026-10-30T07:16:05.123Z",
+        "duration": 1154354.486,
+        "expected": 42,
+        "skipped": 0,
+        "unexpected": 6,
+        "flaky": 0
+      },
+      "initialFailures": [
+        {
+          "browser": "chromium",
+          "test": "compiles edited RTL and runs fresh Wasm under /webrtl/ with only static GETs",
+          "reason": "Alternate port 18766 differs from the test assertion fixed to 8766."
+        },
+        {
+          "browser": "chromium",
+          "test": "runs the two-file example, retains edits across files, and compiles a selected top and edited helper",
+          "reason": "Alternate port 18766 differs from the test assertion fixed to 8766."
+        },
+        {
+          "browser": "firefox",
+          "test": "compiles edited RTL and runs fresh Wasm under /webrtl/ with only static GETs",
+          "reason": "Alternate port 18766 differs from the test assertion fixed to 8766."
+        },
+        {
+          "browser": "firefox",
+          "test": "runs the two-file example, retains edits across files, and compiles a selected top and edited helper",
+          "reason": "Alternate port 18766 differs from the test assertion fixed to 8766."
+        },
+        {
+          "browser": "chromium",
+          "test": "CPU bus compiles five files and exposes the RTL ROM/write/readback trace with deterministic reset",
+          "reason": "Alternate port 18766 differs from the test assertion fixed to 8766."
+        },
+        {
+          "browser": "firefox",
+          "test": "CPU bus compiles five files and exposes the RTL ROM/write/readback trace with deterministic reset",
+          "reason": "Alternate port 18766 differs from the test assertion fixed to 8766."
+        }
+      ],
+      "recheckCommand": "npx playwright test --config=playwright.static.config.js tests/static/counter.spec.js tests/static/cpu-bus.spec.js --grep 'compiles edited RTL|runs the two-file example|CPU bus compiles five files'",
+      "recheckStats": {
+        "startTime": "2026-10-30T07:18:04.238Z",
+        "duration": 56615.822,
+        "expected": 6,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "uniquePassingChecks": 48,
+      "coverage": "All 42 APU/audio cartridges in each browser, including six new TEST cases; baseline keyboard/gamepad, LoROM/HiROM, vector/DMA/HDMA, sample clock and deterministic frame/PCM reset checks retained in every batch. Other static example checks included."
+    },
+    "wasm": {
+      "bytes": 269147,
+      "sha256": "11f035b30dc9376378cd660bac91a03b0db8ba6a9fa9badab07e08eb153bc3d6",
+      "identicalCompilations": 6
+    },
+    "browsers": {
+      "chromium": {
+        "cartridges": 42,
+        "positiveFrameMatches": 42,
+        "newFixtures": [
+          {
+            "name": "apu-ram-write-enable",
+            "frameHash": 3371206625,
+            "pcmSha256": "2d57f09a1361b52f6837125671e27b2e92bb48d9ce3cd9857ef5aa8fd51eb236"
+          },
+          {
+            "name": "apu-ram-write-protect",
+            "frameHash": 3371206625,
+            "pcmSha256": "2d57f09a1361b52f6837125671e27b2e92bb48d9ce3cd9857ef5aa8fd51eb236"
+          },
+          {
+            "name": "apu-ram-disable-read",
+            "frameHash": 3371206625,
+            "pcmSha256": "20afcf4fe78f275d8499f400d4a3b64f63cdec463d769cbbc1daffbd77642786"
+          },
+          {
+            "name": "apu-ram-disable-write",
+            "frameHash": 3371206625,
+            "pcmSha256": "20afcf4fe78f275d8499f400d4a3b64f63cdec463d769cbbc1daffbd77642786"
+          },
+          {
+            "name": "apu-ram-disable-dsp",
+            "frameHash": 3371206625,
+            "pcmSha256": "20afcf4fe78f275d8499f400d4a3b64f63cdec463d769cbbc1daffbd77642786"
+          },
+          {
+            "name": "apu-ram-disable-aux",
+            "frameHash": 3371206625,
+            "pcmSha256": "20afcf4fe78f275d8499f400d4a3b64f63cdec463d769cbbc1daffbd77642786"
+          }
+        ],
+        "measurements": [
+          {
+            "browser": "chromium",
+            "compileMs": 85232.09999999963,
+            "wasmBytes": 269147,
+            "cxxrtlBytes": 1621880,
+            "runtime": {
+              "samples": 2489,
+              "nonzero": 1399,
+              "pcmHash": 2024722791,
+              "hashes": [
+                698101324,
+                698101324,
+                3470071505,
+                3371206625
+              ],
+              "frameCycles": [
+                311296,
+                671744,
+                1032192,
+                1392640
+              ],
+              "hdmaWrites": 4,
+              "nmiVectors": 2,
+              "irqVectors": 687,
+              "memoryBytes": 20578304,
+              "pcmPeriod16": true,
+              "pcmMin": -14011,
+              "pcmMax": 14005,
+              "elapsedMs": 6355.199999999255,
+              "cycles": 1671168
+            }
+          },
+          {
+            "browser": "chromium",
+            "compileMs": 71885.5,
+            "wasmBytes": 269147,
+            "cxxrtlBytes": 1621880,
+            "runtime": {
+              "samples": 2489,
+              "nonzero": 1399,
+              "pcmHash": 2024722791,
+              "hashes": [
+                698101324,
+                698101324,
+                3470071505,
+                3371206625
+              ],
+              "frameCycles": [
+                311296,
+                671744,
+                1032192,
+                1392640
+              ],
+              "hdmaWrites": 4,
+              "nmiVectors": 2,
+              "irqVectors": 687,
+              "memoryBytes": 20578304,
+              "pcmPeriod16": true,
+              "pcmMin": -14011,
+              "pcmMax": 14005,
+              "elapsedMs": 6396.5,
+              "cycles": 1671168
+            }
+          },
+          {
+            "browser": "chromium",
+            "compileMs": 88605.69999999925,
+            "wasmBytes": 269147,
+            "cxxrtlBytes": 1621880,
+            "runtime": {
+              "samples": 2489,
+              "nonzero": 1399,
+              "pcmHash": 2024722791,
+              "hashes": [
+                698101324,
+                698101324,
+                3470071505,
+                3371206625
+              ],
+              "frameCycles": [
+                311296,
+                671744,
+                1032192,
+                1392640
+              ],
+              "hdmaWrites": 4,
+              "nmiVectors": 2,
+              "irqVectors": 687,
+              "memoryBytes": 20578304,
+              "pcmPeriod16": true,
+              "pcmMin": -14011,
+              "pcmMax": 14005,
+              "elapsedMs": 6433.599999997765,
+              "cycles": 1671168
+            }
+          }
+        ]
+      },
+      "firefox": {
+        "cartridges": 42,
+        "positiveFrameMatches": 42,
+        "newFixtures": [
+          {
+            "name": "apu-ram-write-enable",
+            "frameHash": 3371206625,
+            "pcmSha256": "2d57f09a1361b52f6837125671e27b2e92bb48d9ce3cd9857ef5aa8fd51eb236"
+          },
+          {
+            "name": "apu-ram-write-protect",
+            "frameHash": 3371206625,
+            "pcmSha256": "2d57f09a1361b52f6837125671e27b2e92bb48d9ce3cd9857ef5aa8fd51eb236"
+          },
+          {
+            "name": "apu-ram-disable-read",
+            "frameHash": 3371206625,
+            "pcmSha256": "20afcf4fe78f275d8499f400d4a3b64f63cdec463d769cbbc1daffbd77642786"
+          },
+          {
+            "name": "apu-ram-disable-write",
+            "frameHash": 3371206625,
+            "pcmSha256": "20afcf4fe78f275d8499f400d4a3b64f63cdec463d769cbbc1daffbd77642786"
+          },
+          {
+            "name": "apu-ram-disable-dsp",
+            "frameHash": 3371206625,
+            "pcmSha256": "20afcf4fe78f275d8499f400d4a3b64f63cdec463d769cbbc1daffbd77642786"
+          },
+          {
+            "name": "apu-ram-disable-aux",
+            "frameHash": 3371206625,
+            "pcmSha256": "20afcf4fe78f275d8499f400d4a3b64f63cdec463d769cbbc1daffbd77642786"
+          }
+        ],
+        "measurements": [
+          {
+            "browser": "firefox",
+            "compileMs": 70740,
+            "wasmBytes": 269147,
+            "cxxrtlBytes": 1621880,
+            "runtime": {
+              "samples": 2489,
+              "nonzero": 1399,
+              "pcmHash": 2024722791,
+              "hashes": [
+                698101324,
+                698101324,
+                3470071505,
+                3371206625
+              ],
+              "frameCycles": [
+                311296,
+                671744,
+                1032192,
+                1392640
+              ],
+              "hdmaWrites": 4,
+              "nmiVectors": 2,
+              "irqVectors": 687,
+              "memoryBytes": 20578304,
+              "pcmPeriod16": true,
+              "pcmMin": -14011,
+              "pcmMax": 14005,
+              "elapsedMs": 7728,
+              "cycles": 1671168
+            }
+          },
+          {
+            "browser": "firefox",
+            "compileMs": 92648,
+            "wasmBytes": 269147,
+            "cxxrtlBytes": 1621880,
+            "runtime": {
+              "samples": 2489,
+              "nonzero": 1399,
+              "pcmHash": 2024722791,
+              "hashes": [
+                698101324,
+                698101324,
+                3470071505,
+                3371206625
+              ],
+              "frameCycles": [
+                311296,
+                671744,
+                1032192,
+                1392640
+              ],
+              "hdmaWrites": 4,
+              "nmiVectors": 2,
+              "irqVectors": 687,
+              "memoryBytes": 20578304,
+              "pcmPeriod16": true,
+              "pcmMin": -14011,
+              "pcmMax": 14005,
+              "elapsedMs": 7756,
+              "cycles": 1671168
+            }
+          },
+          {
+            "browser": "firefox",
+            "compileMs": 74992,
+            "wasmBytes": 269147,
+            "cxxrtlBytes": 1621880,
+            "runtime": {
+              "samples": 2489,
+              "nonzero": 1399,
+              "pcmHash": 2024722791,
+              "hashes": [
+                698101324,
+                698101324,
+                3470071505,
+                3371206625
+              ],
+              "frameCycles": [
+                311296,
+                671744,
+                1032192,
+                1392640
+              ],
+              "hdmaWrites": 4,
+              "nmiVectors": 2,
+              "irqVectors": 687,
+              "memoryBytes": 20578304,
+              "pcmPeriod16": true,
+              "pcmMin": -14011,
+              "pcmMax": 14005,
+              "elapsedMs": 7721,
+              "cycles": 1671168
+            }
+          }
+        ]
+      }
+    },
+    "newCartridgeSha256": {
+      "apu-ram-write-enable": "11fbcf273220ce9df1676e544b87b938569c9aceb603f0cdec16ec1a6b87d57d",
+      "apu-ram-write-protect": "f7c977d1f62960cca0b8dca4162a1c1136ceca7501d031beabeed68e4376ef41",
+      "apu-ram-disable-read": "98d11bd4bad96646397e402b56f9fe7fa0f98eb3f37d1e1c6fe7b7f5c98c3c72",
+      "apu-ram-disable-write": "b86e8ba16f15c44c0c81c34a4a67c9a67a9ede42d99b21934c46376940ba6046",
+      "apu-ram-disable-dsp": "e389f17fcc35dc98d734d6d86da3fc6b0ed796e98d42d7399c379ea7a699871f",
+      "apu-ram-disable-aux": "7c2313165fa32e2cefef1e739c7eaef4972d2526b186b11ae9f5a72641b9c754"
+    },
+    "beforeFix": {
+      "browser": "chromium",
+      "coreSha256": "4e79c1f808e266ad699667d94ecc5f193c7dd9e329485c4672f70e8818655ba8",
+      "command": "WEBRTL_SNES_FIXTURES='^apu-ram-' npx playwright test --config=playwright.static.config.js --project=chromium --grep 'full SNES RTL'",
+      "note": "Static copy used the reviewed core; new fixture assertions unchanged. Write protection, disabled reads and disabled writes rejected the old RTL; enabled writes, DSP and AUX controls passed.",
+      "fixtures": [
+        {
+          "name": "apu-ram-write-enable",
+          "pixelMismatches": 0,
+          "nonzeroTailSamples": 256
+        },
+        {
+          "name": "apu-ram-write-protect",
+          "pixelMismatches": 114688,
+          "nonzeroTailSamples": 0
+        },
+        {
+          "name": "apu-ram-disable-read",
+          "pixelMismatches": 114688,
+          "nonzeroTailSamples": 0
+        },
+        {
+          "name": "apu-ram-disable-write",
+          "pixelMismatches": 114688,
+          "nonzeroTailSamples": 0
+        },
+        {
+          "name": "apu-ram-disable-dsp",
+          "pixelMismatches": 0,
+          "nonzeroTailSamples": 256
+        },
+        {
+          "name": "apu-ram-disable-aux",
+          "pixelMismatches": 0,
+          "nonzeroTailSamples": 256
+        }
+      ]
+    },
+    "trustedLocal": {
+      "passed": false,
+      "note": "Default port 8765 was occupied. Isolated port 18765 reached a failed native build and timed out waiting for Step. Direct build.py invocation reproduced undefined pthread_getaffinity_np, sched_getcpu and pthread_setaffinity_np with Verilator 5.052 / Emscripten 6.0.13.",
+      "commands": [
+        "npm run test:local (port 8765 occupied)",
+        "npx playwright test --config=.build/smp-local.config.cjs (isolated port 18765)",
+        "python3 build.py examples/counter.v .build/smp-native"
+      ]
+    },
+    "limits": "The complete 164-cartridge sweep was not rerun. Native toolchain remains incompatible. Compiler peak memory and real-time playability unverified. No Issue completion claim; post-merge live Pages verification remains pending. No push or merge performed."
   }
 }

@@ -6,7 +6,7 @@ uploads its SPC700 driver through the IPL protocol. The browser test compiles th
 RTL once per batch and power-cycles it for each cartridge. Expected pixels and
 PCM are calculated in the test; they are not recordings of this core's output.
 Pixel comparisons cover every RGBA sample, including its position and alpha.
-The 123-cartridge sweep runs in seven batches per browser, each with at most
+The 164-cartridge sweep runs in nine batches per browser, each with at most
 20 cartridges plus the AUX reset repeat. Each batch retains the baseline
 input/audio, LoROM/HiROM and deterministic-reset checks, compiles client-side,
 and has a 30-minute deadline. This replaces the single 120-cartridge test that
@@ -59,6 +59,9 @@ the capture buffer starts at row 0.
 | `serial`, `auto` | CPU records and checks all twelve buttons, four zero signature bits, eight one connection-detection bits and disconnected port 2; automatic reads separately affect the palette. |
 | `apu-timer-zero-0/1/2` | Each timer independently uses target zero (256 ticks); all three timer output ports must report ticks before the CPU enables display. |
 | `apu-aux`, `apu-aux-repeat` | Both AUX registers initially read zero, then independently retain `$5a/$a5` and `$c3/$3c`. Repeating after power reset reproduces the frame and PCM. |
+| `apu-ram-write-enable/protect` | Initialize ARAM `$0800=$5a`, set TEST to `$0a/$08`, attempt `$a5`, and require `$a5/$5a` respectively. Protection stays active through DSP register setup, BRR playback and timer/port I/O, which must still produce the normal exact frame and PCM. |
+| `apu-ram-disable-read/write` | An I/O-resident SPC700 routine sets TEST=`$0e` (writes enabled, RAM disabled). Reading initialized `$80=$a5` must return `$5a`; attempting to overwrite `$80=$5a` with `$a5` must leave `$5a` after restoring RAM access. |
+| `apu-ram-disable-dsp/aux` | The same disabled-RAM routine reads DSPDATA or AUX through `(X)` and must retain the programmed `$7f/$22` value rather than the disabled-RAM value. All disabled-RAM cases return to ARAM code, restore TEST=`$0a`, and require normal frame/PCM output. |
 | `apu-dsp-mirror-volume/flg/kon` | Repeated writes through DSPADDR `$8c/$ec/$cc` leave mirrored readback and the normal PCM waveform intact, including KON/FLG side effects. |
 | `apu-endx` | A non-looping BRR sample sets ENDX bit 0 before APU readiness. The bit stays set across reads and read-only mirror writes; normal writes of `$00` and `$ff` each clear it after separate key-ons. |
 | `audio-echo-wrap` | Both echo channels read `$8000`, tap 7 is `$80`, all other taps and main volumes are zero, echo volumes are `$7f`, and echo writes are disabled. Every settled PCM sample must equal −32512. |
@@ -136,6 +139,17 @@ produce non-silent PCM and then settle to silence.
 The APU register fixtures follow the independent bsnes
 [SMP I/O implementation](https://github.com/bsnes-emu/bsnes/blob/master/bsnes/sfc/smp/io.cpp)
 and [timer implementation](https://github.com/bsnes-emu/bsnes/blob/master/bsnes/sfc/smp/timing.cpp).
+The TEST memory expectations follow its
+[SMP memory implementation](https://github.com/bsnes-emu/bsnes/blob/master/bsnes/sfc/smp/memory.cpp):
+bit 1 permits SMP RAM writes, bit 2 disables SMP RAM reads/writes, disabled reads
+return `$5a`, and I/O and the enabled IPL overlay take precedence. DSP ARAM
+access remains independent. To avoid fetching instructions from disabled RAM,
+the disable probes execute `MOV $f0,#$0e; MOV A,(X)` (or `MOV (X),A`) from CPU
+input ports `$f4`–`$f7`, followed by `SET1 $f0.1` from AUX `$f8/$f9`. That
+read-modify-write restores TEST=`$02` without altering A. Inactive timer reads
+at `$fa`–`$ff` supply NOPs before a RAM trampoline at `$0100` returns to the
+driver. APU comparisons gate readiness and the CPU keeps checking readiness
+during playback, so a failed memory check cannot leave a passing frame behind.
 The zero-target fixtures clear all three proof ports and poll each timer
 independently: sampling a faster timer only every 256 slow ticks can repeatedly
 observe zero after its four-bit output wraps.

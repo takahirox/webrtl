@@ -244,7 +244,7 @@ wire SMP_CE;
 wire [15:0] SMP_A;
 wire [7:0] SMP_DO;
 wire [7:0] SMP_DI;
-wire SMP_WE_N;
+wire SMP_WE_N, SMP_RAM_WE_N;
 reg [7:0] SMP_CPU_DO;
 wire [7:0] SMP_CPU_DI;
 wire SMP_EN;
@@ -355,7 +355,7 @@ assign SMP_CPU_DI = BUSA_SEL ? BUSA_DO :
 // SMP
 SMP smp(
    .CLK(DSPCLK), .RST_N(RST_N), .CE(SMP_CE), .ENABLE(SMP_EN), .SYSCLKF_CE(INT_SYSCLKF_CE),
-   .A(SMP_A), .DI(SMP_DI), .DO(SMP_DO), .WE_N(SMP_WE_N),
+   .A(SMP_A), .DI(SMP_DI), .DO(SMP_DO), .WE_N(SMP_WE_N), .RAM_WE_N(SMP_RAM_WE_N),
    .PA(INT_PA[1:0]), .PARD_N(INT_PARD_N), .PAWR_N(INT_PAWR_N), .CPU_DI(SMP_CPU_DI), .CPU_DO(SMP_CPU_DO),
    .CS(INT_PA[6]), .CS_N(INT_PA[7]),
    .DBG_REG(DBG_REG), .DBG_DAT_IN(DBG_DAT_IN), .DBG_SMP_DAT(DBG_SMP_DAT), .DBG_CPU_DAT(DBG_SPC700_DAT),
@@ -366,7 +366,7 @@ SMP smp(
 DSP dsp(
     .CLK(DSPCLK), .RST_N(RST_N), .ENABLE(ENABLE), .PAL(PAL),
     .SMP_EN(SMP_EN), .SMP_A(SMP_A), .SMP_DO(SMP_DO), .SMP_DI(SMP_DI),
-    .SMP_WE_N(SMP_WE_N), .SMP_CE(SMP_CE),
+    .SMP_WE_N(SMP_WE_N), .SMP_RAM_WE_N(SMP_RAM_WE_N), .SMP_CE(SMP_CE),
     .RAM_A(ARAM_ADDR), .RAM_D(ARAM_D), .RAM_Q(ARAM_Q),
     .RAM_WE_N(ARAM_WE_N), .RAM_OE_N(ARAM_OE_N), .RAM_CE_N(ARAM_CE_N),
     .SND_RDY(AUDIO_READY), .AUDIO_L(AUDIO_L), .AUDIO_R(AUDIO_R),
@@ -4214,6 +4214,7 @@ module DSP(
     input [7:0] SMP_DO,
     output reg [7:0] SMP_DI,
     input SMP_WE_N  /* synthesis syn_keep=1 */,
+    input SMP_RAM_WE_N,
     output SMP_CE,
 
     // memmux interface
@@ -4920,11 +4921,12 @@ assign INS = IS_TBL[STEP][SUBSTEP];
 
 reg [7:0] SMP_DO_buf;
 reg [15:0] SMP_A_buf;
-reg SMP_WE_N_buf;
+reg SMP_WE_N_buf, SMP_RAM_WE_N_buf;
 always @(posedge CLK) begin
     SMP_DO_buf <= SMP_DO;
     SMP_A_buf <= SMP_A;
     SMP_WE_N_buf <= SMP_WE_N;
+    SMP_RAM_WE_N_buf <= SMP_RAM_WE_N;
 end
 
 always @* begin : ram_addrgen
@@ -5028,7 +5030,7 @@ always @* begin : ram_addrgen
     // available to SMP in second(last) phase earlier (end of first phase), for better timing
     RS_SMP : begin
         RAM_A = SMP_A_buf;
-        RAM_WE = ~SMP_WE_N_buf;
+        RAM_WE = ~SMP_RAM_WE_N_buf;
         RAM_OE = SMP_WE_N_buf;
         RAM_DO = SMP_DO_buf;            // buffered to satisfy timing checker
         if (SMP_A_buf[15:4]== 12'h00F)
@@ -5747,6 +5749,7 @@ module SMP (
     input [7:0] DI,
     output [7:0] DO,
     output WE_N,
+    output RAM_WE_N,
 
     // PA from CPU
     input [1:0] PA,
@@ -5781,7 +5784,7 @@ reg [7:0] TEST;
 reg [1:0] CLK_SPEED;
 reg [1:0] TM_SPEED;
 reg TIMERS_ENABLE, TIMERS_DISABLE;
-reg RAM_WRITE_EN;
+reg RAM_WRITE_EN, RAM_DISABLE;
 reg [2:0] TM_EN;
 reg IPL_EN;
 reg [7:0] T0DIV;
@@ -5858,6 +5861,7 @@ always @(posedge CLK) begin : spc_timers
         TIMERS_ENABLE <= 1'b1;
         TIMERS_DISABLE <= 1'b0;
         RAM_WRITE_EN <= 1;
+        RAM_DISABLE <= 0;
         IPL_EN <= 1'b1;
         TM_EN <= 3'b0;
         // RESET_PORT <= 2'b11;
@@ -5910,6 +5914,7 @@ always @(posedge CLK) begin : spc_timers
                             TM_SPEED <= SPC700_D_OUT[5:4];
                             TIMERS_ENABLE <= SPC700_D_OUT[3];
                             RAM_WRITE_EN <= SPC700_D_OUT[1];
+                            RAM_DISABLE <= SPC700_D_OUT[2];
                             TIMERS_DISABLE <= SPC700_D_OUT[0];
                         end
                         4'h1: begin
@@ -6014,11 +6019,12 @@ always @* begin
     end else if (SPC700_A >= 16'hFFC0 && IPL_EN)
         SPC700_D_IN = IPLROM[SPC700_A[5:0]];
     else
-        SPC700_D_IN = DI;
+        SPC700_D_IN = RAM_DISABLE ? 8'h5a : DI;
 end
 
 assign A = SPC700_A;
 assign WE_N = SPC700_R_WN;
+assign RAM_WE_N = SPC700_R_WN | ~RAM_WRITE_EN | RAM_DISABLE;
 assign DO = SPC700_D_OUT;
 
 always @* begin

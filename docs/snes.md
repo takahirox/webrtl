@@ -93,7 +93,7 @@ and CPU paths; it does not replace devices with host implementations.
 | PPU composition | Windows, main/subscreen, priority, color math, brightness/blanking | Exact pixels for all four two-window Boolean operators, BG1/BG2 priorities, Mode 1 BG3 priority promotion, subscreen addition, fixed-color addition/subtraction and halving, and all sixteen CGWSEL color-window clipping/math-gating combinations. Exhaustive layer/window combinations remain unverified. |
 | Video timing | H/V counters, blanking, two long dots, NTSC short-line exception, overscan/interlace | 224/239/448-line captures and exact pixel positions tested; 357,368/357,364 master-clock noninterlaced field periods observed natively. No PAL board clock selector. |
 | DMA/HDMA | Eight channels, transfer modes, CPU stalls, direct/indirect HDMA | All eight DMA B-bus transfer patterns, reverse VRAM-to-WRAM DMA with CPU readback, and indirect HDMA data and 127-line timing; direct HDMA retained. Multi-channel checks cover DMA priority, direct/indirect HDMA ordering and HDMA interrupting/resuming active DMA. Exhaustive channel interaction and interrupt-boundary timing remain unverified. |
-| APU | SPC700, CPU ports, three timers, ARAM, eight-voice DSP, BRR/interpolation/envelopes/noise/echo | CPU uploads the driver, directory and BRR sample via standard IPL ports. All three timers, including target zero, must tick before video starts. AUX readback/reset, DIV results/flags and read-only DSP mirrors are checked. Independently calculated PCM covers BRR filters/range handling/Gaussian wrap, gain, pitch, negative pitch modulation, eight-voice mixing, ADSR, gain attack, KOFF, mute, noise and delayed FIR echo; sample rate and reset digest checked. Bounded fixtures additionally check nonzero echo feedback and exact ADSR decay, sustain and release PCM. Other pitch modulation cases, arbitrary FIR/feedback configurations and exhaustive envelope rates remain unverified. |
+| APU | SPC700, CPU ports, three timers, ARAM, eight-voice DSP, BRR/interpolation/envelopes/noise/echo | CPU uploads the driver, directory and BRR sample via standard IPL ports. All three timers, including target zero, must tick before video starts. AUX readback/reset, TEST RAM protection/disable with I/O access, DIV results/flags and read-only DSP mirrors are checked. Independently calculated PCM covers BRR filters/range handling/Gaussian wrap, gain, pitch, negative pitch modulation, eight-voice mixing, ADSR, gain attack, KOFF, mute, noise and delayed FIR echo; sample rate and reset digest checked. Bounded fixtures additionally check nonzero echo feedback and exact ADSR decay, sustain and release PCM. Other pitch modulation cases, arbitrary FIR/feedback configurations and exhaustive envelope rates remain unverified. |
 | Controllers | Serial pad, CPU manual reads and system auto-joypad logic | Keyboard and standard gamepad B alter CPU-programmed palette during sound playback; a ROM variant reads automatic joypad results. A mixed twelve-button mask checks the complete 24-read serial sequence, signature and connection detection; second port is checked disconnected. |
 | Runtime | Compile, ROM import, Run/Pause, bounded batches, power Reset, Canvas, Web Audio | Static browser integration and repeatable frame/PCM checks; not real-time playability. |
 
@@ -159,6 +159,10 @@ terms before adding the fourth. BRR end events pass through the latch consumed
 by ENDX, and the final echo FIR product wraps to signed 16 bits before saturation.
 SMP timer comparisons wrap at eight bits so
 target zero represents 256 ticks; AUX reads return the stored registers.
+TEST bit 1 gates SMP ARAM writes and bit 2 disables SMP ARAM reads/writes;
+disabled reads return `$5a` after I/O and IPL overlay selection. A separate
+write strobe carries those permissions into the DSP's SMP memory slot, leaving
+DSP register writes and its sample/echo memory slots independent.
 DSPADDR bit 7 gates register RAM writes and special write side effects while
 preserving mirrored reads. SPC700 DIV retains its nine shift/subtract steps,
 selecting the documented overflow arithmetic (including X=0) and deriving flags
@@ -309,6 +313,20 @@ The new cartridges first reproduced both defects against the previous RTL.
 All 156 existing cartridge variants remain byte-identical; the full sweep and
 the unrelated static browser regressions were not repeated for this correction.
 Pinned-input regeneration reproduces the corrected core exactly.
+
+The TEST memory-control correction passed all 10 Python checks, the static build,
+and 48 unique static browser checks. Each browser ran all 42 APU/audio cartridges,
+including six new RAM permission/disable cases, with exact frame and PCM checks.
+The new cases first rejected the previous RTL's protected writes, disabled reads
+and disabled writes; their enabled-write and I/O controls passed. All 158 prior
+cartridges remain byte-identical, and pinned-input regeneration reproduces the
+corrected core. Six alternate-port origin assertion failures passed unchanged
+on the required port 8766. Source hashes, per-browser results and measurements
+for the identical 269,147-byte Wasm builds are recorded under
+`testMemoryControlsReviewFixValidation` in the validation JSON above. The full
+164-cartridge sweep was not rerun. Trusted-local validation failed with the
+installed Verilator 5.052 / Emscripten 6.0.13 linker incompatibility; this run
+does not infer a result from the earlier Verilator 5.020 validation.
 
 The opt-in Slang source limit is 2 MiB and its compile timeout 300 seconds; legacy
 projects retain 128 KiB and 120 seconds. Each simulation/ROM-write request retains

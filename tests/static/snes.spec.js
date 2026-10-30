@@ -47,6 +47,8 @@ cases += [('multi',dict(transfer='multi'))]
 cases += [(f'audio-{audio}',dict(audio=audio)) for audio in ['feedback','decay-sustain','sustain','adsr-release']]
 cases += [('reject-mode5-as0',dict(mode=0))]
 cases += [(name,dict(effect=name)) for name in ['slhv-latch','wbglog-open-bus']]
+cases += [(f'apu-{check}',dict(apu_check=check)) for check in
+ ['ram-write-enable','ram-write-protect','ram-disable-read','ram-disable-write','ram-disable-dsp','ram-disable-aux']]
 print(json.dumps([dict(name=name,bytes=list(build(**args)[0])) for name,args in cases]))`], { maxBuffer: 32 * 1024 * 1024 }));
 
 // Optional focused reruns still exercise browser compilation and the baseline

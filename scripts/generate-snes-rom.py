@@ -56,6 +56,44 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
         apu.jumps.append((len(apu.data) + 1, "apu_fail"))
         apu.emit("JMP apu_fail", 0x5f, 0, 0)
 
+    ram_disable = apu_check and apu_check.startswith("ram-disable-")
+    if ram_disable:
+        # Execute the disabled interval from CPU input ports and AUX, since
+        # instruction fetches from ARAM must also read $5a. The CPU supplies
+        # MOV $f0,#$0e; MOV A,(X) / MOV (X),A at $f4-$f7. AUX holds SET1 $f0.1
+        # ($22,$f0), restoring RAM access without changing the sampled A.
+        # Timer reads at $fa-$ff are zero/NOP; $0100 jumps back to this driver.
+        for address, value in [(0x80, 0xa5 if apu_check == "ram-disable-read" else 0x5a),
+                               (0xf8, 0x22), (0xf9, 0xf0), (0x100, 0x5f)]:
+            apu.emit(f"Initialize ${address:04x}", 0xe8, value, 0xc5, address & 255, address >> 8)
+        # Resolve the trampoline's absolute destination with the same label
+        # mechanism as JMP, though these bytes are immediate MOV operands.
+        trampoline_fixups = []
+        for offset in [1, 2]:
+            trampoline_fixups.append(len(apu.data) + 1)
+            apu.emit(f"Set trampoline byte {offset}", 0xe8, 0, 0xc5, offset, 1)
+        apu.emit("Set DSP master volume and select its readback",
+                 0x8f, 0x0c, 0xf2, 0x8f, 0x7f, 0xf3)
+        apu.emit("MOV $f4,#$6d (request port instructions)", 0x8f, 0x6d, 0xf4)
+        apu.label("ram_ports")
+        operation = 0xc6 if apu_check == "ram-disable-write" else 0xe6
+        apu.emit("Wait for final instruction byte", 0xe4, 0xf7, 0x68, operation)
+        apu.branch(0xd0, "ram_ports")
+        address = 0xf3 if apu_check == "ram-disable-dsp" else 0xf8 if apu_check == "ram-disable-aux" else 0x80
+        apu.emit("MOV X,#probe address; MOV A,#$a5; JMP $00f4", 0xcd, address, 0xe8, 0xa5, 0x5f, 0xf4, 0)
+        apu.label("ram_return")
+        for offset, shift in zip(trampoline_fixups, [0, 8]):
+            apu.data[offset] = (apu.labels["ram_return"] >> shift) & 255
+        if apu_check == "ram-disable-write":
+            apu.emit("MOV A,$80 (disabled write must preserve ARAM)", 0xe4, 0x80)
+        apu_expect(0x7f if apu_check == "ram-disable-dsp" else 0x22 if apu_check == "ram-disable-aux" else 0x5a)
+        apu.emit("Restore TEST=$0a", 0x8f, 0x0a, 0xf0)
+    if apu_check in ["ram-write-enable", "ram-write-protect"]:
+        apu.emit("Initialize ARAM $0800=$5a", 0xe8, 0x5a, 0xc5, 0, 8)
+        apu.emit("Set TEST RAM write permission", 0x8f, 0x08 if apu_check == "ram-write-protect" else 0x0a, 0xf0)
+        apu.emit("Attempt ARAM $0800=$a5; read back", 0xe8, 0xa5, 0xc5, 0, 8, 0xe5, 0, 8)
+        apu_expect(0x5a if apu_check == "ram-write-protect" else 0xa5)
+        # Leave protection active through DSP setup, playback and timer/port I/O.
     if apu_check == "aux":
         # Check reset before writes, independence, and a second pair of values.
         for address in [0xf8, 0xf9]:
@@ -641,6 +679,14 @@ def build(mode=0, sprite_priority=None, display=0, effect=None, autojoy=False,
     write(0x2143, 2)
     stz(0x2141)
     write(0x2140, 1)  # last counter ff; next expected 00; 01 terminates block
+    if ram_disable:
+        cpu.label("ram_ports")
+        load(0x2140)
+        cpu.emit("CMP #$6d (APU requests port instructions)", 0xc9, 0x6d)
+        cpu.branch(0xd0, "ram_ports")
+        for address, value in [(0x2140, 0x8f), (0x2141, 0x0e), (0x2142, 0xf0),
+                               (0x2143, 0xc6 if apu_check == "ram-disable-write" else 0xe6)]:
+            write(address, value)
     cpu.label("sound")
     load(0x2140)
     cpu.emit("CMP #$5a", 0xc9, 0x5a)

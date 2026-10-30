@@ -28,6 +28,9 @@ def adapt(sources, boot):
         # Simulation-only printing is unavailable in the standalone Wasm ABI.
         source = re.sub(r"^\s*\$fdisplay\([^\n]*\);", ";", source, flags=re.M)
         if name == "src/SNES.v":
+            source = source.replace("wire SMP_WE_N;", "wire SMP_WE_N, SMP_RAM_WE_N;")
+            source = source.replace(".WE_N(SMP_WE_N),", ".WE_N(SMP_WE_N), .RAM_WE_N(SMP_RAM_WE_N),")
+            source = source.replace(".SMP_WE_N(SMP_WE_N),", ".SMP_WE_N(SMP_WE_N), .SMP_RAM_WE_N(SMP_RAM_WE_N),")
             source = source.replace(".HIGH_RES(),", ".HIGH_RES(HIGH_RES),")
             source = source.replace(".TURBO()", ".TURBO(1'b0)")
             source = source.replace("endmodule", "assign DBG_PPU_DAT=0; assign DBG_WRAM_DAT=0; assign PPU_DBG_BRK=0;\nendmodule")
@@ -43,6 +46,12 @@ def adapt(sources, boot):
             source = source.replace("STATE2 = STATE - 4'd1;", "")
             source = source.replace("STATE2[2:0]", "(STATE[2:0] - 3'd1)")
         if name == "src/dsp.v":
+            # TEST controls only SMP ARAM writes. Keep the raw SMP write
+            # strobe for DSPADDR/DSPDATA, and leave DSP sample/echo slots alone.
+            source = source.replace("    output SMP_CE,", "    input SMP_RAM_WE_N,\n    output SMP_CE,")
+            source = source.replace("reg SMP_WE_N_buf;", "reg SMP_WE_N_buf, SMP_RAM_WE_N_buf;")
+            source = source.replace("SMP_WE_N_buf <= SMP_WE_N;", "SMP_WE_N_buf <= SMP_WE_N;\n    SMP_RAM_WE_N_buf <= SMP_RAM_WE_N;")
+            source = source.replace("RAM_WE = ~SMP_WE_N_buf;", "RAM_WE = ~SMP_RAM_WE_N_buf;")
             # DSPADDR bit 7 selects read-only mirrors, including the special
             # KON/FLG/ENDX write paths outside the register RAM.
             source = source.replace("~SMP_WE_N && SMP_A == 16'h00F3 && SUBSTEP == 3 && CE",
@@ -156,6 +165,16 @@ def adapt(sources, boot):
             source = source.replace("if (temp[5])\n            temp = 6'b111111;",
                                     "if (temp[5] && !half)\n            temp = 6'b111111;")
         if name == "src/smp.v":
+            source = source.replace("    output WE_N,", "    output WE_N,\n    output RAM_WE_N,")
+            source = source.replace("reg RAM_WRITE_EN;", "reg RAM_WRITE_EN, RAM_DISABLE;")
+            source = source.replace("RAM_WRITE_EN <= 1;", "RAM_WRITE_EN <= 1;\n        RAM_DISABLE <= 0;")
+            source = source.replace("RAM_WRITE_EN <= SPC700_D_OUT[1];",
+                                    "RAM_WRITE_EN <= SPC700_D_OUT[1];\n                            RAM_DISABLE <= SPC700_D_OUT[2];")
+            # I/O and the IPL overlay take precedence over disabled ARAM.
+            source = source.replace("SPC700_D_IN = DI;\nend",
+                                    "SPC700_D_IN = RAM_DISABLE ? 8'h5a : DI;\nend")
+            source = source.replace("assign WE_N = SPC700_R_WN;",
+                                    "assign WE_N = SPC700_R_WN;\nassign RAM_WE_N = SPC700_R_WN | ~RAM_WRITE_EN | RAM_DISABLE;")
             # Timer stage 2 is eight bits: target zero means 256 ticks.
             for timer in range(3):
                 source = source.replace(f"T{timer}_CNT + 1 == T{timer}DIV",
