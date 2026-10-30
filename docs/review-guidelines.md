@@ -20,6 +20,8 @@ existing conventions, and documentation affected by the change. Do not approve a
 PR as closing an Issue while required work remains. If the change is intentionally
 partial, ensure the PR says so and the Issue remains open.
 
+Review applicable interface changes against the [UI/UX principles](../README.md#uiux).
+
 ## Check for unnecessary work
 
 Reject unnecessary abstractions, speculative extensibility, unrelated refactoring,
