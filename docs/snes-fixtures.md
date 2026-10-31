@@ -3,16 +3,20 @@
 `scripts/generate-snes-rom.py` assembles original cartridges. Every fixture boots
 through the CPU reset vector, programs the devices through CPU/DMA registers and
 uploads its SPC700 driver through the IPL protocol. The browser test compiles the
-RTL once per batch and power-cycles it for each cartridge. Expected pixels and
-PCM are calculated in the test; they are not recordings of this core's output.
-Pixel comparisons cover every RGBA sample, including its position and alpha.
-The 246-cartridge sweep runs in thirteen batches per browser, each with at most
-20 cartridges plus the AUX reset repeat. Each batch retains the baseline
-input/audio, LoROM/HiROM and deterministic-reset checks, compiles client-side,
-and has a 30-minute deadline. This replaces the single 120-cartridge test that
-timed out on the Ubuntu CI runner before reaching its assertions. No fixtures
-are omitted; the AUX pair stays in one batch for its cross-cartridge comparison.
-Each batch saves its own Wasm, fixture results and measurements.
+RTL freshly once per browser worker and power-cycles it for each cartridge.
+Expected pixels and PCM are calculated in the test; they are not recordings of
+this core's output. Pixel comparisons cover every RGBA sample, including its
+position and alpha. All 260 cartridges run in thirteen batches in **each** browser,
+with at most 20 cartridges plus the AUX reset repeat per batch. The baseline
+input/audio, LoROM/HiROM and deterministic-reset checks run once per browser
+worker; the same already-asserted baseline evidence is explicitly marked reused
+in subsequent batch measurements. Each batch retains its 30-minute deadline.
+No fixtures are omitted; the AUX pair stays in one batch for its cross-cartridge
+comparison. Each batch saves its Wasm, fixture results and phase measurements.
+The process-local reuse key hashes every served file (including RTL, compiler
+binaries, headers, adapters and build revision) and browser/frontend/board identity.
+Changed inputs, a new worker, or a public-URL run require fresh compilation.
+See the [timing and coverage record](regression-performance.md).
 All CPU cartridges additionally replay their complete execution after
 power reset, comparing timestamped CPU observations, frame and PCM.
 For a focused DSP rerun (including baseline input/reset and LoROM/HiROM checks):

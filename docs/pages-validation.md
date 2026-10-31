@@ -92,7 +92,28 @@ and workflow code; no native-toolchain workaround was added. The complete
 `npm test`/SNES regression execution remains a required PR/manual CI check on the
 Ubuntu reference toolchain, not a claimed local pass.
 
-Real `main` deployment, public SNES selector/commit verification, and a hosted
-full-validation result remain **pending after merge**, as described in the
+At the time of the initial #26 validation, real `main` deployment, public SNES
+selector/commit verification, and a hosted full-validation result remained
+**pending after merge**, as described in the
 [deployment runbook](../README.md#github-pages-deployment). No hosted workflows
-were dispatched and no repository settings were changed during this validation.
+were dispatched and no repository settings were changed during that validation.
+
+
+## Sequencing outcome and #30 follow-up
+
+The maintainer explicitly advanced the CI-only #26 split before its full suite
+finished. Full run [41162403351](https://github.com/takahirox/webrtl/actions/runs/41162403351)
+was **cancelled**, not passed; the ordinary full-check-before-merge policy remains.
+PR #27 merged as `f1436da63cf4003334fc1cc49af53508c890675d`.
+The [real main Pages run](https://github.com/takahirox/webrtl/actions/runs/41180403737)
+passed: build/smoke 42 seconds, deploy 9 seconds, publication 55 seconds from build
+start, with queue wait separate. The Issue records HTTP 200 for public index and
+build metadata matching that merge commit, plus fresh Chromium SNES selection,
+source loading and no page errors. This supersedes the pending publication status
+above; it does not establish a full-regression pass.
+
+[Issue #30's performance record](regression-performance.md) owns optimized full
+validation and its required subsequent CI verification. The full workflow now
+splits the same local `npm test` coverage across preparation and both browser
+jobs. Pages retains its own bounded build/smoke/upload/deploy provenance and
+failure propagation, without depending on that expensive workflow.
