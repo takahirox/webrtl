@@ -3,9 +3,11 @@
 The optimization retains the complete local `npm test` coverage. It reduces
 repeated compilation and identical baseline checks; no cartridge, independent
 pixel/PCM expectation, simulation cycle count, or CPU/IRQ reset replay is removed.
-Required pre-merge Ubuntu acceptance is **pending** until a complete successful
-run of this revision is recorded. A successful local or Pages check cannot fill
-that requirement.
+Required pre-merge Ubuntu acceptance **passed** in
+[run 41193356269](https://github.com/takahirox/webrtl/actions/runs/41193356269)
+for PR head `13fd24c08ff367ad55f5c5093247a41faffc2b36` (tested merge commit
+`3e21426b95bb3cead39d3758d1d9aa7136ecb0b4`, identical source tree). The completed
+Ubuntu evidence below is separate from the local and Pages results.
 
 ## Existing evidence and principal costs
 
@@ -118,17 +120,20 @@ npm run test:demo:built -- --project=firefox
 `WEBRTL_SNES_FIXTURES` remains an explicitly focused local selection. It is never
 set in CI; focused results must not be labelled a complete suite.
 
-The provisional reference budget is **180 minutes per browser job**, **under 190
+The reference budget is **180 minutes per browser job**, **under 190
 minutes elapsed feedback** including preparation, and **under 370 total runner
 minutes**, excluding queues. Preparation has a ten-minute bound; each cartridge
 batch retains its existing thirty-minute bound. The old complete Chromium SNES
 portion alone took 199.6 minutes, including 45.5 minutes of compilation. Removing
 twelve compilations plus twelve identical UI/three-run baselines provides budget
 headroom; Firefox's measured simulation is slower. This is an evidence-informed
-initial ceiling, **not a measured successful Ubuntu result**. Confirm or revise
-it from the complete reference run; investigate phase growth instead of increasing
-timeouts. Record actual elapsed, sum of job execution times and queue times
-separately. No full-suite speedup percentage is claimed from cancelled runs.
+initial ceiling, now supported by the complete Ubuntu run below: browser jobs
+took 143.0 and 160.8 minutes, elapsed feedback was 161.2 minutes including queues,
+and total runner work was 304.1 minutes. Retain these ceilings to allow for runner
+variation; one passing run does not establish a latency distribution. Investigate
+phase growth instead of increasing timeouts. Record actual elapsed, sum of job
+execution times and queue times separately. No full-suite speedup percentage is
+claimed from cancelled runs.
 
 Pages retains its own ten-minute build/smoke/deploy bounds, artifact provenance,
 failure propagation and non-cancelling deployment ordering. It has no dependency
@@ -136,7 +141,7 @@ on full validation. The [#26 sequencing record](pages-validation.md#sequencing-o
 keeps the cancelled full result visible and records the independent successful
 publication; the ordinary full-check-before-merge policy remains in force.
 
-## Validation and remaining acceptance
+## Local validation
 
 The one-worker bounded comparison passed all four batches: **13.9 minutes before
 versus 596.23 seconds (9.9 minutes) after**, approximately **28.5% less elapsed
@@ -200,15 +205,95 @@ a direct native probe reproduced undefined `pthread_getaffinity_np`,
 `pthread_setaffinity_np` and `sched_getcpu` symbols with local Verilator 5.052 /
 Emscripten 6.0.13. This is the previously recorded host-toolchain incompatibility;
 no native workaround or skipped native requirement was introduced. **The full
-`npm test` result is not a pass.** Unit and complete static passes do not replace
-the missing native/Ubuntu acceptance.
+`npm test` result is not a pass.** This local failure remains recorded; the
+reference Ubuntu native integration subsequently passed as detailed below.
 
-Mandatory remaining evidence: run the entire optimized workflow on Ubuntu for
-the exact implementation revision; record its URL, result, browser/job durations,
-total runner work, queue time and actual environment. Require both complete
-browser suites and native/unit checks to pass before closing #30 or merging.
-This node is prohibited from pushing changes, so its unpublished revision cannot
-be tested by Actions from this local checkout.
+## Completed Ubuntu acceptance (2026-10-31)
+
+[Full validation run 41193356269](https://github.com/takahirox/webrtl/actions/runs/41193356269)
+completed successfully on its first attempt. It tested merge commit
+`3e21426b95bb3cead39d3758d1d9aa7136ecb0b4`, whose tree
+`df5d2de81e14c618d3ab5872a5680f733772b794` equals PR head
+`13fd24c08ff367ad55f5c5093247a41faffc2b36`. This evidence update changes
+documentation, measurement data and workflow summary wording only; test commands,
+coverage, RTL/runtime/compiler inputs, job scheduling and timeouts are unchanged.
+
+Both browser runners used Ubuntu 24.04.5, Actions image `ubuntu-24.04`
+`20261025.353.1`, four logical CPUs on AMD EPYC 7763, 15,983 MiB RAM, Node 22.23.4,
+Python 3.12.3 and Playwright 1.64.1. Chromium was 156.0.8078.4 (revision 1248),
+Firefox 157.0 (revision 1555), native Verilator 5.020 and Emscripten 3.1.6.
+Browser Yosys 0.70.1258 and Clang 22.0.0-git20542-10 remain lockfile-pinned.
+Each browser used one worker. The image and relevant tool versions match the
+cancelled reference run; its unrecorded CPU/memory prevents claiming an isolated
+hardware-controlled benchmark.
+
+| Completed component | Result | Job execution time |
+| --- | --- | ---: |
+| Unit checks and static build | 10 Python + 1 Node check passed; build/upload passed | 12 s |
+| Chromium | 34/34 static checks; 1/1 native integration check passed (34.4 s) | 8,580 s (143.0 min) |
+| Firefox | 34/34 static checks passed | 9,650 s (160.8 min) |
+| Full regression suite | Aggregate passed | 4 s |
+
+The browser reports have zero failures, skips or flaky results. Conditional
+workflow steps for the other browser are skipped by design; no required suite
+was skipped. Run creation was `10:35:10Z`, preparation started `10:35:13Z`, both
+browser jobs started `10:35:27Z`, and the aggregate completed `13:16:23Z`.
+Creation-to-aggregate feedback was **9,673 seconds (161.2 minutes)** including
+queues; execution on the critical path was **9,666 seconds (161.1 minutes)**.
+Queue/dependency-ready wait on that path was **7 seconds**: initial 3 s, browser
+start after preparation 2 s, aggregate start after Firefox 2 s. Each browser had
+the same 2 s ready wait; summing those waits would count concurrent waits twice.
+Sum of all four job execution intervals was **18,246 seconds (304.1 runner
+minutes)**, including setup, artifact transfers and cleanup. These are elapsed
+runner intervals, not CPU time or billed minutes. All stated budgets were met.
+
+The complete Chromium SNES interval fell from **199.6 to 131.2 minutes
+(34.3% less)**, using the same inferred-compile-start to last-batch-completion
+convention and the same thirteen batches. The first two batches fell from
+27.9 to 22.4 minutes in Chromium and 31.3 to 24.8 minutes in Firefox. These
+observations show less work within each one-worker browser, separately from the
+elapsed-latency benefit of splitting browsers onto runners. They are operational
+comparisons, with minor console delivery delay and uncontrolled runner variation.
+The historical full suite was cancelled after 262.9 minutes inside `npm test`;
+there is no successful full-suite baseline or full-suite speedup percentage.
+
+Both uploaded browser artifacts were downloaded and their ZIP SHA-256 digests
+verified against Actions metadata. Each contains all **260 fixture names plus
+29 CPU/IRQ replays**, thirteen measurement files, one fresh compilation and
+twelve reuse hits. Every replay matches its original output, including the AUX
+pair. All 26 saved Wasm files have SHA-256
+`3bd23feeae078fa811b4a9f29a7ca3e5287967851af345151a7de741b4bba060`, matching
+the bounded unoptimized build. Canonical complete output SHA-256 is
+`03a41737483bd7523e3b64741a4418a9e5802810170e8f681639b8c4951ca30c` in both
+browsers, matching the complete local results (sort fixture names and JSON keys,
+omit timing fields). Independent pixel/PCM/control assertions all passed,
+including the expected negative frame control.
+
+| Cumulative SNES wall-clock phase | Chromium | Firefox |
+| --- | ---: | ---: |
+| All thirteen fingerprints | 1.80 s | 1.80 s |
+| One fresh compilation | 197.66 s | 223.65 s |
+| All fixture loads/power resets | 918.75 s | 1,058.25 s |
+| All fixture simulation/worker transfer | 6,482.39 s | 7,336.74 s |
+| All fixture pixel readback/oracles | 8.50 s | 11.86 s |
+| Complete thirteen SNES tests, including baseline/UI/assertions | 7,871.16 s | 8,928.43 s |
+
+The final row includes the earlier phases and baseline/setup overhead; rows are
+not all additive. The other static tests and runner setup explain the difference
+from complete browser/job elapsed times. Simulation remains the principal cost;
+fingerprinting and readback are small. Full timestamps, report counts, phase
+totals, artifact digests and comparison conventions are retained in
+[the measurement data](regression-measurements.json).
+
+Independent [Pages PR run 41193356215](https://github.com/takahirox/webrtl/actions/runs/41193356215)
+also passed its build/smoke job in 33 seconds; deployment was skipped for the PR.
+That bounded result is separate from full regression acceptance and from the
+already recorded #26 main publication verification.
+
+The evidence update passed actionlint v1.7.12 for both workflows, 44 relative
+Markdown link/anchor checks, JSON/timing and tested-source hash checks, and
+staged/unstaged whitespace checks. The workflow diff changes only its budget
+summary text; execution and coverage match the tested implementation.
 
 After merge, the Issue separately requires the next applicable CI URL/result,
 tested SHA and timings. That verification remains pending until it actually runs;
