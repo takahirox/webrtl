@@ -82,6 +82,7 @@ async function probe(page, board, commands) {
     });
     try {
       await call({ action: "init", wasm: window.lastWasm });
+      await call({ action: "mode", mode: "debug" });
       const results = [];
       for (const command of commands) {
         const data = await call(command);

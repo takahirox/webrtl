@@ -1,0 +1,294 @@
+{
+  "baseline": "2915de63848a30d42f194f47adfb715782604bea",
+  "date": "2026-10-31T11:20:06.839Z",
+  "browser": "156.0.8078.4",
+  "platform": "darwin/arm64",
+  "methodology": "Three warmed, sequential direct-worker trials; identical batch sizes; wall time includes worker transfer and media copying, excludes UI timers/pacing; Debug has no selected history or breakpoint.",
+  "results": [
+    {
+      "design": "counter",
+      "batchCycles": 16384,
+      "batches": 512,
+      "measurements": [
+        {
+          "mode": "baseline",
+          "compile": {
+            "compileMs": 1378.2000000029802,
+            "wasmBytes": 29304,
+            "cxxrtlBytes": 1464
+          },
+          "trials": [
+            {
+              "ms": 64,
+              "clocksPerSecond": 131072000
+            },
+            {
+              "ms": 63.70000000298023,
+              "clocksPerSecond": 131689293.55741814
+            },
+            {
+              "ms": 63.20000000298023,
+              "clocksPerSecond": 132731139.23424731
+            }
+          ]
+        },
+        {
+          "mode": "fast",
+          "compile": {
+            "compileMs": 2055.5999999940395,
+            "wasmBytes": 126435,
+            "cxxrtlBytes": 2577
+          },
+          "trials": [
+            {
+              "ms": 63.29999999701977,
+              "clocksPerSecond": 132521453.40276374
+            },
+            {
+              "ms": 62.5,
+              "clocksPerSecond": 134217728
+            },
+            {
+              "ms": 62.400000005960464,
+              "clocksPerSecond": 134432820.49997947
+            }
+          ]
+        },
+        {
+          "mode": "debug",
+          "compile": {
+            "compileMs": 2055.5999999940395,
+            "wasmBytes": 126435,
+            "cxxrtlBytes": 2577
+          },
+          "trials": [
+            {
+              "ms": 66.59999999403954,
+              "clocksPerSecond": 125955075.08634761
+            },
+            {
+              "ms": 66.40000000596046,
+              "clocksPerSecond": 126334457.81998476
+            },
+            {
+              "ms": 67.5,
+              "clocksPerSecond": 124275674.07407407
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "design": "cpu-bus-ram",
+      "batchCycles": 16384,
+      "batches": 512,
+      "measurements": [
+        {
+          "mode": "baseline",
+          "compile": {
+            "compileMs": 1653.7999999970198,
+            "wasmBytes": 43544,
+            "cxxrtlBytes": 22043
+          },
+          "trials": [
+            {
+              "ms": 438.29999999701977,
+              "clocksPerSecond": 19138964.17991567
+            },
+            {
+              "ms": 436.59999999403954,
+              "clocksPerSecond": 19213486.028663587
+            },
+            {
+              "ms": 436.80000001192093,
+              "clocksPerSecond": 19204688.64416452
+            }
+          ]
+        },
+        {
+          "mode": "fast",
+          "compile": {
+            "compileMs": 2380.2000000029802,
+            "wasmBytes": 146439,
+            "cxxrtlBytes": 36708
+          },
+          "trials": [
+            {
+              "ms": 443.79999999701977,
+              "clocksPerSecond": 18901775.574710075
+            },
+            {
+              "ms": 440,
+              "clocksPerSecond": 19065018.181818184
+            },
+            {
+              "ms": 438.59999999403954,
+              "clocksPerSecond": 19125873.23327405
+            }
+          ]
+        },
+        {
+          "mode": "debug",
+          "compile": {
+            "compileMs": 2380.2000000029802,
+            "wasmBytes": 146439,
+            "cxxrtlBytes": 36708
+          },
+          "trials": [
+            {
+              "ms": 462.30000001192093,
+              "clocksPerSecond": 18145377.46005557
+            },
+            {
+              "ms": 461,
+              "clocksPerSecond": 18196546.637744036
+            },
+            {
+              "ms": 459.59999999403954,
+              "clocksPerSecond": 18251975.63122017
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "design": "snes",
+      "batchCycles": 16384,
+      "batches": 32,
+      "measurements": [
+        {
+          "mode": "baseline",
+          "compile": {
+            "compileMs": 66005.40000000596,
+            "wasmBytes": 270944,
+            "cxxrtlBytes": 1638004
+          },
+          "trials": [
+            {
+              "ms": 1920.800000011921,
+              "clocksPerSecond": 272952.93627485743
+            },
+            {
+              "ms": 1922.7999999970198,
+              "clocksPerSecond": 272669.02433992754
+            },
+            {
+              "ms": 1938.4000000059605,
+              "clocksPerSecond": 270474.6182410173
+            }
+          ]
+        },
+        {
+          "mode": "fast",
+          "compile": {
+            "compileMs": 81275.59999999404,
+            "wasmBytes": 593097,
+            "cxxrtlBytes": 2458345
+          },
+          "trials": [
+            {
+              "ms": 1949.2999999970198,
+              "clocksPerSecond": 268962.19155635434
+            },
+            {
+              "ms": 1967,
+              "clocksPerSecond": 266541.9420437214
+            },
+            {
+              "ms": 1942.4000000059605,
+              "clocksPerSecond": 269917.62767627224
+            }
+          ]
+        },
+        {
+          "mode": "debug",
+          "compile": {
+            "compileMs": 81275.59999999404,
+            "wasmBytes": 593097,
+            "cxxrtlBytes": 2458345
+          },
+          "trials": [
+            {
+              "ms": 1936.2000000029802,
+              "clocksPerSecond": 270781.9440136313
+            },
+            {
+              "ms": 1930.5,
+              "clocksPerSecond": 271581.4555814556
+            },
+            {
+              "ms": 1930.2000000029802,
+              "clocksPerSecond": 271623.66594093386
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "validation": {
+    "python": {
+      "command": "python3 -m unittest discover -s tests -v",
+      "result": "passed",
+      "tests": 10,
+      "seconds": 3.06
+    },
+    "chromium_non_snes": {
+      "command": "npx playwright test --config=playwright.static.config.js --project=chromium --grep-invert 'full SNES RTL batch'",
+      "result": "passed",
+      "tests": 23,
+      "minutes": 4.7
+    },
+    "firefox_selected_initial": {
+      "command": "WEBRTL_SNES_FIXTURES='^mode-0$' npx playwright test --config=playwright.static.config.js --project=firefox",
+      "passed": 22,
+      "failed": 2,
+      "minutes": 7.4,
+      "finding": "Board identity guard rejected omitted board fields after init in video/audio worker probes. Fixed by retaining the initialized board; the affected tests passed in the final rerun below."
+    },
+    "chromium_selected": {
+      "command": "WEBRTL_SNES_FIXTURES='^mode-0$' npx playwright test --config=playwright.static.config.js --project=chromium tests/static/modes.spec.js tests/static/outputs.spec.js tests/static/snes.spec.js tests/static/counter.spec.js",
+      "result": "passed",
+      "tests": 11,
+      "minutes": 3.2,
+      "coverage": "Includes SNES Fast/Debug/Step/Fast handoff preserving held controller input, independent pixel/PCM/reset checks, and generic RAM tests."
+    },
+    "final_modes_and_media": {
+      "command": "npx playwright test --config=playwright.static.config.js tests/static/modes.spec.js tests/static/outputs.spec.js",
+      "result": "passed",
+      "tests": 10,
+      "seconds": 52.6,
+      "browsers": [
+        "chromium",
+        "firefox"
+      ]
+    },
+    "trusted_local": {
+      "result": "blocked_by_installed_toolchain",
+      "verilator": "5.052",
+      "emscripten": "6.0.13",
+      "cause": "Existing unsupported native link symbols pthread_getaffinity_np, sched_getcpu, pthread_setaffinity_np. Isolated browser run on port 18765 was interrupted after build failure; direct build.py reproduction confirmed it. Reference Verilator 5.020 validation remains required in a compatible environment."
+    },
+    "scope": "Proportionate focused SNES mode-0 cartridge coverage plus baseline input/audio/LoROM/HiROM/reset checks in both browsers; the exhaustive cartridge sweep was not rerun.",
+    "post_merge_pages": {
+      "result": "pending_deployment",
+      "required": "Record deployed SHA/URL and public-site generic Fast/Pause/Debug/Step/Fast smoke after merge."
+    },
+    "final_inspector": {
+      "command": "npx playwright test --config=playwright.static.config.js tests/static/modes.spec.js",
+      "result": "passed",
+      "tests": 4,
+      "seconds": 20.1,
+      "browsers": [
+        "chromium",
+        "firefox"
+      ]
+    },
+    "pages_smoke": {
+      "command": "npm run test:pages",
+      "result": "passed",
+      "tests": 2,
+      "seconds": 3.2,
+      "note": "Built working-tree static artifact, including all debugger assets; no deployed-site claim."
+    }
+  }
+}

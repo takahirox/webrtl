@@ -23,19 +23,21 @@ static constexpr unsigned trace_capacity = 128;
 static uint32_t trace[trace_capacity * 4];
 static unsigned trace_count, cycle_count;
 
-extern "C" {
+static void settle() {
+    // A converged eval can still commit registers that trigger asynchronous
+    // cascades or change output aliases. Drain every commit at this clock level.
+    do { model.eval(); } while (model.commit());
+}
+
+template<bool debug = false>
 static void tick(bool capture = true) {
     model.p_clk.set(false);
-    model.step();
+    settle();
     model.p_clk.set(true);
-    model.step();
-    // CXXRTL can report convergence before committed registers propagate to
-    // combinational/flattened output aliases. Re-evaluate at the same clock
-    // level before capture; this does not create another rising edge.
-    model.step();
+    settle();
     if (capture) ++cycle_count;
 #if defined(BOARD_CPU816) || defined(BOARD_SNES)
-    if (capture && (model.p_trace__flags.get<unsigned>() & 8) && trace_count < trace_capacity) {
+    if (debug && capture && (model.p_trace__flags.get<unsigned>() & 8) && trace_count < trace_capacity) {
         unsigned offset = trace_count++ * 4;
         trace[offset] = cycle_count;
         trace[offset + 1] = model.p_trace__address.get<unsigned>();
@@ -71,9 +73,10 @@ static void tick(bool capture = true) {
         samples[sample_count++] = static_cast<int16_t>(model.p_audio__sample.get<unsigned>());
 #endif
     model.p_clk.set(false);
-    model.step();
+    settle();
 }
 
+extern "C" {
 void sim_batch(unsigned cycles) {
     if (cycles > 16384) __builtin_trap();
     sample_count = 0;
@@ -90,7 +93,7 @@ void sim_reset() {
     model.p_reset.set(true);
     tick(false);
     model.p_reset.set(false);
-    model.step();
+    settle();
 #ifdef BOARD_SNES
     for (unsigned i = 0; i < 131073; ++i) tick(false);
 #endif
@@ -134,3 +137,5 @@ void sim_cart_byte(unsigned address, unsigned data) {
 }
 #endif
 }
+
+#include "debug-runtime.cpp"

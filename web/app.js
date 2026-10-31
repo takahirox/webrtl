@@ -5,7 +5,9 @@ const ui = Object.fromEntries(
   ["source", "source-label", "compile", "status", "errors", "count", "run", "pause", "step", "reset", "diagnostics",
     "project", "files", "filename", "add-file", "rename-file", "remove-file", "import-files", "top", "example", "load-example",
     "interface", "frontend", "video", "audio-status", "timing", "run-help", "cpu-result", "cpu-trace",
-    "cartridge-controls", "cartridge", "test-cartridge", "cartridge-status"]
+    "cartridge-controls", "cartridge", "test-cartridge", "cartridge-status",
+    "sim-mode", "clock-hz", "debug-controls", "signal-filter", "signals", "signal-row", "inspect", "signal-values",
+    "condition", "condition-value", "capture", "signal-history", "input-signal", "input-value", "apply-input", "debug-status"]
     .map((id) => [id, document.getElementById(id)]),
 );
 const browser = document.documentElement.dataset.mode === "browser";
@@ -20,10 +22,14 @@ let timer = null;
 let busy = true;
 let advancing = false;
 let runEpoch = 0;
+let pendingAdvance = Promise.resolve(), switching = false, debugSignals = [];
+const fastMode = () => browser && ui["sim-mode"].value === "fast";
+const declaredClockHz = () => Math.max(0, Number(ui["clock-hz"].value) || 0);
+const logicalTime = (cycles) => `${cycles} cycles · ${declaredClockHz() ? `${(cycles / declaredClockHz()).toFixed(3)} simulated seconds` : "clock rate unspecified"}`;
 let cartridgeData = null;
 let cartridgeLoaded = false;
 let keyboardButtons = 0;
-let frames = 0, runningCycles = 0, runningMs = 0;
+let runStarted = 0, runStartCycles = 0, runFrames = 0;
 const audioBoard = () => selected === "audio" || selected === "snes";
 const keyBits = { KeyZ: 11, KeyA: 10, ShiftLeft: 9, ShiftRight: 9, Enter: 8,
   ArrowUp: 7, ArrowDown: 6, ArrowLeft: 5, ArrowRight: 4, KeyX: 3, KeyS: 2, KeyQ: 1, KeyW: 0 };
@@ -50,16 +56,20 @@ for (const type of ["keydown", "keyup"]) ui.video.addEventListener(type, (event)
 ui.video.addEventListener("blur", () => { keyboardButtons = 0; });
 
 function controls() {
-  ui.compile.disabled = busy;
+  ui.compile.disabled = busy || switching;
   ui.source.disabled = busy || (browser && !activeFile);
   ui.project.disabled = busy;
   ui["rename-file"].disabled = !activeFile;
   ui["remove-file"].disabled = !activeFile;
-  ui.run.disabled = busy || !simulator || advancing || timer !== null || (selected === "snes" && !cartridgeLoaded);
+  ui.run.disabled = switching || busy || !simulator || advancing || timer !== null || (selected === "snes" && !cartridgeLoaded);
   ui.pause.disabled = timer === null;
-  ui.step.disabled = busy || !simulator || advancing || timer !== null || (selected === "snes" && !cartridgeLoaded);
-  ui.reset.disabled = busy || !simulator || advancing;
-  ui["cartridge-controls"].disabled = busy || !simulator || advancing;
+  ui.step.disabled = switching || busy || !simulator || advancing || timer !== null || (selected === "snes" && !cartridgeLoaded);
+  ui.reset.disabled = switching || busy || !simulator || advancing;
+  ui["cartridge-controls"].disabled = busy || !simulator || advancing || switching;
+  ui["sim-mode"].disabled = busy || !simulator || advancing || switching || timer !== null;
+  ui["debug-controls"].hidden = ui["sim-mode"].value !== "debug";
+  ui["debug-controls"].disabled = busy || !simulator || advancing || switching || timer !== null;
+  ui["clock-hz"].disabled = busy || advancing || switching || timer !== null;
 }
 
 function pause() {
@@ -71,11 +81,15 @@ function pause() {
 }
 
 function clearOutput() {
-  frames = 0; runningCycles = 0; runningMs = 0;
+  runStarted = 0; runStartCycles = 0; runFrames = 0;
   canvas.clearRect(0, 0, ui.video.width, ui.video.height);
-  ui.timing.textContent = "0 cycles · 0.000 simulated seconds";
+  ui.timing.textContent = logicalTime(0);
   ui["cpu-result"].textContent = "—";
   ui["cpu-trace"].textContent = "";
+  ui["signal-history"].textContent = "";
+  ui["signal-values"].textContent = "";
+  ui.condition.value = "none";
+  ui["debug-status"].textContent = "Inspect any width; capture and conditions support signal parts up to 32 bits. History retains 256 clocks.";
 }
 
 function discard() {
@@ -85,6 +99,8 @@ function discard() {
     try { simulator._sim_destroy(); } catch { /* An aborted module may already be unusable. */ }
   }
   simulator = null;
+  debugSignals = []; ui.signals.replaceChildren(); ui["signal-values"].textContent = "";
+  ui["signal-history"].textContent = "";
   cartridgeLoaded = false;
   advancing = false;
   ui.count.textContent = "—";
@@ -116,13 +132,16 @@ function selectInterface(board) {
   ui["cartridge-controls"].hidden = board !== "snes";
   ui["audio-status"].hidden = !audioBoard();
   ui["audio-status"].textContent = "Click Run to enable audio. Step advances silently.";
-  ui.timing.hidden = board === "counter";
+  ui.timing.hidden = false;
+  ui["clock-hz"].value = boards[board].clockHz;
+  ui.timing.textContent = logicalTime(0);
   ui.count.parentElement.hidden = board !== "counter";
   ui["cpu-result"].parentElement.hidden = board !== "cpu816";
   ui["cpu-trace"].parentElement.hidden = board !== "cpu816";
-  ui["run-help"].textContent = board === "counter" ? "Step = one full clock cycle. Run = 10 cycles per second." :
-    board === "cpu816" ? "Step = one CPU clock. Run = 10,000 clocks per second. A result freezes the CPU until Reset." :
-    `Step = one clock cycle (silent). Run batches ${boards[board].batchCycles} cycles at a target ${boards[board].clockHz} simulated clocks/s.`;
+  ui["run-help"].textContent = board === "counter" ? (browser ? "Step = one full clock cycle. Fast runs bounded batches; Debug runs at 10 cycles per second." : "Step = one full clock cycle. Run = 10 cycles per second.") :
+    board === "generic" ? "Step = one full clock cycle. Fast runs bounded Wasm batches; Debug supports signal conditions and selected history." :
+    board === "cpu816" ? "Step = one CPU clock. Debug targets 10,000 clocks/s; Fast runs bounded batches. A result freezes the CPU until Reset." :
+    `Step = one clock cycle (silent). Debug targets ${boards[board].clockHz} simulated clocks/s. Fast runs as quickly as practical while pacing audio.`;
 }
 
 function selectFile(name) {
@@ -216,10 +235,10 @@ if (browser) {
     controls();
     try {
       const example = ui.example.value;
-      const board = ["backdrop", "bg1"].includes(example) ? "video" :
+      const board = example === "debug-ram" ? "generic" : ["backdrop", "bg1"].includes(example) ? "video" :
         ["single", "split", "bus"].includes(example) ? "counter" : example;
       const split = example === "split";
-      const sources = example === "snes" ? ["snes.v", "snes-core.v"].map((name) => [name, `./examples/snes/${name}`])
+      const sources = example === "debug-ram" ? ["debug-ram.v", "debug-store.v"].map((name) => [name, `./examples/debug-ram/${name}`]) : example === "snes" ? ["snes.v", "snes-core.v"].map((name) => [name, `./examples/snes/${name}`])
         : ["backdrop", "bg1"].includes(example)
         ? [
           ...(example === "bg1"
@@ -243,7 +262,7 @@ if (browser) {
       const entries = await Promise.all(sources.map(async ([name, url]) => [name, await loadSource(url)]));
       files = Object.fromEntries(entries);
       ui.frontend.value = example === "snes" ? "slang" : "verilog";
-      ui.top.value = example === "bg1" ? "cpu816_bg1" : example === "backdrop" ? "cpu816_backdrop" : example === "bus" ? "bus_test" : split ? "split_counter" : boards[board].top;
+      ui.top.value = example === "debug-ram" ? "debug_ram" : example === "bg1" ? "cpu816_bg1" : example === "backdrop" ? "cpu816_backdrop" : example === "bus" ? "bus_test" : split ? "split_counter" : boards[board].top;
       projectChanged();
       selectInterface(board);
       refreshFiles(entries[0][0]);
@@ -269,30 +288,34 @@ async function simulate(action, playAudio = false) {
     const before = active._sim_output?.()?.cycles || 0;
     // Native simulation completes inline; only worker requests need to yield.
     const result = action();
+    pendingAdvance = Promise.resolve(result);
     if (result instanceof Promise) await result;
-    if (simulator !== active || epoch !== runEpoch) return;
+    if (simulator !== active) return;
     ui.count.textContent = active._sim_count();
     const output = active._sim_output?.();
     if (output) {
-      ui.timing.textContent = `${output.cycles} cycles · ${output.seconds.toFixed(3)} simulated seconds`;
-      if (selected === "snes") {
-        const completed = Math.max(0, output.cycles - before);
-        if (completed) {
-          runningMs += performance.now() - started;
-          runningCycles += completed;
-        }
-        if (output.frame) frames++;
-        const rate = runningCycles / Math.max(0.001, runningMs / 1000);
-        ui.timing.textContent += ` · ${Math.round(rate)} clocks/s · ${(frames / Math.max(0.001, runningMs / 1000)).toFixed(2)} frames/s · ${(rate / boards.snes.clockHz).toFixed(4)}× real time`;
+      const clockHz = declaredClockHz();
+      ui.timing.textContent = logicalTime(output.cycles);
+      const completed = Math.max(0, output.cycles - before);
+      if (playAudio && output.frame) ++runFrames;
+      if (completed) {
+        const elapsed = playAudio ? performance.now() - runStarted : performance.now() - started;
+        const rate = (playAudio ? output.cycles - runStartCycles : completed) / Math.max(0.001, elapsed / 1000);
+        ui.timing.textContent += ` · ${Math.round(rate)} clocks/s${clockHz ? ` · ${(rate / clockHz).toFixed(4)}× real time` : ""}`;
+        if (playAudio && selected === "snes") ui.timing.textContent += ` · ${(runFrames / Math.max(0.001, elapsed / 1000)).toFixed(2)} frames/s`;
       }
       if (selected === "cpu816") showCpuOutput(output);
+      if (output.history) ui["signal-history"].textContent = output.history.map((row) => `${row.cycle}: ${row.values.map((value) => "0x" + value.toString(16)).join(" ")}`).join("\n");
+      if (output.hit) { pause(); ui.status.textContent = `Condition met at cycle ${output.cycles}.`; }
+      if (ui["sim-mode"].value === "debug" && timer === null) await inspectSelected().catch(projectError);
+      if (simulator !== active) return;
       if (output.frame) {
         if (ui.video.width !== output.width || ui.video.height !== output.height) {
           ui.video.width = output.width; ui.video.height = output.height;
         }
         canvas.putImageData(new ImageData(output.frame, output.width, output.height), 0, 0);
       }
-      if (playAudio && audioBoard()) {
+      if (playAudio && epoch === runEpoch && audioBoard()) {
         try { audio.play(output.audio, boards[selected].sampleRate); }
         catch (error) {
           pause();
@@ -335,6 +358,7 @@ ui.compile.addEventListener("click", async () => {
         (progress) => { ui.status.textContent = progress; },
       );
       ui.diagnostics.textContent = simulator.diagnostics;
+      ui["sim-mode"].value = "fast";
       if (selected === "snes" && cartridgeData) {
         await simulator._sim_cartridge(cartridgeData);
         cartridgeLoaded = true;
@@ -415,6 +439,7 @@ ui.run.addEventListener("click", async () => {
   }
   ui.status.textContent = "Running the compiled circuit.";
   const board = boards[selected];
+  runStarted = performance.now(); runStartCycles = simulator._sim_output?.()?.cycles || 0; runFrames = 0;
   const advance = async () => {
     if (epoch !== runEpoch) return;
     if (audioBoard() && audio.context?.state !== "running") {
@@ -426,17 +451,30 @@ ui.run.addEventListener("click", async () => {
     const start = performance.now();
     // AudioContext's clock paces audio; slow simulation underruns with silence.
     if (!audioBoard() || audio.queuedSeconds() < 0.10) {
-      await simulate(() => browser ? simulator._sim_batch(board.batchCycles, controllerButtons()) : simulator._sim_step(), true);
+      const count = fastMode() && !audioBoard() ? 16383 : board.batchCycles;
+      await simulate(() => browser ? simulator._sim_batch(count, controllerButtons()) : simulator._sim_step(), true);
     }
     if (epoch !== runEpoch) return;
-    const delay = selected === "audio" ? 10 : Math.max(0, 1000 * board.batchCycles / board.clockHz - (performance.now() - start));
+    const delay = fastMode() ? (selected === "audio" ? 10 : 0) :
+      selected === "audio" ? 10 : !board.clockHz ? 0 : Math.max(0, 1000 * board.batchCycles / board.clockHz - (performance.now() - start));
     timer = setTimeout(advance, delay);
   };
   timer = setTimeout(advance, selected === "counter" ? 100 : 0);
 });
-ui.pause.addEventListener("click", () => {
+ui.pause.addEventListener("click", async () => {
   pause();
-  ui.status.textContent = "Paused. Pending audio cleared.";
+  ui.status.textContent = browser ? "Pausing at the next batch boundary…" : "Paused.";
+  if (!browser || !simulator) return;
+  const active = simulator;
+  switching = true; controls();
+  try {
+    await pendingAdvance;
+    if (simulator !== active) return;
+    const { snapshot } = await active._sim_pause();
+    ui.status.textContent = `Paused at cycle ${snapshot.cycles}. Circuit state retained; pending audio cleared.`;
+    if (ui["sim-mode"].value === "debug") await inspectSelected();
+  } catch (error) { if (simulator === active) projectError(error); }
+  finally { switching = false; controls(); }
 });
 ui.reset.addEventListener("click", () => {
   pause();
@@ -444,6 +482,60 @@ ui.reset.addEventListener("click", () => {
   ui.status.textContent = "Reset. Paused.";
   simulate(() => simulator._sim_reset());
 });
+function filteredSignals() {
+  const filter = ui["signal-filter"].value.toLowerCase();
+  const chosen = new Set(Array.from(ui.signals.selectedOptions, (option) => option.value));
+  ui.signals.replaceChildren(...debugSignals.filter((item) => item.name.toLowerCase().includes(filter)).map((item) => {
+    const option = new Option(`${item.name} [${item.lsb} +: ${item.width}]${item.depth > 1 ? ` RAM × ${item.depth}` : ""}`, item.id);
+    option.selected = chosen.has(String(item.id)); return option;
+  }));
+}
+function selectedRefs() {
+  return Array.from(ui.signals.selectedOptions, (option) => ({ id: Number(option.value), row: Number(ui["signal-row"].value) }));
+}
+async function inspectSelected() {
+  const refs = selectedRefs();
+  if (!refs.length || !simulator) return;
+  const active = simulator, catalog = debugSignals;
+  try {
+    const { values } = await active._sim_inspect(refs);
+    if (simulator !== active) return;
+    ui["signal-values"].textContent = values.map((value) => `${catalog[value.id].name}[${value.row}] = 0x${value.hex}`).join("\n");
+  } catch (error) { if (simulator === active) throw error; }
+}
+if (browser) {
+  ui["signal-filter"].addEventListener("input", filteredSignals);
+  ui["sim-mode"].addEventListener("change", async () => {
+    switching = true; controls(); audio.clear();
+    try {
+      const { snapshot } = await simulator._sim_pause();
+      const result = await simulator._sim_mode(ui["sim-mode"].value, snapshot);
+      if (result.signals) {
+        debugSignals = result.signals; filteredSignals();
+        ui["input-signal"].replaceChildren(...debugSignals.filter((item) => (item.flags & 1) && !["clk", "reset"].includes(item.name))
+          .map((item) => new Option(item.name, item.name)));
+      }
+      ui.status.textContent = `${ui["sim-mode"].value === "fast" ? "Fast" : "Debug"} Mode · paused at cycle ${result.cycles}. State retained.`;
+    } catch (error) { projectError(error); }
+    finally { switching = false; controls(); }
+  });
+  ui.inspect.addEventListener("click", () => inspectSelected().catch(projectError));
+  ui.capture.addEventListener("click", async () => {
+    try {
+      const signals = selectedRefs();
+      const kind = ui.condition.value;
+      if (kind !== "none" && !signals.length) throw new Error("Select a signal for the condition.");
+      await simulator._sim_debug(signals, kind === "none" ? null : { ...signals[0], kind, value: Number(ui["condition-value"].value) });
+      ui["signal-history"].textContent = "";
+      const names = signals.map((ref) => `${debugSignals[ref.id].name}[${ref.row}]`).join(", ");
+      ui["debug-status"].textContent = `Capture (256 clocks): ${names || "off"}. ${kind === "none" ? "No stop condition." : `Stop on ${kind}.`}`;
+    } catch (error) { projectError(error); }
+  });
+  ui["apply-input"].addEventListener("click", async () => {
+    try { await simulator._sim_inputs({ [ui["input-signal"].value]: ui["input-value"].value }); await inspectSelected(); }
+    catch (error) { projectError(error); }
+  });
+}
 ui.source.addEventListener("input", () => {
   if (browser && activeFile) files[activeFile] = ui.source.value;
   projectChanged();
