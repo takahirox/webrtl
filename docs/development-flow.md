@@ -47,9 +47,11 @@ or necessary validation.
 ### Repository validation
 
 For application changes, follow the toolchain setup and validation commands in
-[README.md](../README.md#validation). The MVP uses Python standard-library service
-tests and a Playwright integration test that compiles and runs real RTL in a
-browser. Choose validation appropriate to the changed files and available tooling.
+[README.md](../README.md#validation). Python standard-library tests cover the
+service and reproducible SNES assets. Playwright compiles and runs real RTL in
+trusted-local Chromium and static-site Chromium/Firefox suites. Choose validation
+appropriate to the changed files and available tooling, following the
+[test and CI performance principles](#test-and-ci-performance-principles).
 
 For templates and documentation, inspect Markdown structure and template syntax,
 verify relative links and heading anchors, and check policy consistency. Run
@@ -57,6 +59,60 @@ verify relative links and heading anchors, and check policy consistency. Run
 for staged changes; stage new files so the latter check includes them. No runtime
 tests, hardware checks, or deployed-site verification are needed for a
 templates/documentation-only change.
+
+### Test and CI performance principles
+
+**Detect the required failures at the lightest appropriate layer, without
+redundant execution.** Preserve required correctness, regressions and meaningful
+integration coverage when redistributing checks.
+
+1. **Prefer the lightest meaningful layer.** Cover calculations, branches and
+   broad data combinations with fast unit/component checks where possible, as
+   the Python service tests do by mocking compilation. Keep real browser/compiler
+   tests for RTL-to-Wasm behavior, worker boundaries, Canvas/Web Audio, controls
+   and cartridge execution that require them. Assert independent expected
+   behavior that catches a concrete defect; avoid mirroring the implementation.
+2. **Choose combinations deliberately.** Cover distinct paths with representative
+   examples, RTL interfaces, cartridge mappings, device states and browsers.
+   Exhaust combinations when their interactions require it, rather than multiplying
+   every case by every browser and deployment mode automatically. Preserve the
+   existing Chromium/Firefox regressions and independent pixel/PCM/CPU assertions;
+   see the [SNES fixture guidance](snes-fixtures.md) for bounded batches and reset
+   comparisons that must survive any redistribution.
+3. **Match validation to the change.** Documentation needs the Markdown/link and
+   whitespace checks above. UI changes need relevant controls, diagnostics and
+   output lifecycle checks; compiler/runtime/RTL changes need relevant Python,
+   real compilation and circuit regressions. CI/build changes need affected setup,
+   static assets and artifact-path validation. Use focused checks for fast feedback
+   and applicable full suites for pre-merge regression confidence; focused runs
+   do not replace required coverage. `npm test` runs Python, `test:local`, then
+   `test:demo` (including `build:demo`). The [Pages workflow](../.github/workflows/pages.yml)
+   runs it for PRs to `main`, pushes to `main` and manual dispatch; only `main`
+   deploys the tested artifact. Keep mandatory pre-merge checks applicable to the
+   change, optional checks such as extra-browser exploration separate, and genuinely
+   required live publication checks recorded separately after merge.
+4. **Reuse work and avoid duplicate execution.** Reuse builds, generated fixtures
+   and downloads with keys covering relevant source/toolchain inputs and isolation
+   that prevents stale results or shared-state leaks. CI already caches npm
+   downloads and deploys the tested static artifact; SNES batches reuse a compiled
+   model with power resets. When changing CI, avoid equivalent push/PR runs for
+   the same revision and cancel superseded validation when safe, preserving
+   deployment ordering (the current Pages workflow does not cancel running jobs).
+   Measure resource use before increasing parallelism; both Playwright configs
+   currently use one worker.
+5. **Review value and cost together.** Identify the additional defect each new or
+   expanded test detects, existing coverage supplying the same assurance, and added
+   execution/maintenance cost. Watch repeated fresh browser/compiler setup, large
+   cartridge fixtures, long RTL simulation loops and Cartesian-product growth.
+   Keep meaningful assertions and required coverage when reducing duplicated work.
+6. **Maintain an execution-time budget.** A normal-CI baseline and target are not
+   yet established. Use the scoped [SNES measurements](snes.md#validation-and-measurements)
+   and [recorded run evidence](snes-validation.json) as context, not a normal-CI
+   promise: they cover differing fixture selections and worker counts. Establish a
+   comparable baseline/target during actual test/CI performance work, track growth
+   and investigate overruns. Record elapsed feedback time, total runner/computation
+   time and queue time separately; revisit validation structure and duplication
+   while retaining required coverage. This guidance adds no benchmark or merge gate.
 
 ## 3. Create a Pull Request for the Issue
 
