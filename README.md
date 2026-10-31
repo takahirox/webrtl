@@ -287,24 +287,18 @@ dispatch on another branch does not publish. PR smoke runs have separate concurr
 groups; an active `main` deployment is allowed to finish, with the newest pending
 push replacing older pending runs. The full suite cannot occupy the Pages group.
 
-[Full validation](.github/workflows/validation.yml) partitions the coverage of
-`npm test` across two browser jobs on PRs to `main` and on manual dispatch,
-independently of Pages. It retains Python service and asset tests,
-trusted-local Chromium, and the entire static Chromium/Firefox
-suite: counter, CPU/bus, backdrop, BG1, audio/video and every SNES cartridge batch.
-The Chromium job also runs Python and trusted-local tests with the native
-reference toolchain; each job installs its browser and audio backend. There is
+[Full validation](.github/workflows/validation.yml) runs the complete `npm test`
+coverage on PRs to `main` and on manual dispatch, independently of Pages. It
+builds once, then runs Chromium and Firefox in independent jobs with one worker
+each. It retains Python service and asset tests, trusted-local Chromium, and the
+entire static Chromium/Firefox suite: counter, CPU/bus, backdrop, BG1, audio/video
+and every SNES cartridge batch.
+It installs the native reference toolchain and Firefox audio backend. There is
 no duplicate full run on the merge push. New PR revisions cancel obsolete full
-runs; browser jobs have a six-hour limit and retain one Playwright worker per
-isolated runner. The sequential [#32 validation run](https://github.com/takahirox/webrtl/actions/runs/41199712445)
-exceeded six hours while still progressing through Firefox SNES batches, after
-Python, trusted-local and Chromium tests completed. The browser split preserves
-every test without duplicating those checks or increasing workers on one runner.
-Failure details appear in each job's log and `full-validation-failure-<browser>`
-artifact when browser diagnostics exist. The **Full regression suite** check
-requires both browser jobs to succeed, rejecting failed, cancelled or skipped
-jobs. A red full check remains visible on the PR/manual run even though it does
-not gate publication of an already reviewed `main` commit.
+runs; browser jobs have a 180-minute limit and failure details in the job log and
+`regression-chromium` / `regression-firefox` artifacts when diagnostics exist.
+A red full check remains visible on the PR/manual run even though it does not
+gate publication of an already reviewed `main` commit.
 
 Before merge, reviewers must verify **Full validation / Full regression suite**
 and **Publish GitHub Pages / Build and smoke test Pages** both succeeded for the
@@ -337,7 +331,12 @@ separate queue/approval delay from execution, and investigate target overruns.
 See [the #26 pre-merge validation record](docs/pages-validation.md) for local
 measurements and failure-injection checks; these are not hosted deployment timings.
 
-**Required post-merge verification for #26 (pending):** find the real push-to-`main`
+**Required post-merge verification for #26 (completed):** the
+[sequencing record](docs/pages-validation.md#sequencing-outcome-and-30-follow-up)
+records successful run 41180403737, matching public build metadata and fresh
+Chromium SNES selection. Its full regression run was cancelled, not passed;
+Issue #30 owns optimized full-suite acceptance and subsequent CI verification.
+For future publication verification, find the real push-to-`main`
 run in **Actions → Publish GitHub Pages**, confirm build → smoke → upload → deploy
 succeeded, and record its source SHA, run URL, deployment URL and elapsed seconds.
 Fetch the public `/webrtl/build-info.json` without a stale browser cache and compare
@@ -529,6 +528,19 @@ These checks run before merge without a live Pages deployment. To run either mod
 npm run test:local
 npm run test:demo
 ```
+
+`npm test` remains the complete local suite. `npm run test:unit` runs Python and
+compilation-reuse checks; `npm run test:demo:built` tests an already-built static
+site without building it again. CI builds once and runs the complete static suite
+in separate Chromium/Firefox jobs, each with one worker. Every browser still runs
+all 260 SNES cartridges and CPU/IRQ reset replays. Each browser worker compiles
+SNES freshly once, checks the baseline UI/input/audio/reset boundaries once, then
+reuses those exact Wasm bytes with fresh circuit instances for later cartridges.
+Read the [regression timing and coverage record](docs/regression-performance.md)
+for phase logs, cache identity, budgets and measured results. The complete Ubuntu
+reference workflow passed all 68 static checks plus native and unit checks in
+161.2 minutes including queues (304.1 total runner minutes); required subsequent
+CI verification for #30 remains pending after merge.
 
 The static checks need only Node, Python, the npm packages, and installed Playwright
 browsers; native Verilator and Emscripten are needed only for `test:local`.
