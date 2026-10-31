@@ -287,16 +287,24 @@ dispatch on another branch does not publish. PR smoke runs have separate concurr
 groups; an active `main` deployment is allowed to finish, with the newest pending
 push replacing older pending runs. The full suite cannot occupy the Pages group.
 
-[Full validation](.github/workflows/validation.yml) runs `npm test` once on PRs to
-`main` and on manual dispatch, independently of Pages. It retains Python service
-and asset tests, trusted-local Chromium, and the entire static Chromium/Firefox
+[Full validation](.github/workflows/validation.yml) partitions the coverage of
+`npm test` across two browser jobs on PRs to `main` and on manual dispatch,
+independently of Pages. It retains Python service and asset tests,
+trusted-local Chromium, and the entire static Chromium/Firefox
 suite: counter, CPU/bus, backdrop, BG1, audio/video and every SNES cartridge batch.
-It installs the native reference toolchain and Firefox audio backend. There is
+The Chromium job also runs Python and trusted-local tests with the native
+reference toolchain; each job installs its browser and audio backend. There is
 no duplicate full run on the merge push. New PR revisions cancel obsolete full
-runs; full runs have a six-hour job limit and failure details in the job log and
-`full-validation-failure` artifact when browser diagnostics exist. A red full check
-remains visible on the PR/manual run even though it does not gate publication of
-an already reviewed `main` commit.
+runs; browser jobs have a six-hour limit and retain one Playwright worker per
+isolated runner. The sequential [#32 validation run](https://github.com/takahirox/webrtl/actions/runs/41199712445)
+exceeded six hours while still progressing through Firefox SNES batches, after
+Python, trusted-local and Chromium tests completed. The browser split preserves
+every test without duplicating those checks or increasing workers on one runner.
+Failure details appear in each job's log and `full-validation-failure-<browser>`
+artifact when browser diagnostics exist. The **Full regression suite** check
+requires both browser jobs to succeed, rejecting failed, cancelled or skipped
+jobs. A red full check remains visible on the PR/manual run even though it does
+not gate publication of an already reviewed `main` commit.
 
 Before merge, reviewers must verify **Full validation / Full regression suite**
 and **Publish GitHub Pages / Build and smoke test Pages** both succeeded for the
