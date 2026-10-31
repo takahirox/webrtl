@@ -204,6 +204,83 @@ test("falling-edge outputs settle before inspection, history, conditions and mod
   expect(result.resumed).toEqual([7, 8]);
 });
 
+test("asynchronous inputs settle before inspection and handoff without false change conditions", async ({ page }) => {
+  await page.goto("./");
+  const results = await page.evaluate(async () => {
+    const compiler = new Worker("./compiler-worker.js", { type: "module" });
+    const worker = new Worker("./simulator-worker.js", { type: "module" });
+    const call = (message) => new Promise((resolve, reject) => {
+      worker.onmessage = ({ data }) => data.error ? reject(new Error(data.error)) : resolve(data);
+      worker.onerror = (event) => reject(new Error(event.message));
+      worker.postMessage({ id: 1, board: "generic", ...message });
+    });
+    try {
+      const wasm = await new Promise((resolve, reject) => {
+        compiler.onmessage = ({ data }) => {
+          if (data.error) reject(new Error(data.error));
+          if (data.wasm) resolve(data.wasm);
+        };
+        compiler.onerror = (event) => reject(new Error(event.message));
+        compiler.postMessage({ top: "async_clear", board: "generic", files: {
+          "async-clear.v": `module async_clear(input clk, input reset, input clear,
+              output reg [7:0] q, output [7:0] y,
+              output reg [7:0] downstream, output [7:0] z);
+            always @(posedge clk or posedge clear)
+              if (clear) q <= 0; else if (reset) q <= 0; else q <= q + 1;
+            assign y = q + 1;
+            wire q_is_zero = q == 0;
+            always @(posedge clk or posedge q_is_zero)
+              if (q_is_zero) downstream <= 0;
+              else if (reset) downstream <= 0; else downstream <= downstream + 1;
+            assign z = downstream + 1;
+          endmodule`,
+        } });
+      });
+      await call({ action: "init", wasm });
+      const { signals } = await call({ action: "mode", mode: "debug" });
+      const refs = ["q", "y", "downstream", "z"].map((name) => ({ id: signals.find((s) => s.name === name).id, row: 0 }));
+      const read = async () => (await call({ action: "inspect", refs })).values.map((v) => parseInt(v.hex, 16));
+      const results = [];
+      for (const mode of ["debug", "fast"]) {
+        await call({ action: "reset" });
+        await call({ action: "mode", mode });
+        await call({ action: "batch", batchCycles: 3 });
+        const injected = await call({ action: "inputs", inputs: { clear: "0x1" } });
+        const immediate = mode === "debug" ? await read() : null;
+        const { snapshot } = await call({ action: "pause" });
+        await call({ action: "mode", mode: "fast", snapshot });
+        const { snapshot: fastSnapshot } = await call({ action: "pause" });
+        await call({ action: "mode", mode: "debug", snapshot: fastSnapshot });
+        const handedOff = await read();
+        await call({ action: "debug-config", signals: refs,
+          breakpoint: { ...refs[1], kind: "change" } });
+        const held = await call({ action: "batch", batchCycles: 5 });
+        const afterHeld = await read();
+        const released = await call({ action: "inputs", inputs: { clear: "0x0" } });
+        const afterRelease = await read();
+        const step = await call({ action: "step" });
+        results.push({ mode, injected, immediate, snapshot, fastSnapshot, handedOff,
+          held, afterHeld, released, afterRelease, step, afterStep: await read() });
+      }
+      return results;
+    } finally { compiler.terminate(); worker.terminate(); }
+  });
+  for (const result of results) {
+    expect(result.injected.cycles).toBe(3);
+    if (result.mode === "debug") expect(result.immediate).toEqual([0, 1, 0, 1]);
+    for (const snapshot of [result.snapshot, result.fastSnapshot])
+      expect(snapshot).toMatchObject({ cycles: 3, phase: "settled-low", inputs: { clear: "0x1" } });
+    expect(result.handedOff).toEqual([0, 1, 0, 1]);
+    expect(result.held).toMatchObject({ cycles: 8, hit: false });
+    expect(result.held.history).toEqual(Array.from({ length: 5 }, (_, i) => ({ cycle: i + 4, values: [0, 1, 0, 1] })));
+    expect(result.afterHeld).toEqual([0, 1, 0, 1]);
+    expect(result.released.cycles).toBe(8);
+    expect(result.afterRelease).toEqual([0, 1, 0, 1]);
+    expect(result.step).toMatchObject({ cycles: 9, hit: true });
+    expect(result.afterStep).toEqual([1, 2, 0, 1]);
+  }
+});
+
 test("mode controls inspect/stop, pause a pending Fast batch, reset and recompile", async ({ page }) => {
   await load(page);
   await expect(page.locator("#sim-mode")).toHaveValue("fast");
