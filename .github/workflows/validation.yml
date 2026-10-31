@@ -8,58 +8,144 @@ on:
 permissions:
   contents: read
 
-# Superseded PR revisions can stop testing; Pages uses a separate group.
+# One PR revision at a time; Pages keeps its independent deployment ordering.
 concurrency:
   group: full-validation-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  full-validation:
-    name: Full regression suite
+  prepare:
+    name: Unit checks and static build
     runs-on: ubuntu-24.04
-    timeout-minutes: 360
+    timeout-minutes: 10
     steps:
+      - name: Start preparation clock
+        run: echo "REGRESSION_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
-      - name: Install native build tools and audio backend
+      - run: npm ci
+      - run: npm run test:unit
+      - run: npm run build:demo
+      - uses: actions/upload-artifact@v4
+        with:
+          name: regression-site-${{ github.sha }}
+          path: .build/pages/webrtl/
+          compression-level: 0
+          retention-days: 3
+      - name: Summarize preparation work
+        if: always()
+        run: |
+          echo "Preparation result: ${{ job.status }}; elapsed: $(($(date +%s) - REGRESSION_STARTED_AT)) seconds (includes setup, tests, build and upload; excludes queue)." >> "$GITHUB_STEP_SUMMARY"
+
+  static:
+    name: Static regression (${{ matrix.browser }})
+    needs: prepare
+    runs-on: ubuntu-24.04
+    # Operational feedback budget; investigate overruns instead of extending it.
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox]
+    steps:
+      - name: Start browser job clock
+        run: echo "REGRESSION_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps ${{ matrix.browser }}
+      - name: Install native build tools for Chromium integration
+        if: matrix.browser == 'chromium'
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3 verilator emscripten pulseaudio
+          sudo apt-get install -y python3 verilator emscripten
           verilator --version
           em++ --version
-      - run: npm ci
-      - run: npx playwright install --with-deps chromium firefox
-      # Firefox needs a real Web Audio output device even when headless.
-      - name: Start audio output for browser tests
+      - name: Run trusted-local Chromium integration
+        if: matrix.browser == 'chromium'
+        id: native
+        run: npm run test:local
+      - uses: actions/download-artifact@v4
+        with:
+          name: regression-site-${{ github.sha }}
+          path: .build/pages/webrtl/
+      - name: Verify build provenance and record reference environment
         run: |
+          python3 -c 'import json,os; assert json.load(open(".build/pages/webrtl/build-info.json"))["commit"] == os.environ["GITHUB_SHA"]'
+          node --version
+          python3 --version
+          npx playwright --version
+          lscpu
+          free -m
+      # Firefox needs a real Web Audio output device even when headless.
+      - name: Start audio output for Firefox
+        if: matrix.browser == 'firefox'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pulseaudio
           pulseaudio --start --exit-idle-time=-1
           pactl load-module module-null-sink sink_name=webrtl_ci rate=48000
           pactl set-default-sink webrtl_ci
           pactl list short sinks
-      # npm test already includes both static browser projects, including every
-      # SNES cartridge batch. Do not run those suites a second time here.
-      - name: Run comprehensive Python, trusted-local and static browser tests
+      - name: Run all static regressions with one browser worker
         id: tests
-        run: npm test
-      - name: Summarize full validation
+        run: npm run test:demo:built -- --project=${{ matrix.browser }}
+      - name: Summarize browser validation
         if: always()
         env:
           RESULT: ${{ steps.tests.outcome }}
+          BROWSER: ${{ matrix.browser }}
+          NATIVE: ${{ steps.native.outcome }}
+        run: |
+          {
+            echo "## Static regression: $BROWSER"
+            echo "Source commit: $GITHUB_SHA; test outcome: $RESULT"
+            echo "Trusted-local native integration (Chromium only): $NATIVE"
+            echo "Browser job elapsed: $(($(date +%s) - REGRESSION_STARTED_AT)) seconds through testing, including setup and artifact download; excludes queue and final evidence upload."
+            echo "One worker; all 260 cartridge cases plus CPU/IRQ reset replays; fresh browser compilation and UI integration once per worker."
+            echo "Budget: 180 minutes per browser job; see docs/regression-performance.md for evidence and limits."
+            echo "Timings and failures: regression-$BROWSER artifact. Browser job elapsed is feedback latency; sum both jobs and preparation for total runner work. Queue time is separate."
+            echo "Pages builds, smokes and deploys independently; this result never authorizes bypassing required pre-merge validation."
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ -f .build/static-results.json ]; then
+            node -e 'const r=require("./.build/static-results.json"); console.log(JSON.stringify(r.stats))' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload timing and regression evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regression-${{ matrix.browser }}
+          path: |
+            .build/static-results.json
+            test-results/
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 7
+
+  full-validation:
+    name: Full regression suite
+    if: always()
+    needs: [prepare, static]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 1
+    steps:
+      - name: Require every full-suite component to pass
+        env:
+          PREPARE: ${{ needs.prepare.result }}
+          STATIC: ${{ needs.static.result }}
         run: |
           {
             echo "## Full regression suite"
             echo "Source commit: $GITHUB_SHA"
-            echo "npm test: $RESULT; job status: ${{ job.status }}"
-            echo "Configured coverage: Python service/assets, trusted-local Chromium, static Chromium and Firefox, counter, CPU, BG1, audio/video and all SNES cartridge batches."
-            echo "Inspect the failing step and test-results artifact for details. Require a successful full check before merge; this workflow does not gate publication."
+            echo "Unit/build: $PREPARE; native Chromium and both complete static browser suites: $STATIC"
+            echo "Coverage matches local npm test. No filtered suite is reported as full."
+            echo "Elapsed feedback budget: under 190 minutes excluding queues; total runner budget: under 370 minutes. Investigate overruns; these are provisional until a complete Ubuntu run is recorded."
           } >> "$GITHUB_STEP_SUMMARY"
-      - name: Upload browser failure details
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: full-validation-failure
-          path: test-results/
-          if-no-files-found: ignore
+          test "$PREPARE" = success
+          test "$STATIC" = success

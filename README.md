@@ -510,6 +510,16 @@ npm run test:local
 npm run test:demo
 ```
 
+`npm test` remains the complete local suite. `npm run test:unit` runs Python and
+compilation-reuse checks; `npm run test:demo:built` tests an already-built static
+site without building it again. CI builds once and runs the complete static suite
+in separate Chromium/Firefox jobs, each with one worker. Every browser still runs
+all 260 SNES cartridges and CPU/IRQ reset replays. Each browser worker compiles
+SNES freshly once, checks the baseline UI/input/audio/reset boundaries once, then
+reuses those exact Wasm bytes with fresh circuit instances for later cartridges.
+Read the [regression timing and coverage record](docs/regression-performance.md)
+for phase logs, cache identity, budgets, measured results and pending acceptance.
+
 The static checks need only Node, Python, the npm packages, and installed Playwright
 browsers; native Verilator and Emscripten are needed only for `test:local`.
 

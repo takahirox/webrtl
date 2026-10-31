@@ -1,6 +1,8 @@
 const { test, expect } = require("@playwright/test");
 const { readFileSync, writeFileSync } = require("node:fs");
 const { execFileSync } = require("node:child_process");
+const { circuitFingerprint } = require("../circuit-fingerprint.cjs");
+const compiledCircuits = new Map();
 const rom = readFileSync("examples/snes/test.sfc");
 const modes = JSON.parse(execFileSync("python3", ["-c", `import json,runpy
 build=runpy.run_path('scripts/generate-snes-rom.py')['build']
@@ -89,8 +91,8 @@ const selectedModes = process.env.WEBRTL_SNES_FIXTURES ?
 if (!selectedModes.length) throw new Error("WEBRTL_SNES_FIXTURES selected no cartridges");
 
 // Bound each test to at most 20 cartridges plus the AUX reset comparison.
-// Every batch compiles in the browser and retains baseline input/audio/reset
-// checks. Keeping AUX and its repeat together preserves their cross-ROM check.
+// Each browser worker compiles once and checks baseline input/audio/reset once.
+// Fresh runtime instances isolate cartridges; AUX and its repeat stay together.
 const fixtureBatches = [];
 const batchModes = selectedModes.filter(({ name }) => name !== "apu-aux-repeat");
 for (let offset = 0; offset < batchModes.length; offset += 20) {
@@ -414,13 +416,21 @@ async function frameMismatch(page, green = false) {
 }
 
 for (const [batchIndex, modeCartridges] of fixtureBatches.entries()) {
-test(`full SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: boots a local cartridge, renders DMA tiles, produces DSP PCM, handles input and repeats reset`, async ({ page }, info) => {
-  // A 20-ROM batch leaves ample headroom within the existing 30-minute CI
-  // deadline, even on runners where the former 120-ROM sweep timed out.
+test(`full SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: boots a local cartridge, renders DMA tiles, produces DSP PCM, handles input and repeats reset`, async ({ page, browser }, info) => {
+  // Bound failures by batch, while sharing only immutable compilation bytes
+  // and already-asserted baseline evidence within this Playwright worker.
   test.setTimeout(1_800_000);
+  const started = performance.now();
+  const key = process.env.WEBRTL_PUBLIC_URL ? null : circuitFingerprint(".build/pages/webrtl", {
+    browser: info.project.name, version: browser.version(), frontend: "slang", top: "snes", board: "snes",
+  });
+  // Public deployments cannot be fingerprinted from local files: always compile.
+  const cached = key && compiledCircuits.get(key);
+  const phases = { fingerprintMs: performance.now() - started,
+    compilationReused: Boolean(cached), baselineReused: Boolean(cached), key };
   const requests = [];
   page.on("console", (message) => {
-    if (message.text().startsWith("SNES fixture ")) console.log(info.project.name, message.text());
+    if (/^SNES (fixture|phase) /.test(message.text())) console.log(info.project.name, message.text());
   });
   page.on("request", (request) => requests.push({ method: request.method(), url: request.url() }));
   await page.addInitScript(() => {
@@ -434,6 +444,7 @@ test(`full SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: boots a lo
         super(...args);
         this.addEventListener("message", ({ data }) => {
           if (data.wasm) window.compiled = { wasm: data.wasm.slice(), metrics: data.metrics };
+          if (data.progress && !data.progress.includes("%")) console.log("SNES phase compile", data.progress);
           if (data.audio) window.nonzeroPcm += data.audio.filter((sample) => sample !== 0).length;
         });
       }
@@ -445,40 +456,56 @@ test(`full SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: boots a lo
   await expect(page.locator("#top")).toHaveValue("snes");
   await expect(page.locator("#frontend")).toHaveValue("slang");
   await expect(page.locator("#files option")).toHaveCount(2);
-  await page.locator("#compile").click();
-  await expect(page.locator("#compile")).toBeEnabled({ timeout: 300000 });
-  await expect(page.locator("#errors")).toBeHidden();
-  console.log("SNES compiled", await page.evaluate(() => window.compiled.metrics));
-  writeFileSync(info.outputPath("snes.wasm"), Buffer.from(await page.evaluate(() => Array.from(window.compiled.wasm))));
-  await expect(page.locator("#run")).toBeDisabled();
-  await page.locator("#cartridge").setInputFiles({ name: "original.sfc", mimeType: "application/octet-stream", buffer: rom });
-  await expect(page.locator("#cartridge-status")).toContainText("loaded locally");
-  console.log("SNES cartridge loaded");
-  await page.locator("#run").click();
-  await expect.poll(() => frameMismatch(page), { timeout: 45000, intervals: [500] }).toBe(0);
-  console.log("SNES red frame verified");
-  await expect.poll(() => page.evaluate(() => window.nonzeroPcm)).toBeGreaterThan(100);
-  await page.locator("#video").focus();
-  await page.keyboard.down("z");
-  await expect.poll(() => frameMismatch(page, true), { timeout: 30000, intervals: [500] }).toBe(0);
-  await page.keyboard.up("z");
-  await expect.poll(() => frameMismatch(page), { timeout: 30000, intervals: [500] }).toBe(0);
-  await page.evaluate(() => {
-    window.testGamepads = [{ mapping: "standard", axes: [0, 0], buttons: Array.from({ length: 16 }, (_, i) => ({ pressed: i === 0 })) }];
-  });
-  await expect.poll(() => frameMismatch(page, true), { timeout: 30000, intervals: [500] }).toBe(0);
-  await page.locator("#pause").click();
-  const stopped = await canvasFrame(page);
-  await page.waitForTimeout(200);
-  expect(await canvasFrame(page)).toEqual(stopped);
-  await page.locator("#reset").click();
-  await expect(page.locator("#step")).toBeEnabled();
-  await expect(page.locator("#timing")).toContainText("0 cycles");
+  phases.setupMs = performance.now() - started - phases.fingerprintMs;
+  const integrationStarted = performance.now();
+  if (cached) {
+    await page.evaluate((compiled) => { window.compiled = { ...compiled, wasm: new Uint8Array(compiled.wasm) }; }, cached.compiled);
+    console.log("SNES phase reuse", info.project.name, key);
+  } else {
+    console.log("SNES phase compile start", info.project.name, key);
+    await page.locator("#compile").click();
+    await expect(page.locator("#compile")).toBeEnabled({ timeout: 300000 });
+    await expect(page.locator("#errors")).toBeHidden();
+    console.log("SNES compiled", await page.evaluate(() => window.compiled.metrics));
+    await expect(page.locator("#run")).toBeDisabled();
+    await page.locator("#cartridge").setInputFiles({ name: "original.sfc", mimeType: "application/octet-stream", buffer: rom });
+    await expect(page.locator("#cartridge-status")).toContainText("loaded locally");
+    console.log("SNES cartridge loaded");
+    await page.locator("#run").click();
+    await expect.poll(() => frameMismatch(page), { timeout: 45000, intervals: [500] }).toBe(0);
+    console.log("SNES red frame verified");
+    await expect.poll(() => page.evaluate(() => window.nonzeroPcm)).toBeGreaterThan(100);
+    await page.locator("#video").focus();
+    await page.keyboard.down("z");
+    await expect.poll(() => frameMismatch(page, true), { timeout: 30000, intervals: [500] }).toBe(0);
+    await page.keyboard.up("z");
+    await expect.poll(() => frameMismatch(page), { timeout: 30000, intervals: [500] }).toBe(0);
+    await page.evaluate(() => {
+      window.testGamepads = [{ mapping: "standard", axes: [0, 0], buttons: Array.from({ length: 16 }, (_, i) => ({ pressed: i === 0 })) }];
+    });
+    await expect.poll(() => frameMismatch(page, true), { timeout: 30000, intervals: [500] }).toBe(0);
+    await page.locator("#pause").click();
+    const stopped = await canvasFrame(page);
+    await page.waitForTimeout(200);
+    expect(await canvasFrame(page)).toEqual(stopped);
+    await page.locator("#reset").click();
+    await expect(page.locator("#step")).toBeEnabled();
+    await expect(page.locator("#timing")).toContainText("0 cycles");
+  }
+  phases.compileAndUiMs = performance.now() - integrationStarted;
+  const compiled = cached ? cached.compiled : await page.evaluate(() => ({
+    wasm: Array.from(window.compiled.wasm), metrics: window.compiled.metrics,
+  }));
+  phases.compileMs = cached ? 0 : compiled.metrics.compileMs;
+  phases.uiAndTransferMs = phases.compileAndUiMs - phases.compileMs;
+  writeFileSync(info.outputPath("snes.wasm"), Buffer.from(compiled.wasm));
+  console.log("SNES phase runtime start", info.project.name, JSON.stringify(phases));
 
   // Reuse the newly browser-compiled circuit in an independent runtime worker.
   // Small startup batches retain the whole CPU/DMA bus trace. No test emulates
   // instructions, graphics or DSP operations.
-  const results = await page.evaluate(async ({ cartridge, modeCartridges, pixelSource }) => {
+  const runtimeStarted = performance.now();
+  const results = await page.evaluate(async ({ cartridge, modeCartridges, pixelSource, baseline }) => {
     const expectedPixel = new Function(`return (${pixelSource})`)();
     const worker = new Worker("./simulator-worker.js", { type: "module" });
     let id = 0;
@@ -526,25 +553,32 @@ test(`full SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: boots a lo
     }
     try {
       await call({ action: "init", wasm: window.compiled.wasm });
-      await load(new Uint8Array(cartridge));
-      const first = await run();
-      await load(new Uint8Array(cartridge));
-      const repeat = await run();
-      // HiROM uses the same instructions at CPU $008000 and ROM offset $8000.
-      const hirom = new Uint8Array(65536);
-      hirom.set(new Uint8Array(cartridge), 32768);
-      hirom[0xffd5] = 0x21; hirom[0xffd7] = 6;
-      await load(hirom);
-      const hi = await run();
+      let first, repeat, hi;
+      if (baseline) ({ first, repeat, hi } = baseline);
+      else {
+        console.log("SNES phase baseline start");
+        await load(new Uint8Array(cartridge));
+        first = await run();
+        await load(new Uint8Array(cartridge));
+        repeat = await run();
+        // HiROM uses the same instructions at CPU $008000 and ROM offset $8000.
+        const hirom = new Uint8Array(65536);
+        hirom.set(new Uint8Array(cartridge), 32768);
+        hirom[0xffd5] = 0x21; hirom[0xffd7] = 6;
+        await load(hirom);
+        hi = await run();
+        console.log("SNES phase baseline complete");
+      }
       const modeResults = [];
       // CPU and timer observations must replay exactly after a power reset.
       const runtimeCartridges = modeCartridges.flatMap((f) => /^(irq|cpu)-/.test(f.name) ?
         [f, { ...f, name: `${f.name}-repeat` }] : [f]);
       for (const fixture of runtimeCartridges) {
-        if (modeResults.length % 10 === 0 || fixture.name.startsWith("apu-")) {
-          console.log("SNES fixture", `${modeResults.length + 1}/${runtimeCartridges.length}`, fixture.name);
-        }
+        console.log("SNES fixture start", `${modeResults.length + 1}/${runtimeCartridges.length}`, fixture.name);
+        const fixtureStarted = performance.now();
         await load(new Uint8Array(fixture.bytes));
+        const loadedAt = performance.now();
+        let heartbeat = loadedAt;
         let frame, height;
         const trace = [], pcm = [], hdma = [], observations = [];
         // Allow feedback to settle and the large Mode 7 map to initialize.
@@ -556,6 +590,10 @@ test(`full SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: boots a lo
         for (let i = 0; i < batches; i++) {
           const output = await call({ action: "batch", batchCycles: i < 64 ? 512 : 16384,
             buttons: fixture.name === "auto" ? 2048 : fixture.name === "serial" ? 0xa55 : 0 });
+          if (performance.now() - heartbeat >= 10000) {
+            console.log("SNES phase simulation", fixture.name, `${i + 1}/${batches} batches`);
+            heartbeat = performance.now();
+          }
           if (output.frame) { frame = output.frame; height = output.height; }
           if (output.audio) pcm.push(...output.audio);
           if (i < 64) trace.push(...output.trace);
@@ -571,6 +609,7 @@ test(`full SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: boots a lo
             if (cycle > 1000000 && address === 0x2121 && (flags & 1)) hdma.push([cycle, value]);
           }
         }
+        const simulatedAt = performance.now();
         let mismatches = 0;
         const examples = [];
         for (let y = 0; y < height; y++) for (let x = 0; x < 512; x++) {
@@ -583,12 +622,17 @@ test(`full SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: boots a lo
         const onset = pcm.findIndex((sample) => sample !== 0);
         modeResults.push({ name: fixture.name, height, mismatches, examples, frameHash: frame && frameHash(frame),
           trace, pcm: pcm.slice(-256), onset: pcm.slice(onset, onset + 2048), hdma, observations,
-          sampleCount: pcm.length, cycles: 64 * 512 + (batches - 64) * 16384 });
+          sampleCount: pcm.length, cycles: 64 * 512 + (batches - 64) * 16384,
+          timing: { loadResetMs: loadedAt - fixtureStarted,
+            simulationAndTransferMs: simulatedAt - loadedAt,
+            pixelReadbackMs: performance.now() - simulatedAt } });
+        console.log("SNES fixture complete", fixture.name, JSON.stringify(modeResults.at(-1).timing));
       }
       return { first, repeat, hi, modeResults, metrics: window.compiled.metrics,
         validWasm: WebAssembly.validate(window.compiled.wasm) };
     } finally { worker.terminate(); }
-  }, { cartridge: Array.from(rom), modeCartridges, pixelSource: pixel.toString() });
+  }, { cartridge: Array.from(rom), modeCartridges, pixelSource: pixel.toString(), baseline: cached?.baseline });
+  phases.runtimeMs = performance.now() - runtimeStarted;
   writeFileSync(info.outputPath("snes-fixture-results.json"), JSON.stringify(results.modeResults));
   expect(results.validWasm).toBe(true);
   expect(results.first.nonzero).toBeGreaterThan(500);
@@ -895,10 +939,19 @@ test(`full SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: boots a lo
   const dma = transactions.filter(([, address, , flags]) => [0x2118, 0x2119].includes(address) && (flags & 1));
   expect(dma.map(([, address, data]) => [address, data])).toEqual(Array.from({ length: 16 }, (_, i) => [i % 2 ? 0x2119 : 0x2118, i % 2 ? 0 : 0x55]));
   expect(requests.every((r) => r.method === "GET" && new URL(r.url).origin === new URL(page.url()).origin)).toBe(true);
-  console.log("SNES measurements", JSON.stringify({ browser: info.project.name, ...results.metrics,
+  phases.assertionMs = performance.now() - runtimeStarted - phases.runtimeMs;
+  phases.elapsedMs = performance.now() - started;
+  if (key && !info.errors.length) compiledCircuits.set(key, {
+    compiled, baseline: { first: results.first, repeat: results.repeat, hi: results.hi },
+  });
+  writeFileSync(info.outputPath("snes-measurements.json"), JSON.stringify({
+    browser: info.project.name, phases, compilation: compiled.metrics,
+    fixtures: results.modeResults.map(({ name, cycles, timing }) => ({ name, cycles, timing })),
+  }, null, 2));
+  console.log("SNES measurements", JSON.stringify({ browser: info.project.name, phases, ...results.metrics,
     runtime: { ...results.first, trace: undefined } }));
   await info.attach("snes-measurements", { body: JSON.stringify({ browser: info.project.name,
-    ...results.metrics, runtime: { ...results.first, trace: undefined } }, null, 2), contentType: "application/json" });
+    phases, ...results.metrics, runtime: { ...results.first, trace: undefined } }, null, 2), contentType: "application/json" });
 });
 }
 
