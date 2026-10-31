@@ -116,7 +116,8 @@ See the [Web Audio buffer source reference](https://developer.mozilla.org/en-US/
 
 ## Playback controls, permissions, and lifecycle
 
-- **Run** advances bounded batches, targeting 60 video frames/s. Audio production
+- **Run** advances bounded batches. Debug targets 60 video frames/s; Fast runs
+  video as quickly as practical. See [simulation modes](simulation-modes.md). Audio production
   follows the audio device clock: request a new batch when less than 100 ms is
   scheduled, with a hard 250 ms queue cap. If the cap would be exceeded, that
   batch is dropped. There is no growing backlog or catch-up loop.
@@ -125,11 +126,12 @@ See the [Web Audio buffer source reference](https://developer.mozilla.org/en-US/
   settings; allow sound and click Run again. Unsupported Web Audio, rejected or
   stalled unlock (5 s), and later suspension pause playback with a retry message
   while preserving the compiled circuit. See [browser audio policy guidance](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API/Best_practices#autoplay_policy).
-- **Pause** stops new requests, immediately stops/disconnects queued sound, and
-  ignores media from any request already in flight. The last displayed frame and
-  circuit state are preserved. A bounded in-flight batch may finish advancing
-  the circuit; its output is discarded. Resume continues from that circuit state
-  with a fresh audio queue. Samples already played are never replayed.
+- **Pause** stops new requests and immediately stops/disconnects queued sound.
+  A bounded in-flight batch finishes; the UI acknowledges its actual cycle and
+  consumes its final frame, while dropping its pending playback audio. The complete
+  circuit state and partial drawing buffer remain live for mode handoff. Resume
+  continues from that boundary with a fresh audio queue. Played samples are never
+  replayed; inspection/mode replies never redeliver old media.
 - **Step** advances exactly one cycle and is silent, even for Audio. A Video Step
   updates the canvas only if that edge completes a frame.
 - **Reset** pauses, clocks RTL reset, clears partial/completed frames and queued

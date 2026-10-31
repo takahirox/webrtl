@@ -61,6 +61,8 @@ async function compile(page) {
   await expect(page.locator("#errors")).toBeHidden();
   await expect(page.locator("#step")).toBeEnabled();
   await expect(page.locator("#cpu-result")).toHaveText("Running (0)");
+  await page.locator("#sim-mode").selectOption("debug");
+  await expect(page.locator("#sim-mode")).toBeEnabled();
   return Date.now() - start;
 }
 
@@ -97,6 +99,7 @@ async function probe(page, commands) {
     });
     try {
       await call({ action: "init", wasm: window.lastWasm });
+      await call({ action: "mode", mode: "debug" });
       const results = [];
       for (const command of commands) {
         const result = await call(command);

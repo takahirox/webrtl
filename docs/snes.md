@@ -61,6 +61,8 @@ The SNES board extends the [existing contracts](output-interfaces.md):
 | `audio_valid`, `audio_sample[15:0]` | DSP-ready rising pulse and signed mono downmix of its stereo outputs, nominal 32,000 samples/s |
 | `trace_address[23:0]`, `trace_data[7:0]`, `trace_flags[3:0]` | Board bus diagnostic: bit 3 valid, bit 0 write. PPU writes use `$002100+PA`; other addresses use the external cartridge/WRAM bus. Read data is cartridge data, not a complete internal-register trace. |
 
+Bus diagnostics are collected only in [Debug mode](simulation-modes.md); Fast
+keeps video/audio and controller I/O active without bus tracing.
 Capture buffers are bounded to 512×480 RGBA, 16,384 audio samples and 4,096 trace
 entries per request. Batches contain at most 16,384 master clocks. Interlace
 collects both fields before publishing a frame. Pixel coordinates and frame

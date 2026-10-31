@@ -468,9 +468,26 @@ test(`full SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: boots a lo
   });
   await expect.poll(() => frameMismatch(page, true), { timeout: 30000, intervals: [500] }).toBe(0);
   await page.locator("#pause").click();
+  await expect(page.locator("#step")).toBeEnabled();
   const stopped = await canvasFrame(page);
   await page.waitForTimeout(200);
   expect(await canvasFrame(page)).toEqual(stopped);
+  const pausedCycles = Number.parseInt(await page.locator("#timing").textContent(), 10);
+  await page.locator("#sim-mode").selectOption("debug");
+  await expect(page.locator("#sim-mode")).toBeEnabled();
+  await expect(page.locator("#status")).toContainText(`paused at cycle ${pausedCycles}`);
+  const buttonsId = await page.locator("#signals option").evaluateAll((options) => options.find((o) => o.textContent.startsWith("buttons ")).value);
+  await page.locator("#signals").selectOption(buttonsId);
+  await page.locator("#step").click();
+  await expect(page.locator("#step")).toBeEnabled();
+  await expect(page.locator("#signal-values")).toContainText("= 0x800");
+  await expect(page.locator("#timing")).toContainText(`${pausedCycles + 1} cycles`);
+  await page.locator("#sim-mode").selectOption("fast");
+  await expect(page.locator("#sim-mode")).toBeEnabled();
+  await page.locator("#run").click();
+  await page.waitForFunction((previous) => Number.parseInt(document.getElementById("timing").textContent, 10) > previous, pausedCycles + 1);
+  await page.locator("#pause").click();
+  await expect(page.locator("#step")).toBeEnabled();
   await page.locator("#reset").click();
   await expect(page.locator("#step")).toBeEnabled();
   await expect(page.locator("#timing")).toContainText("0 cycles");
@@ -526,6 +543,7 @@ test(`full SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: boots a lo
     }
     try {
       await call({ action: "init", wasm: window.compiled.wasm });
+      await call({ action: "mode", mode: "debug" });
       await load(new Uint8Array(cartridge));
       const first = await run();
       await load(new Uint8Array(cartridge));
