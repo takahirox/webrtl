@@ -14,24 +14,32 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  full-validation:
-    name: Full regression suite
+  regressions:
+    name: Regressions (${{ matrix.browser }})
     runs-on: ubuntu-24.04
     timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
-      - name: Install native build tools and audio backend
+      - name: Install audio backend
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3 verilator emscripten pulseaudio
+          sudo apt-get install -y python3 pulseaudio
+      - name: Install native build tools
+        if: matrix.browser == 'chromium'
+        run: |
+          sudo apt-get install -y verilator emscripten
           verilator --version
           em++ --version
       - run: npm ci
-      - run: npx playwright install --with-deps chromium firefox
+      - run: npx playwright install --with-deps ${{ matrix.browser }}
       # Firefox needs a real Web Audio output device even when headless.
       - name: Start audio output for browser tests
         run: |
@@ -39,27 +47,50 @@ jobs:
           pactl load-module module-null-sink sink_name=webrtl_ci rate=48000
           pactl set-default-sink webrtl_ci
           pactl list short sinks
-      # npm test already includes both static browser projects, including every
-      # SNES cartridge batch. Do not run those suites a second time here.
-      - name: Run comprehensive Python, trusted-local and static browser tests
+      # Partition npm test without duplicating Python/native checks or omitting
+      # any static tests. Keep one browser worker per isolated runner: running
+      # both projects sequentially exceeded GitHub's six-hour job limit.
+      - name: Run Python and trusted-local browser tests
+        if: matrix.browser == 'chromium'
+        run: python3 -m unittest discover -s tests -v && npm run test:local
+      - name: Run static browser regressions
         id: tests
-        run: npm test
-      - name: Summarize full validation
+        run: npm run test:demo -- --project=${{ matrix.browser }}
+      - name: Summarize browser validation
         if: always()
         env:
           RESULT: ${{ steps.tests.outcome }}
         run: |
           {
-            echo "## Full regression suite"
+            echo "## Regressions (${{ matrix.browser }})"
             echo "Source commit: $GITHUB_SHA"
-            echo "npm test: $RESULT; job status: ${{ job.status }}"
-            echo "Configured coverage: Python service/assets, trusted-local Chromium, static Chromium and Firefox, counter, CPU, BG1, audio/video and all SNES cartridge batches."
+            echo "Static browser tests: $RESULT; job status: ${{ job.status }}"
+            echo "Coverage: all static ${{ matrix.browser }} tests, including every SNES cartridge batch; the Chromium job also runs Python and trusted-local tests."
             echo "Inspect the failing step and test-results artifact for details. Require a successful full check before merge; this workflow does not gate publication."
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Upload browser failure details
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: full-validation-failure
+          name: full-validation-failure-${{ matrix.browser }}
           path: test-results/
           if-no-files-found: ignore
+
+  full-validation:
+    name: Full regression suite
+    needs: regressions
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require every regression job to pass
+        env:
+          RESULT: ${{ needs.regressions.result }}
+        run: |
+          {
+            echo "## Full regression suite"
+            echo "Source commit: $GITHUB_SHA"
+            echo "Combined regression result: $RESULT"
+            echo "Required coverage: Python, trusted-local Chromium, and every static Chromium/Firefox test."
+          } >> "$GITHUB_STEP_SUMMARY"
+          test "$RESULT" = success
