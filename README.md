@@ -255,15 +255,79 @@ texts ship in [third-party-notices.txt](web/third-party-notices.txt).
 One time, in **Settings → Pages → Build and deployment**, select **GitHub Actions**
 as the source. Allow `main` in any `github-pages` environment branch restrictions.
 
-[The Pages workflow](.github/workflows/pages.yml) runs on PRs and pushes to `main`,
-and manual dispatch. It installs the native reference toolchain only for the
-separate trusted-local regression test, installs pinned browser tools with `npm ci`,
-and runs Python tests and real-circuit browser tests in both modes. The static
-suite uses Chromium and Firefox under `/webrtl/`. The tested
-`.build/pages/webrtl/` contents are uploaded directly as the Pages artifact; uploading
-the parent directory would add an unwanted URL segment. Only `main` deploys, with
-scoped Pages permissions. Actions assemble the app and toolchain; they never
-compile each user's HDL.
+[The Pages workflow](.github/workflows/pages.yml) runs a fast build and Chromium
+smoke check on PRs, pushes to `main`, and manual dispatch on `main`. It runs
+`npm ci`, installs only Chromium, runs `npm run build:demo`, then runs
+`npm run test:pages` against that build under `/webrtl/`. The smoke compares the
+UI, SNES RTL, original cartridge and replacement boot ROM against this checkout,
+loads the SNES example selector/project, and compiles an edited counter into
+fresh browser Wasm with Step=3 then 6. The smoke has a three-minute total limit,
+two-minute per-test limit and no retries. It does not compile the full SNES console
+or run the multi-cartridge sweep. Build/smoke failure prevents upload and deployment.
+
+The exact tested `.build/pages/webrtl/` contents are uploaded directly as the
+`github-pages` artifact in the same run; uploading the parent directory would
+add an unwanted URL segment. No built-site cache or cross-run artifact is used;
+only npm downloads are cached. `build-info.json` records the checkout's Git commit
+and the smoke checks it against `HEAD` and, in Actions, `GITHUB_SHA`. Only `main`
+deploys, with scoped Pages permissions and the `github-pages` environment. Manual
+dispatch on another branch does not publish. PR smoke runs have separate concurrency
+groups; an active `main` deployment is allowed to finish, with the newest pending
+push replacing older pending runs. The full suite cannot occupy the Pages group.
+
+[Full validation](.github/workflows/validation.yml) runs `npm test` once on PRs to
+`main` and on manual dispatch, independently of Pages. It retains Python service
+and asset tests, trusted-local Chromium, and the entire static Chromium/Firefox
+suite: counter, CPU/bus, backdrop, BG1, audio/video and every SNES cartridge batch.
+It installs the native reference toolchain and Firefox audio backend. There is
+no duplicate full run on the merge push. New PR revisions cancel obsolete full
+runs; full runs have a six-hour job limit and failure details in the job log and
+`full-validation-failure` artifact when browser diagnostics exist. A red full check
+remains visible on the PR/manual run even though it does not gate publication of
+an already reviewed `main` commit.
+
+Before merge, reviewers must verify **Full validation / Full regression suite**
+and **Publish GitHub Pages / Build and smoke test Pages** both succeeded for the
+latest PR revision. Do not accept a pending, skipped or cancelled full check.
+An administrator should inspect **Settings → Rules → Rulesets** and/or
+**Settings → Branches** and require these checks on `main`, selecting the actual
+check names after their first PR run. If a merge queue is enabled, add appropriate
+`merge_group` validation before relying on it. This change does not inspect or
+alter repository protection settings; until configured, the same checks are a
+required review practice. Manual full validation is for reruns or investigating
+a selected ref, not an extra suite required after every merge.
+
+To reproduce the publication checks locally after installing Chromium:
+
+```sh
+npm run build:demo
+npm run test:pages
+```
+
+`test:pages` deliberately does not rebuild: it tests the artifact that will be
+uploaded. Builds now record Git provenance, so run `build:demo` in a Git checkout.
+The initial target is publication **under 10 minutes**, excluding runner queues
+and environment approval waits, rather than a fixed-time guarantee. Dependency/
+browser installation, network throughput, and Pages service latency can vary.
+The build and deployment jobs each have a ten-minute safety limit. The summaries
+record the source SHA, build/smoke/upload outcomes, artifact name, deployment
+outcome/URL, build seconds and total seconds from build start through deployment
+(including waits between jobs). Compare that total with Actions job timings to
+separate queue/approval delay from execution, and investigate target overruns.
+See [the #26 pre-merge validation record](docs/pages-validation.md) for local
+measurements and failure-injection checks; these are not hosted deployment timings.
+
+**Required post-merge verification for #26 (pending):** find the real push-to-`main`
+run in **Actions → Publish GitHub Pages**, confirm build → smoke → upload → deploy
+succeeded, and record its source SHA, run URL, deployment URL and elapsed seconds.
+Fetch the public `/webrtl/build-info.json` without a stale browser cache and compare
+`commit` with that run's SHA (or a newer successfully deployed `main` SHA).
+In a fresh browser context confirm the public Example selector exposes
+**SNES · experimental base console RTL** and loads its source project. Separately
+record a PR or manual **Full validation** run's ref/SHA, URL, duration and actual
+result. If needed, dispatch that workflow on the merged `main` ref. A failure must
+be investigated and reported; successful local checks do not prove live publication
+or a successful hosted full run.
 
 **Required post-merge verification for #8:** after deployment, open the public
 site in a fresh browser context, compile the original RTL and check Reset=0 and
@@ -450,8 +514,8 @@ The static checks need only Node, Python, the npm packages, and installed Playwr
 browsers; native Verilator and Emscripten are needed only for `test:local`.
 
 On headless Ubuntu hosts without sound hardware, Firefox also needs a running
-audio backend. The Pages workflow installs `pulseaudio` and runs these commands
-as the test user before `npm test`:
+audio backend. The full-validation workflow installs `pulseaudio` and runs these
+commands as the test user before `npm test`:
 
 ```sh
 pulseaudio --start --exit-idle-time=-1

@@ -5,6 +5,7 @@
     "build:demo": "python3 build_site.py",
     "test:local": "playwright test",
     "test:demo": "npm run build:demo && playwright test --config=playwright.static.config.js",
+    "test:pages": "playwright test --config=playwright.pages.config.js",
     "test": "python3 -m unittest discover -s tests -v && npm run test:local && npm run test:demo"
   },
   "devDependencies": {
