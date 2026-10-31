@@ -43,10 +43,7 @@ void sim_debug_input(unsigned id, unsigned word, unsigned value) {
     if (item.curr != item.next) item.curr[word] = value;
 }
 void sim_debug_settle() {
-    // step() may stop after a converged evaluation still commits register
-    // changes. Propagate all commits, including cascaded asynchronous effects,
-    // before inspection or pause/handoff, without changing the clock level.
-    do { model.eval(); } while (model.commit());
+    settle();
 }
 }
 static constexpr unsigned history_capacity = 256, selected_capacity = 16;

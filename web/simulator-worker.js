@@ -31,7 +31,7 @@ function signal(ref, narrow = false) {
 function inspect(ref) {
   const item = signal(ref);
   const words = Array.from({ length: Math.ceil(item.width / 32) }, (_, word) =>
-    simulator.sim_debug_read(item.id, ref.row ?? 0, word));
+    simulator.sim_debug_read(item.id, ref.row ?? 0, word) >>> 0);
   return { ...ref, hex: words.reverse().map((v) => v.toString(16).padStart(8, "0")).join("").slice(-Math.ceil(item.width / 4)) };
 }
 function retain() {
