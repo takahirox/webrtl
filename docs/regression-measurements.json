@@ -418,8 +418,480 @@
     }
   },
   "referenceUbuntuValidation": {
-    "status": "pending",
-    "reason": "Implementation revision has not been pushed; no optimized Actions run can be claimed from this worktree."
+    "status": "passed",
+    "run": "https://github.com/takahirox/webrtl/actions/runs/41193356269",
+    "attempt": 1,
+    "headSha": "13fd24c08ff367ad55f5c5093247a41faffc2b36",
+    "createdAt": "2026-10-31T10:35:10Z",
+    "jobs": [
+      {
+        "id": 124514468052,
+        "name": "Unit checks and static build",
+        "started_at": "2026-10-31T10:35:13Z",
+        "completed_at": "2026-10-31T10:35:25Z",
+        "conclusion": "success",
+        "elapsedSeconds": 12.0,
+        "steps": [
+          {
+            "name": "Run npm run test:unit",
+            "result": "success",
+            "startedAt": "2026-10-31T10:35:18Z",
+            "completedAt": "2026-10-31T10:35:21Z",
+            "elapsedSeconds": 3.0
+          },
+          {
+            "name": "Run npm run build:demo",
+            "result": "success",
+            "startedAt": "2026-10-31T10:35:21Z",
+            "completedAt": "2026-10-31T10:35:21Z",
+            "elapsedSeconds": 0.0
+          }
+        ]
+      },
+      {
+        "id": 124514517380,
+        "name": "Static regression (firefox)",
+        "started_at": "2026-10-31T10:35:27Z",
+        "completed_at": "2026-10-31T13:16:17Z",
+        "conclusion": "success",
+        "elapsedSeconds": 9650.0,
+        "steps": [
+          {
+            "name": "Run trusted-local Chromium integration",
+            "result": "skipped",
+            "startedAt": "2026-10-31T10:35:57Z",
+            "completedAt": "2026-10-31T10:35:57Z",
+            "elapsedSeconds": 0.0
+          },
+          {
+            "name": "Verify build provenance and record reference environment",
+            "result": "success",
+            "startedAt": "2026-10-31T10:36:07Z",
+            "completedAt": "2026-10-31T10:36:08Z",
+            "elapsedSeconds": 1.0
+          },
+          {
+            "name": "Run all static regressions with one browser worker",
+            "result": "success",
+            "startedAt": "2026-10-31T10:36:18Z",
+            "completedAt": "2026-10-31T13:16:11Z",
+            "elapsedSeconds": 9593.0
+          }
+        ]
+      },
+      {
+        "id": 124514517399,
+        "name": "Static regression (chromium)",
+        "started_at": "2026-10-31T10:35:27Z",
+        "completed_at": "2026-10-31T12:58:27Z",
+        "conclusion": "success",
+        "elapsedSeconds": 8580.0,
+        "steps": [
+          {
+            "name": "Run trusted-local Chromium integration",
+            "result": "success",
+            "startedAt": "2026-10-31T10:36:26Z",
+            "completedAt": "2026-10-31T10:37:01Z",
+            "elapsedSeconds": 35.0
+          },
+          {
+            "name": "Verify build provenance and record reference environment",
+            "result": "success",
+            "startedAt": "2026-10-31T10:37:09Z",
+            "completedAt": "2026-10-31T10:37:10Z",
+            "elapsedSeconds": 1.0
+          },
+          {
+            "name": "Run all static regressions with one browser worker",
+            "result": "success",
+            "startedAt": "2026-10-31T10:37:10Z",
+            "completedAt": "2026-10-31T12:58:21Z",
+            "elapsedSeconds": 8471.0
+          }
+        ]
+      },
+      {
+        "id": 124547600739,
+        "name": "Full regression suite",
+        "started_at": "2026-10-31T13:16:19Z",
+        "completed_at": "2026-10-31T13:16:23Z",
+        "conclusion": "success",
+        "elapsedSeconds": 4.0,
+        "steps": []
+      }
+    ],
+    "browserResults": {
+      "chromium": {
+        "stats": {
+          "startTime": "2026-10-31T10:37:10.795Z",
+          "duration": 8470819.432,
+          "expected": 34,
+          "skipped": 0,
+          "unexpected": 0,
+          "flaky": 0
+        },
+        "workers": 1,
+        "fixtures": 260,
+        "cpuIrqResetReplays": 29,
+        "executions": 289,
+        "batches": 13,
+        "freshCompilations": 1,
+        "reusedCompilations": 12,
+        "wasmSha256": [
+          "3bd23feeae078fa811b4a9f29a7ca3e5287967851af345151a7de741b4bba060"
+        ],
+        "fingerprint": "ed9f58a72e88abf6dbe38e3fdd9a6d90b7ed0d2ae4950bacebc471c14a73406c",
+        "outputsSha256": "03a41737483bd7523e3b64741a4418a9e5802810170e8f681639b8c4951ca30c",
+        "fixtureTimingMsTotal": {
+          "loadResetMs": 918754.6,
+          "simulationAndTransferMs": 6482391.7,
+          "pixelReadbackMs": 8499.7
+        },
+        "testPhaseMsTotal": {
+          "fingerprintMs": 1804.07,
+          "setupMs": 1864.81,
+          "compileMs": 197660,
+          "uiAndTransferMs": 72887.94,
+          "runtimeMs": 7568871.61,
+          "assertionMs": 26837.85,
+          "elapsedMs": 7871155.17
+        },
+        "batchTimings": [
+          {
+            "batch": 1,
+            "startTime": "2026-10-31T10:47:03.456Z",
+            "durationMs": 849067
+          },
+          {
+            "batch": 2,
+            "startTime": "2026-10-31T11:01:12.533Z",
+            "durationMs": 496908
+          },
+          {
+            "batch": 3,
+            "startTime": "2026-10-31T11:09:29.457Z",
+            "durationMs": 483377
+          },
+          {
+            "batch": 4,
+            "startTime": "2026-10-31T11:17:32.846Z",
+            "durationMs": 509393
+          },
+          {
+            "batch": 5,
+            "startTime": "2026-10-31T11:26:02.251Z",
+            "durationMs": 492526
+          },
+          {
+            "batch": 6,
+            "startTime": "2026-10-31T11:34:14.790Z",
+            "durationMs": 542249
+          },
+          {
+            "batch": 7,
+            "startTime": "2026-10-31T11:43:17.052Z",
+            "durationMs": 584723
+          },
+          {
+            "batch": 8,
+            "startTime": "2026-10-31T11:53:01.785Z",
+            "durationMs": 578090
+          },
+          {
+            "batch": 9,
+            "startTime": "2026-10-31T12:02:39.889Z",
+            "durationMs": 522142
+          },
+          {
+            "batch": 10,
+            "startTime": "2026-10-31T12:11:22.043Z",
+            "durationMs": 496440
+          },
+          {
+            "batch": 11,
+            "startTime": "2026-10-31T12:19:38.494Z",
+            "durationMs": 922960
+          },
+          {
+            "batch": 12,
+            "startTime": "2026-10-31T12:35:01.466Z",
+            "durationMs": 890418
+          },
+          {
+            "batch": 13,
+            "startTime": "2026-10-31T12:49:51.895Z",
+            "durationMs": 503417
+          }
+        ]
+      },
+      "firefox": {
+        "stats": {
+          "startTime": "2026-10-31T10:36:18.849Z",
+          "duration": 9593097.483000001,
+          "expected": 34,
+          "skipped": 0,
+          "unexpected": 0,
+          "flaky": 0
+        },
+        "workers": 1,
+        "fixtures": 260,
+        "cpuIrqResetReplays": 29,
+        "executions": 289,
+        "batches": 13,
+        "freshCompilations": 1,
+        "reusedCompilations": 12,
+        "wasmSha256": [
+          "3bd23feeae078fa811b4a9f29a7ca3e5287967851af345151a7de741b4bba060"
+        ],
+        "fingerprint": "fb84e51b09f63e63abfed292ff98804e0112339198e71db5d4d5fc18d8b0a2d6",
+        "outputsSha256": "03a41737483bd7523e3b64741a4418a9e5802810170e8f681639b8c4951ca30c",
+        "fixtureTimingMsTotal": {
+          "loadResetMs": 1058249,
+          "simulationAndTransferMs": 7336737,
+          "pixelReadbackMs": 11858
+        },
+        "testPhaseMsTotal": {
+          "fingerprintMs": 1803.81,
+          "setupMs": 2754.66,
+          "compileMs": 223652,
+          "uiAndTransferMs": 85319.37,
+          "runtimeMs": 8584793.61,
+          "assertionMs": 28810.2,
+          "elapsedMs": 8928431.72
+        },
+        "batchTimings": [
+          {
+            "batch": 1,
+            "startTime": "2026-10-31T10:47:12.321Z",
+            "durationMs": 943824
+          },
+          {
+            "batch": 2,
+            "startTime": "2026-10-31T11:02:56.157Z",
+            "durationMs": 548191
+          },
+          {
+            "batch": 3,
+            "startTime": "2026-10-31T11:12:04.364Z",
+            "durationMs": 554850
+          },
+          {
+            "batch": 4,
+            "startTime": "2026-10-31T11:21:19.225Z",
+            "durationMs": 577921
+          },
+          {
+            "batch": 5,
+            "startTime": "2026-10-31T11:30:57.157Z",
+            "durationMs": 551163
+          },
+          {
+            "batch": 6,
+            "startTime": "2026-10-31T11:40:08.332Z",
+            "durationMs": 629125
+          },
+          {
+            "batch": 7,
+            "startTime": "2026-10-31T11:50:37.472Z",
+            "durationMs": 650012
+          },
+          {
+            "batch": 8,
+            "startTime": "2026-10-31T12:01:27.499Z",
+            "durationMs": 667699
+          },
+          {
+            "batch": 9,
+            "startTime": "2026-10-31T12:12:35.213Z",
+            "durationMs": 603663
+          },
+          {
+            "batch": 10,
+            "startTime": "2026-10-31T12:22:38.889Z",
+            "durationMs": 568149
+          },
+          {
+            "batch": 11,
+            "startTime": "2026-10-31T12:32:07.052Z",
+            "durationMs": 1059200
+          },
+          {
+            "batch": 12,
+            "startTime": "2026-10-31T12:49:46.265Z",
+            "durationMs": 1010690
+          },
+          {
+            "batch": 13,
+            "startTime": "2026-10-31T13:06:36.967Z",
+            "durationMs": 567389
+          }
+        ]
+      }
+    },
+    "timing": {
+      "feedbackIncludingQueuesSeconds": 9673.0,
+      "criticalPathExecutionSeconds": 9666.0,
+      "totalRunnerSeconds": 18246.0,
+      "initialQueueSeconds": 3.0,
+      "browserReadyWaitSeconds": {
+        "Static regression (firefox)": 2.0,
+        "Static regression (chromium)": 2.0
+      },
+      "aggregateReadyWaitSeconds": 2.0
+    },
+    "crossBrowserFixtureOutputsIdentical": true,
+    "outputHashMethod": "SHA-256 of UTF-8 JSON with sorted keys, no whitespace, fixture objects sorted by name and timing fields omitted.",
+    "testedMergeSha": "3e21426b95bb3cead39d3758d1d9aa7136ecb0b4",
+    "testedSourceTree": "df5d2de81e14c618d3ab5872a5680f733772b794",
+    "headAndTestedMergeTreesIdentical": true,
+    "runner": {
+      "os": "Ubuntu 24.04.5",
+      "image": "ubuntu-24.04 20261025.353.1",
+      "runnerVersion": "2.338.2",
+      "cpu": "AMD EPYC 7763 64-Core Processor",
+      "logicalCpus": 4,
+      "ramMiB": 15983,
+      "node": "22.23.4",
+      "python": "3.12.3",
+      "verilator": "5.020",
+      "emscripten": "3.1.6",
+      "playwright": "1.64.1",
+      "chromium": "156.0.8078.4 (revision 1248)",
+      "firefox": "157.0 (revision 1555)",
+      "yosys": "0.70.1258",
+      "clang": "22.0.0-git20542-10",
+      "workersPerBrowser": 1
+    },
+    "checks": {
+      "python": {
+        "passed": 10,
+        "failed": 0
+      },
+      "nodeFingerprint": {
+        "passed": 1,
+        "failed": 0
+      },
+      "native": {
+        "passed": 1,
+        "failed": 0,
+        "elapsedDisplay": "34.4s"
+      },
+      "static": {
+        "passed": 68,
+        "failed": 0,
+        "skipped": 0,
+        "flaky": 0
+      },
+      "buildProvenance": "Both browser jobs verified build-info.json commit against GITHUB_SHA.",
+      "pages": {
+        "run": "https://github.com/takahirox/webrtl/actions/runs/41193356215",
+        "status": "passed",
+        "buildSmokeJobSeconds": 33,
+        "deployment": "skipped (pull request)"
+      }
+    },
+    "artifacts": [
+      {
+        "id": 13044505776,
+        "name": "regression-firefox",
+        "digest": "sha256:9d8f64c0ae38b3c571b4988f74144a338346996379de83ad6018256386509ed2",
+        "sizeBytes": 5353108
+      },
+      {
+        "id": 13042803606,
+        "name": "regression-chromium",
+        "digest": "sha256:7b2b5ef1a5e9637c21dccbf8b60a39f389b145a4ab932b68584d6fd0a1918b7e",
+        "sizeBytes": 5363294
+      },
+      {
+        "id": 13039387680,
+        "name": "regression-site-3e21426b95bb3cead39d3758d1d9aa7136ecb0b4",
+        "digest": "sha256:0821ce784bc33b21b2796d32e138f76b32ae995882363122718b39d53202cd45",
+        "sizeBytes": 186854405
+      }
+    ],
+    "sourceSha256AtTestedRevision": {
+      "tests/static/snes.spec.js": "051c972a579d8ebc7215b8df670cd73132c66a5d3071dbae2d772dc4627ddb44",
+      "tests/circuit-fingerprint.cjs": "61b508b2a7b916edb9cbea5d902362fa3bbfdaf9b3cc795794932cf68908f5ff",
+      "playwright.static.config.js": "b05a6e2120bf668f490d3d819f4ba17cc59a08da69058f98bd70f7487e5406ba",
+      "package.json": "6acef734ccb20a2afc954f9d32b332e79a77e8c71e2587795a05d1c817346869",
+      "package-lock.json": "541217566bd0ba90e22dd1c5358fd3b362853d705ac75d9c1f1e36139ef9e597",
+      ".github/workflows/validation.yml": "d664abf47f76b0643ccaa08d9223023154fa606f9e53f94833dc132e3a7499d8",
+      "tests/circuit-fingerprint.test.cjs": "558f86bb5572588686fdcf559d06cf0a7633a86ab703180d09b41d77819578c4"
+    },
+    "coverageAudit": {
+      "expectedManifest": "260 unique names generated from the tested spec; add one replay for each of its 29 CPU/IRQ cases.",
+      "allFixtureAndReplayNamesMatch": true,
+      "allCpuIrqAndAuxReplaysIdentical": true,
+      "allWasmFilesMatchBoundedUnoptimizedBuild": true,
+      "allCanonicalOutputsMatchLocalFullRun": true,
+      "artifactZipDigestsVerified": true
+    },
+    "comparison": {
+      "historicalRun": "https://github.com/takahirox/webrtl/actions/runs/41162403351",
+      "historicalFullResult": "cancelled, not passed",
+      "intervalConvention": "Reported compile completion timestamp minus compileMs to last relevant batch completion/measurement timestamp; console delivery adds minor uncertainty.",
+      "optimized": {
+        "chromium": {
+          "compileCompletedAt": "2026-10-31T10:50:23.0776209Z",
+          "compileMs": 197660,
+          "inferredCompileStartedAt": "2026-10-31T10:47:05.417Z",
+          "batchCompletions": [
+            "2026-10-31T11:01:12.5144070Z",
+            "2026-10-31T11:09:29.4448911Z",
+            "2026-10-31T11:17:32.8295098Z",
+            "2026-10-31T11:26:02.2408012Z",
+            "2026-10-31T11:34:14.7777983Z",
+            "2026-10-31T11:43:17.0393945Z",
+            "2026-10-31T11:53:01.7752981Z",
+            "2026-10-31T12:02:39.8754298Z",
+            "2026-10-31T12:11:22.0333288Z",
+            "2026-10-31T12:19:38.4811485Z",
+            "2026-10-31T12:35:01.4551646Z",
+            "2026-10-31T12:49:51.8809734Z",
+            "2026-10-31T12:58:15.3099316Z"
+          ],
+          "observedSnesIntervalSeconds": 7869.892,
+          "firstTwoBatchesIntervalSeconds": 1344.027
+        },
+        "firefox": {
+          "compileCompletedAt": "2026-10-31T10:50:58.9790249Z",
+          "compileMs": 223652,
+          "inferredCompileStartedAt": "2026-10-31T10:47:15.327Z",
+          "batchCompletions": [
+            "2026-10-31T11:02:56.1387460Z",
+            "2026-10-31T11:12:04.3440057Z",
+            "2026-10-31T11:21:19.2072307Z",
+            "2026-10-31T11:30:57.1409055Z",
+            "2026-10-31T11:40:08.3138228Z",
+            "2026-10-31T11:50:37.4515757Z",
+            "2026-10-31T12:01:27.4789332Z",
+            "2026-10-31T12:12:35.1927900Z",
+            "2026-10-31T12:22:38.8711950Z",
+            "2026-10-31T12:32:06.7093649Z",
+            "2026-10-31T12:49:46.2438856Z",
+            "2026-10-31T13:06:36.9499554Z",
+            "2026-10-31T13:16:04.3509346Z"
+          ],
+          "observedSnesIntervalSeconds": 8929.023,
+          "firstTwoBatchesIntervalSeconds": 1489.017
+        }
+      },
+      "limits": "Same image/tool versions and coverage; historical CPU/memory unrecorded. Operational wall-time comparison, not an isolated CPU benchmark or a full-suite speedup percentage.",
+      "historicalChromiumSnesSeconds": 11976.45377,
+      "historicalFirstTwoBatchesSeconds": {
+        "chromium": 1671.039371,
+        "firefox": 1879.587968
+      },
+      "chromiumSnesElapsedReductionPercent": 34.29
+    },
+    "budget": {
+      "browserJobMinutes": 180,
+      "elapsedFeedbackExcludingQueuesMinutes": 190,
+      "totalRunnerMinutes": 370,
+      "result": "met; retain ceilings for runner variation, investigate growth rather than extending timeouts"
+    },
+    "evidenceUpdateScope": "Documentation, measurement data and workflow summary wording only; no test commands, coverage, compiler/runtime/RTL inputs, scheduling or timeout changes."
   },
   "postMergeVerification": {
     "status": "pending",

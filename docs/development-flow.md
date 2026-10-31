@@ -111,8 +111,8 @@ integration coverage when redistributing checks.
    cartridge fixtures, long RTL simulation loops and Cartesian-product growth.
    Keep meaningful assertions and required coverage when reducing duplicated work.
 6. **Maintain an execution-time budget.** See the
-   [regression performance record](regression-performance.md) for the provisional
-   reference-runner budget, bounded comparisons and pending Ubuntu acceptance.
+   [regression performance record](regression-performance.md) for the
+   reference-runner budget, bounded comparisons and completed Ubuntu acceptance.
    No successful historical Ubuntu full-suite baseline is claimed. Use the scoped
    [SNES measurements](snes.md#validation-and-measurements)
    and [recorded run evidence](snes-validation.json) as context, not a normal-CI

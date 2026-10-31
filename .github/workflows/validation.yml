@@ -145,7 +145,7 @@ jobs:
             echo "Source commit: $GITHUB_SHA"
             echo "Unit/build: $PREPARE; native Chromium and both complete static browser suites: $STATIC"
             echo "Coverage matches local npm test. No filtered suite is reported as full."
-            echo "Elapsed feedback budget: under 190 minutes excluding queues; total runner budget: under 370 minutes. Investigate overruns; these are provisional until a complete Ubuntu run is recorded."
+            echo "Elapsed feedback budget: under 190 minutes excluding queues; total runner budget: under 370 minutes. Ubuntu reference run: 161.1 minutes excluding queues, 304.1 runner minutes; see docs/regression-performance.md. Investigate overruns."
           } >> "$GITHUB_STEP_SUMMARY"
           test "$PREPARE" = success
           test "$STATIC" = success
