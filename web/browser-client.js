@@ -79,7 +79,13 @@ export async function compileBrowser(project, progress) {
   };
   return {
     _sim_step: () => call("step"),
-    _sim_batch: (cycles, buttons = 0) => call("batch", undefined, cycles, { buttons }),
+    _sim_pause: () => call("pause"),
+    _sim_mode: (mode, snapshot) => call("mode", undefined, undefined, { mode, snapshot }),
+    _sim_signals: () => call("discover"),
+    _sim_inspect: (refs) => call("inspect", undefined, undefined, { refs }),
+    _sim_debug: (signals, breakpoint) => call("debug-config", undefined, undefined, { signals, breakpoint }),
+    _sim_inputs: (inputs) => call("inputs", undefined, undefined, { inputs }),
+    _sim_batch: (cycles, buttons) => call("batch", undefined, cycles, { buttons }),
     _sim_cartridge: loadCartridge,
     _sim_output: () => output,
     _sim_reset: () => project.board === "snes" && mountedCartridge ? loadCartridge(mountedCartridge) : call("reset"),

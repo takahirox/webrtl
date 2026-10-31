@@ -21,3 +21,5 @@ output { font: 3rem monospace; }
 
 select { padding: .5rem; font: inherit; }
 #video { width: 100%; max-width: 512px; image-rendering: pixelated; background: black; }
+#signal-values, #signal-history { background: #e7eef3; color: inherit; max-height: 16rem; overflow: auto; }
+#signals { width: 100%; font-family: monospace; }

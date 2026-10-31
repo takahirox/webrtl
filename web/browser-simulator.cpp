@@ -23,7 +23,7 @@ static constexpr unsigned trace_capacity = 128;
 static uint32_t trace[trace_capacity * 4];
 static unsigned trace_count, cycle_count;
 
-extern "C" {
+template<bool debug = false>
 static void tick(bool capture = true) {
     model.p_clk.set(false);
     model.step();
@@ -35,7 +35,7 @@ static void tick(bool capture = true) {
     model.step();
     if (capture) ++cycle_count;
 #if defined(BOARD_CPU816) || defined(BOARD_SNES)
-    if (capture && (model.p_trace__flags.get<unsigned>() & 8) && trace_count < trace_capacity) {
+    if (debug && capture && (model.p_trace__flags.get<unsigned>() & 8) && trace_count < trace_capacity) {
         unsigned offset = trace_count++ * 4;
         trace[offset] = cycle_count;
         trace[offset + 1] = model.p_trace__address.get<unsigned>();
@@ -74,6 +74,7 @@ static void tick(bool capture = true) {
     model.step();
 }
 
+extern "C" {
 void sim_batch(unsigned cycles) {
     if (cycles > 16384) __builtin_trap();
     sample_count = 0;
@@ -134,3 +135,5 @@ void sim_cart_byte(unsigned address, unsigned data) {
 }
 #endif
 }
+
+#include "debug-runtime.cpp"

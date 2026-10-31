@@ -41,6 +41,15 @@ controls to work with multiple sources:
 4. Click **Compile**, then use the simulation controls below. File or top-module
    changes discard the old simulation; switching the selected file alone keeps it.
 
+The browser compiler starts in **Fast** mode. Pause and select **Debug** to inspect
+hierarchical signals and RAM, set a value/edge condition, or collect up to 256
+clocks of selected-signal history. Pause and return to Fast to continue the same
+live circuit. Choose **Generic** for arbitrary input/output vectors around the
+`clk`/`reset` interface, or load **Generic RAM pipeline · Fast/Debug** to try the
+two-file writable-memory example. See [simulation modes](docs/simulation-modes.md)
+for clock boundaries, input controls, live snapshot compatibility, limitations,
+validation and throughput measurements.
+
 For a small multi-file demonstration, choose **Two-file counter** and click
 **Load example (replaces project)**. The top module `split_counter` in
 [split-counter.v](examples/split-counter/split-counter.v) instantiates `counter_next`
@@ -61,7 +70,7 @@ source files, fault edits and the required post-merge public-site check.
 
 Choose **65C816 CPU · machine-code ROM test** for a real synthesizable P65C816
 CPU running an inline permitted program. Compile, then Run to **PASS** (37 CPU
-clocks), or Step to inspect its reset-vector, instruction-fetch and 24-bit
+clocks), or select Debug and Step to inspect its reset-vector, instruction-fetch and 24-bit
 RAM write/readback bus trace. Reset repeats deterministically. See the
 [65C816 guide](docs/cpu816.md) for core provenance/GPL license, source adaptations,
 ROM bytes, memory/timing contracts, fault edits, measured browser performance,
@@ -110,8 +119,9 @@ for ports, timing, batching, playback controls, audio unlock, and limitations.
 These interfaces are available in the static browser mode; trusted-local mode
 retains the counter.
 
-For Counter, use **Step** for one full clock cycle, **Run** for approximately
-10 cycles per second, **Pause** to stop, and **Reset** to pause and clock the reset input.
+For Counter, use **Step** for one full clock cycle, **Run** for bounded Fast
+batches (or approximately 10 cycles/s in Debug), **Pause** to retain the completed
+batch state, and **Reset** to pause and clock the reset input.
 With the original example, Reset yields 0 and Step increments modulo 256. Change
 `count + 8'd1` to `count + 8'd3`, compile, and Step yields 3 then 6. The value comes
 from the newly generated Wasm circuit. Editing or compiling terminates the previous
@@ -210,8 +220,9 @@ texts ship in [third-party-notices.txt](web/third-party-notices.txt).
   **`count`**, with no extra ports. Interface mismatches report an error before C++
   compilation. Reset follows the edited circuit's RTL; it does not force zero
   independently of that circuit. The CPU bus example uses this same output for
-  its result register; its ROM/RAM bus stays internal to RTL. Arbitrary top-level
-  I/O and external ROM/RAM loading remain follow-up work. The 65C816 example has
+  its result register; its ROM/RAM bus stays internal to RTL. The Generic interface
+  accepts additional input/output vectors with Debug inspection and input controls;
+  arbitrary external ROM/RAM loading remains follow-up work. The 65C816 example has
   its focused [result/trace contract](docs/cpu816.md#adapter-bounds-and-performance).
   Video and Audio use
   their documented [output contracts](docs/output-interfaces.md) with any valid
@@ -235,7 +246,8 @@ texts ship in [third-party-notices.txt](web/third-party-notices.txt).
   A simulation request has a
   **10-second** watchdog. Timeout terminates the relevant worker and permits a new
   compile. Timer throttling in background tabs can delay both simulation and
-  watchdogs. Counter targets 10 cycles/second; video/audio use the explicit
+  watchdogs. Debug counter targets 10 cycles/second; Fast requests bounded Wasm
+  batches as quickly as practical. Video/audio retain the explicit
   [simulation rates and bounded batches](docs/output-interfaces.md#transfer-bounds-and-performance).
 - Static compiler assets total approximately **185 MB uncompressed** (Yosys about
   79 MB; Clang/sysroot about 105 MB), plus small UI/header assets. Network transfer

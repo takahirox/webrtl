@@ -33,11 +33,12 @@ export async function compileProject(project, progress) {
       `hierarchy -check -top ${top}`,
       "proc", "flatten", ...(frontend === "slang" ? ["opt_clean"] : []), "check -assert",
       `rename ${top} webrtltop`,
-      "write_json design.json", "write_cxxrtl -g0 design.cc",
+      "write_json design.json", "write_cxxrtl -O6 -g4 design.cc",
     ].join("; ")], files, options);
     const ports = JSON.parse(generated["design.json"]).modules.webrtltop.ports;
     const expected = { clk: ["input", 1], reset: ["input", 1], ...contract.ports };
-    if (Object.keys(ports).length !== Object.keys(expected).length ||
+    if ((board !== "generic" && Object.keys(ports).length !== Object.keys(expected).length) ||
+      (board === "generic" && Object.values(ports).some((port) => !["input", "output"].includes(port.direction))) ||
       Object.entries(expected).some(([name, [direction, width, signed = false]]) =>
         ports[name]?.direction !== direction || ports[name]?.bits.length !== width ||
         // Slang's RTLIL ports do not retain signedness metadata. The board ABI
@@ -45,7 +46,7 @@ export async function compileProject(project, progress) {
         (frontend !== "slang" && Boolean(ports[name]?.signed) !== signed))) {
       throw new Error(`${board[0].toUpperCase() + board.slice(1)} interface required: ${
         Object.entries(expected).map(([name, [direction, width, signed]]) =>
-          `${direction} ${signed ? "signed" : "unsigned"} ${width}-bit ${name}`).join(", ")}; no other ports.`);
+          `${direction} ${signed ? "signed" : "unsigned"} ${width}-bit ${name}`).join(", ")}; ${board === "generic" ? "additional input/output vectors are supported; inouts are unsupported" : "no other ports"}.`);
     }
     stage = "Compiling and linking CXXRTL with Clang";
     progress(stage);
@@ -55,15 +56,19 @@ export async function compileProject(project, progress) {
     const headers = await response.json();
     const wrapper = await fetch(new URL("./browser-simulator.cpp", import.meta.url));
     if (!wrapper.ok) throw new Error("Could not load the simulator adapter. Reload and retry.");
+    const debugWrapper = await fetch(new URL("./debug-runtime.cpp", import.meta.url));
+    if (!debugWrapper.ok) throw new Error("Could not load debugger adapter.");
     const result = await runClang([
       // Memory-backed CXXRTL models use C++ containers. This standalone Wasm
       // runtime has no C++ exception ABI; failed checks must abort instead.
       "clang++", `-DBOARD_${board.toUpperCase()}`, "-std=c++17", "-O2", "-fno-exceptions", "-I.", "-mexec-model=reactor",
       ...["sim_step", "sim_reset", "sim_count", "sim_batch", "sim_frame", "sim_frame_ready",
         "sim_audio", "sim_audio_count", "sim_trace", "sim_trace_count",
+        ...["count", "name", "width", "depth", "flags", "type", "lsb", "zero", "read", "input", "settle",
+          "clear", "select", "break", "batch", "history", "history_count", "hit"].map((name) => `sim_debug_${name}`),
         ...(board === "snes" ? ["sim_buttons", "sim_cart_config", "sim_cart_byte", "sim_video_height"] : [])].map((name) => `-Wl,--export=${name}`),
       "-Wl,--max-memory=67108864", "sim.cc", "-o", "sim.wasm",
-    ], { ...headers, "design.cc": generated["design.cc"], "sim.cc": await wrapper.text() }, options);
+    ], { ...headers, "design.cc": generated["design.cc"], "sim.cc": await wrapper.text(), "debug-runtime.cpp": await debugWrapper.text() }, options);
     return { wasm: result["sim.wasm"], diagnostics: diagnostics.replace(/\x1b\[[0-9;]*m/g, ""),
       metrics: { compileMs: performance.now() - started, wasmBytes: result["sim.wasm"].length,
         cxxrtlBytes: new TextEncoder().encode(generated["design.cc"]).length } };
