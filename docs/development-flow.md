@@ -85,28 +85,36 @@ integration coverage when redistributing checks.
    real compilation and circuit regressions. CI/build changes need affected setup,
    static assets and artifact-path validation. Use focused checks for fast feedback
    and applicable full suites for pre-merge regression confidence; focused runs
-   do not replace required coverage. `npm test` runs Python, `test:local`, then
-   `test:demo` (including `build:demo`). The [Pages workflow](../.github/workflows/pages.yml)
-   runs it for PRs to `main`, pushes to `main` and manual dispatch; only `main`
-   deploys the tested artifact. Keep mandatory pre-merge checks applicable to the
-   change, optional checks such as extra-browser exploration separate, and genuinely
+   do not replace required coverage. `npm test` runs `test:unit` (Python and reuse
+   checks), `test:local`, then `test:demo` (including `build:demo`). The
+   [full-validation workflow](../.github/workflows/validation.yml) runs the same
+   coverage for PRs to `main` and manual dispatch, building once and testing
+   Chromium/Firefox in independent jobs. The [Pages workflow](../.github/workflows/pages.yml)
+   independently builds and smoke-tests its own artifact; only `main` deploys it.
+   Keep mandatory pre-merge checks applicable to the change, optional checks such
+   as extra-browser exploration separate, and genuinely
    required live publication checks recorded separately after merge.
 4. **Reuse work and avoid duplicate execution.** Reuse builds, generated fixtures
    and downloads with keys covering relevant source/toolchain inputs and isolation
    that prevents stale results or shared-state leaks. CI already caches npm
-   downloads and deploys the tested static artifact; SNES batches reuse a compiled
-   model with power resets. When changing CI, avoid equivalent push/PR runs for
+   downloads and deploys the tested static artifact; SNES batches reuse a
+   browser-compiled module across batches with an exact served-build/browser
+   fingerprint, and power resets create fresh instances for every cartridge.
+   When changing CI, avoid equivalent push/PR runs for
    the same revision and cancel superseded validation when safe, preserving
    deployment ordering (the current Pages workflow does not cancel running jobs).
    Measure resource use before increasing parallelism; both Playwright configs
-   currently use one worker.
+   use one worker; CI separates browsers onto independent runners.
 5. **Review value and cost together.** Identify the additional defect each new or
    expanded test detects, existing coverage supplying the same assurance, and added
    execution/maintenance cost. Watch repeated fresh browser/compiler setup, large
    cartridge fixtures, long RTL simulation loops and Cartesian-product growth.
    Keep meaningful assertions and required coverage when reducing duplicated work.
-6. **Maintain an execution-time budget.** A normal-CI baseline and target are not
-   yet established. Use the scoped [SNES measurements](snes.md#validation-and-measurements)
+6. **Maintain an execution-time budget.** See the
+   [regression performance record](regression-performance.md) for the
+   reference-runner budget, bounded comparisons and completed Ubuntu acceptance.
+   No successful historical Ubuntu full-suite baseline is claimed. Use the scoped
+   [SNES measurements](snes.md#validation-and-measurements)
    and [recorded run evidence](snes-validation.json) as context, not a normal-CI
    promise: they cover differing fixture selections and worker counts. Establish a
    comparable baseline/target during actual test/CI performance work, track growth

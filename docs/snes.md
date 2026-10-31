@@ -717,3 +717,14 @@ SNES integration test with `WEBRTL_PUBLIC_URL=https://takahirox.github.io/webrtl
 to verify live source loading, client compilation, local ROM import, frame/audio,
 controller effects and reset. Record those actual results separately. Local tests
 do not establish publication success; this node does not push, publish or merge.
+
+
+### Full regression runtime follow-up (#30)
+
+The historical measurements above use different fixture selections and worker
+counts. They are not a successful Ubuntu CI full-suite baseline. The
+[current regression performance record](regression-performance.md) accounts for
+all 260 cartridges in both browsers, compilation reuse, retained reset/oracle
+coverage, phase timing, runner work versus feedback latency, and required Ubuntu
+acceptance. The cancelled #26 full result remains cancelled; independent Pages
+publication succeeded as recorded in [the sequencing outcome](pages-validation.md#sequencing-outcome-and-30-follow-up).
