@@ -4,6 +4,7 @@ import argparse
 import json
 from pathlib import Path
 import shutil
+import subprocess
 import tarfile
 import tempfile
 
@@ -18,6 +19,12 @@ def build_site():
     with tempfile.TemporaryDirectory(prefix="webrtl-site-") as temporary:
         staged = Path(temporary) / "site"
         staged.mkdir()
+        commit = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
+        ).strip()
+        (staged / "build-info.json").write_text(
+            json.dumps({"commit": commit}) + "\n", encoding="utf-8"
+        )
         html = (ROOT / "web/index.html").read_text(encoding="utf-8")
         (staged / "index.html").write_text(
             html.replace('data-mode="local"', 'data-mode="browser"'), encoding="utf-8"
