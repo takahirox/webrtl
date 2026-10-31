@@ -478,6 +478,7 @@ Testing additional desktop browsers and measuring speed are optional.
 ## Contributing
 
 - [Development flow and English collaboration convention](docs/development-flow.md)
+- [Test and CI performance principles](docs/development-flow.md#test-and-ci-performance-principles)
 - [AI review and merge guidelines](docs/review-guidelines.md)
 - [Issue template](.github/ISSUE_TEMPLATE/issue.md)
 - [Pull request template](.github/pull_request_template.md)

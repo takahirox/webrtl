@@ -42,6 +42,11 @@ and the [application validation commands](../README.md#validation). For document
 changes, check template/Markdown syntax, links, whitespace, and consistency; do not
 require unrelated runtime suites, new tooling, physical-device tests, or deployment.
 
+Apply the [test and CI performance principles](development-flow.md#test-and-ci-performance-principles).
+For new or expanded tests, review additional defect coverage, duplication and
+execution/maintenance cost together. Ask: **Does this change provide sufficient
+confidence with the lightest appropriate validation, without redundant execution?**
+
 Human-only acceptance is appropriate only when necessary for the actual Issue,
 with a reason and an expected result. Keep optional validation separate from
 mandatory completion criteria.
