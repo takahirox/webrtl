@@ -72,6 +72,9 @@ static void tick(bool capture = true) {
 #endif
     model.p_clk.set(false);
     model.step();
+    // Propagate committed falling-edge registers before inspection, history,
+    // conditions and pause/handoff. Keep clk low so no extra edge is created.
+    model.step();
 }
 
 extern "C" {

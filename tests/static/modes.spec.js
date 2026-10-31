@@ -127,6 +127,83 @@ test("generic RTL retains RAM, both clock edges and inputs through Fast/Debug ha
   expect(sum).toBeGreaterThan(400);
 });
 
+test("falling-edge outputs settle before inspection, history, conditions and mode handoff", async ({ page }) => {
+  await page.goto("./");
+  const result = await page.evaluate(async () => {
+    const compiler = new Worker("./compiler-worker.js", { type: "module" });
+    const worker = new Worker("./simulator-worker.js", { type: "module" });
+    const call = (message) => new Promise((resolve, reject) => {
+      worker.onmessage = ({ data }) => data.error ? reject(new Error(data.error)) : resolve(data);
+      worker.onerror = (event) => reject(new Error(event.message));
+      worker.postMessage({ id: 1, board: "generic", ...message });
+    });
+    try {
+      const wasm = await new Promise((resolve, reject) => {
+        compiler.onmessage = ({ data }) => {
+          if (data.error) reject(new Error(data.error));
+          if (data.wasm) resolve(data.wasm);
+        };
+        compiler.onerror = (event) => reject(new Error(event.message));
+        compiler.postMessage({ top: "falling", board: "generic", files: {
+          "falling.v": `module falling(input clk, input reset, output reg [7:0] q, output [7:0] y);
+            always @(negedge clk) if (reset) q <= 0; else q <= q + 1;
+            assign y = q + 1;
+          endmodule`,
+        } });
+      });
+      await call({ action: "init", wasm });
+      const { signals } = await call({ action: "mode", mode: "debug" });
+      const refs = ["q", "y"].map((name) => ({ id: signals.find((s) => s.name === name).id, row: 0 }));
+      const read = async () => (await call({ action: "inspect", refs })).values.map((v) => parseInt(v.hex, 16));
+      const initial = await read();
+      await call({ action: "debug-config", signals: refs,
+        breakpoint: { ...refs[1], kind: "value", value: 2 } });
+      const stop = await call({ action: "batch", batchCycles: 10 });
+      const stopped = await read();
+      const settled = await call({ action: "inputs", inputs: {} });
+      const afterSettle = await read();
+
+      await call({ action: "reset" });
+      await call({ action: "mode", mode: "fast" });
+      await call({ action: "batch", batchCycles: 7 });
+      await call({ action: "mode", mode: "debug" });
+      const uninterrupted = await read();
+
+      await call({ action: "reset" });
+      await call({ action: "mode", mode: "fast" });
+      await call({ action: "step" });
+      const { snapshot: fastSnapshot } = await call({ action: "pause" });
+      await call({ action: "mode", mode: "debug", snapshot: fastSnapshot });
+      const fastBoundary = await read();
+      await call({ action: "debug-config", signals: refs });
+      const step = await call({ action: "step" });
+      const debug = await call({ action: "batch", batchCycles: 2 });
+      const { snapshot: debugSnapshot } = await call({ action: "pause" });
+      await call({ action: "mode", mode: "fast", snapshot: debugSnapshot });
+      const fast = await call({ action: "batch", batchCycles: 3 });
+      await call({ action: "mode", mode: "debug" });
+      return { initial, stop, stopped, settled, afterSettle, uninterrupted, fastSnapshot, fastBoundary,
+        step, debug, debugSnapshot, fast, resumed: await read() };
+    } finally { compiler.terminate(); worker.terminate(); }
+  });
+  expect(result.initial).toEqual([0, 1]);
+  expect(result.stop).toMatchObject({ cycles: 1, hit: true,
+    snapshot: { cycles: 1, phase: "settled-low" }, history: [{ cycle: 1, values: [1, 2] }] });
+  expect(result.stopped).toEqual([1, 2]);
+  expect(result.settled.cycles).toBe(1);
+  expect(result.afterSettle).toEqual(result.stopped);
+  expect(result.fastSnapshot).toMatchObject({ cycles: 1, phase: "settled-low" });
+  expect(result.fastBoundary).toEqual([1, 2]);
+  expect(result.step.history).toEqual([{ cycle: 2, values: [2, 3] }]);
+  expect(result.debug.history).toEqual([
+    { cycle: 2, values: [2, 3] }, { cycle: 3, values: [3, 4] }, { cycle: 4, values: [4, 5] },
+  ]);
+  expect(result.debugSnapshot).toMatchObject({ cycles: 4, phase: "settled-low" });
+  expect(result.fast.cycles).toBe(7);
+  expect(result.uninterrupted).toEqual([7, 8]);
+  expect(result.resumed).toEqual([7, 8]);
+});
+
 test("mode controls inspect/stop, pause a pending Fast batch, reset and recompile", async ({ page }) => {
   await load(page);
   await expect(page.locator("#sim-mode")).toHaveValue("fast");
