@@ -244,6 +244,7 @@ function observedBoard() {
 test("actual 65C816 fetches BG1 ROM and writes every documented PPU/VRAM/CGRAM byte", async ({ page }) => {
   await load(page);
   await edit(page, "cpu816-bg1.v", observedBoard());
+  if (!await page.locator("#interface").isVisible()) await page.locator(".project-settings summary").click();
   await page.locator("#interface").selectOption("cpu816");
   await compile(page);
   // Trace buffers hold 128 transactions; bounded chunks retain all CPU activity.
@@ -275,6 +276,8 @@ test("BG1 device VRAM increments, sparse addresses, CGRAM pairs and reset obey t
   // Drop unused CPU/ROM files so the long stimulus table fits the same source cap.
   const unused = await page.locator("#files option").evaluateAll((options) =>
     options.map((option) => option.value).filter((name) => !["cpu816-bg1.v", "bg1-ppu.v"].includes(name)));
+  await page.locator("#file-actions summary").click();
+  page.on("dialog", (dialog) => dialog.accept());
   for (const name of unused) {
     await page.locator("#files").selectOption(name);
     await page.locator("#remove-file").click();
@@ -384,6 +387,7 @@ test("BG1 device VRAM increments, sparse addresses, CGRAM pairs and reset obey t
       if (reset) phase<=0; else phase<=phase+1'b1;
     end
   endmodule`);
+  if (!await page.locator("#interface").isVisible()) await page.locator(".project-settings summary").click();
   await page.locator("#interface").selectOption("cpu816");
   await compile(page);
   const commands = transactions.map(() => ({ action: "step" }));

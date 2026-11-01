@@ -990,6 +990,7 @@ test(`${suiteLabel} SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: b
 
 test("Slang remains a general-purpose frontend and cartridge validation rejects unsupported layouts", async ({ page }) => {
   await page.goto("./");
+  if (!await page.locator("#interface").isVisible()) await page.locator(".project-settings summary").click();
   await page.locator("#frontend").selectOption("slang");
   await page.locator("#source").fill(`module counter(input clk, reset, output reg [7:0] count);
     localparam logic [7:0] values [0:1] = '{8'd3,8'd7};

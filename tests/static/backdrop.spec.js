@@ -216,6 +216,7 @@ function observedBoard() {
 test("actual 65C816 writes and PPU pair state follow the executed ROM", async ({ page }) => {
   await load(page);
   await edit(page, "cpu816-backdrop.v", observedBoard());
+  if (!await page.locator("#interface").isVisible()) await page.locator(".project-settings summary").click();
   await page.locator("#interface").selectOption("cpu816");
   await compile(page);
   const replies = await probe(page, "cpu816", Array.from({ length: 45 }, () => ({ action: "step" })));
@@ -308,6 +309,7 @@ test("PPU latch restart, pair commit, address wrap, inactive writes and reset ar
       if (reset) phase<=0; else phase<=phase+1'b1;
     end
   endmodule`);
+  if (!await page.locator("#interface").isVisible()) await page.locator(".project-settings summary").click();
   await page.locator("#interface").selectOption("cpu816");
   await compile(page);
   const commands = transactions.map(() => ({ action: "step" }));

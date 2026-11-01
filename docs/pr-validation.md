@@ -25,7 +25,7 @@ observations; no comprehensive assertion or simulation loop is changed.
 | Python/Node units | Service validation/errors/origins, reproducible assets, immutable compilation invalidation, PR selection and aggregate failure semantics |
 | Two Pages smoke checks | Same-commit served files, user-edited counter → real frontend/Clang/Wasm → Step=3,6; static same-origin GETs |
 | Workspace layout check | Wide/narrow pane geometry, reachable toolbar, real compilation progress/failure visibility, file selection and board context |
-| Four generic mode checks | RAM, inputs, both clock edges, Fast→Debug→Fast continuity, reset, breakpoints/history, asynchronous cascades, unsigned wide inspection |
+| Five generic mode checks | RAM, inputs, both clock edges, Fast→Debug→Fast continuity, reset, UI visibility, actual generic I/O, breakpoints/history, asynchronous cascades, unsigned wide inspection |
 | Two output checks | Edited RTL → Canvas pixels and framing/errors; independent PCM/sample timing → real Web Audio; pause/reset/edit lifecycle and bounds |
 | One SNES cartridge smoke | Compile the complete unmodified console via Slang/Clang in the browser; boot `test.sfc` through the production simulator worker; check every tile/palette pixel, exact independently calculated DSP PCM, sample clock, serial B input, HDMA and NMI/IRQ activity; power-reset into a fresh instance and compare every startup CPU bus transaction |
 
