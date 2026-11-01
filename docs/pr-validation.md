@@ -131,8 +131,10 @@ queue/dependency-ready waits separately, total runner work, both lane results an
 fixture inventory. Local timings and YAML checks cannot satisfy this criterion.
 See [the performance record](regression-performance.md#fast-pr-policy-34).
 
-An administrator must replace unconditional `Full regression suite` and the old
-PR Pages status in `main` branch protection/rulesets with **Fast PR checks** after
-its first run. Repository settings are not modified by this code change. Until
-configured, reviewers must enforce the same check/evidence policy. A merge queue
+Maintainers may optionally require **Fast PR checks** in `main` branch
+protection/rulesets, without unconditional `Full regression suite` or old PR
+Pages requirements. This is a recommended repository setting, not a pre-merge
+acceptance condition; administrator configuration or confirmation is not required
+for #34. Reviewers must still verify the latest revision's automated Fast PR
+evidence and applicable affected-area validation before merge. A merge queue
 needs equivalent `merge_group` validation before it can be enabled safely.
