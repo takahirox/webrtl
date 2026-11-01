@@ -1,17 +1,17 @@
 name: Full validation
 
 on:
-  pull_request:
-    branches: [main]
+  schedule:
+    - cron: '17 18 * * *'
   workflow_dispatch:
 
 permissions:
   contents: read
 
-# One PR revision at a time; Pages keeps its independent deployment ordering.
+# Retain complete nightly/manual evidence; PR cancellation is in pr.yml.
 concurrency:
-  group: full-validation-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: full-validation-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   prepare:
@@ -27,6 +27,8 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
+      - name: Reject focused-suite overrides
+        run: test -z "${WEBRTL_SNES_FIXTURES:-}${WEBRTL_PR_SUITE:-}"
       - run: npm run test:unit
       - run: npm run build:demo
       - uses: actions/upload-artifact@v4
@@ -111,7 +113,7 @@ jobs:
             echo "One worker; all 260 cartridge cases plus CPU/IRQ reset replays; fresh browser compilation and UI integration once per worker."
             echo "Budget: 180 minutes per browser job; see docs/regression-performance.md for evidence and limits."
             echo "Timings and failures: regression-$BROWSER artifact. Browser job elapsed is feedback latency; sum both jobs and preparation for total runner work. Queue time is separate."
-            echo "Pages builds, smokes and deploys independently; this result never authorizes bypassing required pre-merge validation."
+            echo "Nightly/manual comprehensive coverage; separate from the required Fast PR checks status."
           } >> "$GITHUB_STEP_SUMMARY"
           if [ -f .build/static-results.json ]; then
             node -e 'const r=require("./.build/static-results.json"); console.log(JSON.stringify(r.stats))' >> "$GITHUB_STEP_SUMMARY"
@@ -149,3 +151,8 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           test "$PREPARE" = success
           test "$STATIC" = success
+      - name: Surface comprehensive failures for investigation
+        if: failure()
+        run: |
+          echo "::error::Full regression failed. Investigate logs and regression artifacts: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID (docs/pr-validation.md)."
+          echo "Full regression failed: [$GITHUB_SHA]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID). Follow docs/pr-validation.md; a fast PR pass does not clear this failure." >> "$GITHUB_STEP_SUMMARY"

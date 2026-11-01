@@ -89,6 +89,7 @@ print(json.dumps([dict(name=name,bytes=list(build(**args)[0])) for name,args in 
 const selectedModes = process.env.WEBRTL_SNES_FIXTURES ?
   modes.filter(({ name }) => new RegExp(process.env.WEBRTL_SNES_FIXTURES).test(name)) : modes;
 if (!selectedModes.length) throw new Error("WEBRTL_SNES_FIXTURES selected no cartridges");
+const suiteLabel = process.env.WEBRTL_SNES_FIXTURES ? "focused" : "full";
 
 // Bound each test to at most 20 cartridges plus the AUX reset comparison.
 // Each browser worker compiles once and checks baseline input/audio/reset once.
@@ -443,7 +444,9 @@ async function verifyModeHandoff(page) {
 }
 
 for (const [batchIndex, modeCartridges] of fixtureBatches.entries()) {
-test(`full SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: boots a local cartridge, renders DMA tiles, produces DSP PCM, handles input and repeats reset`, async ({ page, browser }, info) => {
+test(`${suiteLabel} SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: boots a local cartridge, renders DMA tiles, produces DSP PCM, handles input and repeats reset`, {
+  annotation: { type: "cartridges", description: modeCartridges.map(({ name }) => name).join(",") },
+}, async ({ page, browser }, info) => {
   // Bound failures by batch, while sharing only immutable compilation bytes
   // and already-asserted baseline evidence within this Playwright worker.
   test.setTimeout(1_800_000);

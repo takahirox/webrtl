@@ -267,49 +267,39 @@ texts ship in [third-party-notices.txt](web/third-party-notices.txt).
 One time, in **Settings → Pages → Build and deployment**, select **GitHub Actions**
 as the source. Allow `main` in any `github-pages` environment branch restrictions.
 
-[The Pages workflow](.github/workflows/pages.yml) runs a fast build and Chromium
-smoke check on PRs, pushes to `main`, and manual dispatch on `main`. It runs
-`npm ci`, installs only Chromium, runs `npm run build:demo`, then runs
-`npm run test:pages` against that build under `/webrtl/`. The smoke compares the
-UI, SNES RTL, original cartridge and replacement boot ROM against this checkout,
-loads the SNES example selector/project, and compiles an edited counter into
-fresh browser Wasm with Step=3 then 6. The smoke has a three-minute total limit,
-two-minute per-test limit and no retries. It does not compile the full SNES console
-or run the multi-cartridge sweep. Build/smoke failure prevents upload and deployment.
+[The Pages workflow](.github/workflows/pages.yml) builds and smoke-tests on pushes
+to `main` and manual dispatch on `main`, then deploys that exact tested artifact.
+It runs independently of comprehensive validation. PRs reuse the same Pages smoke
+in [Fast PR validation](.github/workflows/pr.yml), avoiding a second static build.
+The smoke verifies served source/build identity and compiles an edited counter
+into fresh browser Wasm with Step=3 then 6. Only `main` publishes; build/smoke
+failure prevents deployment. An active Pages deployment is allowed to finish.
 
-The exact tested `.build/pages/webrtl/` contents are uploaded directly as the
-`github-pages` artifact in the same run; uploading the parent directory would
-add an unwanted URL segment. No built-site cache or cross-run artifact is used;
-only npm downloads are cached. `build-info.json` records the checkout's Git commit
-and the smoke checks it against `HEAD` and, in Actions, `GITHUB_SHA`. Only `main`
-deploys, with scoped Pages permissions and the `github-pages` environment. Manual
-dispatch on another branch does not publish. PR smoke runs have separate concurrency
-groups; an active `main` deployment is allowed to finish, with the newest pending
-push replacing older pending runs. The full suite cannot occupy the Pages group.
+Before merge, require **Fast PR validation / Fast PR checks** for the latest
+revision. Every PR runs Python/Node units, edited RTL browser compilation,
+generic clock/RAM/Fast–Debug continuity, Canvas/Web Audio checks, and a bounded
+single-cartridge genuine SNES integration smoke (complete console compilation).
+Both Chromium lanes test the same run's SHA-named static artifact and verify its
+provenance. Superseded PR
+runs cancel; failures, cancellations, skips and overruns cannot pass the aggregate.
+The target is **under 600 seconds from run creation through aggregate completion**,
+including setup and queue; Ubuntu acceptance for #34 remains pending.
 
-[Full validation](.github/workflows/validation.yml) runs the complete `npm test`
-coverage on PRs to `main` and on manual dispatch, independently of Pages. It
-builds once, then runs Chromium and Firefox in independent jobs with one worker
-each. It retains Python service and asset tests, trusted-local Chromium, and the
-entire static Chromium/Firefox suite: counter, CPU/bus, backdrop, BG1, audio/video
-and every SNES cartridge batch.
-It installs the native reference toolchain and Firefox audio backend. There is
-no duplicate full run on the merge push. New PR revisions cancel obsolete full
-runs; browser jobs have a 180-minute limit and failure details in the job log and
-`regression-chromium` / `regression-firefox` artifacts when diagnostics exist.
-A red full check remains visible on the PR/manual run even though it does not
-gate publication of an already reviewed `main` commit.
+[Full validation](.github/workflows/validation.yml) retains the complete `npm test`
+coverage on a nightly schedule (18:17 UTC) and manual dispatch on a selected ref:
+trusted-local native integration and all static regressions in Chromium/Firefox,
+including 260 cartridges and 29 CPU/IRQ reset replays per browser. It has a separate
+**Full regression suite** status and visible failure artifacts. A fast pass cannot
+prove exhaustive SNES compatibility or clear a failing nightly regression.
 
-Before merge, reviewers must verify **Full validation / Full regression suite**
-and **Publish GitHub Pages / Build and smoke test Pages** both succeeded for the
-latest PR revision. Do not accept a pending, skipped or cancelled full check.
-An administrator should inspect **Settings → Rules → Rulesets** and/or
-**Settings → Branches** and require these checks on `main`, selecting the actual
-check names after their first PR run. If a merge queue is enabled, add appropriate
-`merge_group` validation before relying on it. This change does not inspect or
-alter repository protection settings; until configured, the same checks are a
-required review practice. Manual full validation is for reruns or investigating
-a selected ref, not an extra suite required after every merge.
+Read [the CI selection, review requirements and failure response](docs/pr-validation.md)
+for exactly what each PR exercises, additional required affected-area evidence for
+substantial RTL/compiler/runtime/debugger changes, and investigation of full-suite
+failures. Maintainers may optionally require **Fast PR checks** in branch
+protection/rulesets, without unconditional full/old PR Pages requirements. This
+repository setting is recommended, not a pre-merge acceptance condition;
+reviewers must still verify the latest revision's automated Fast PR evidence. Merge
+queues need equivalent `merge_group` coverage before use.
 
 To reproduce the publication checks locally after installing Chromium:
 
@@ -522,7 +512,8 @@ The CPU-to-PPU backdrop suite additionally checks actual register writes, CGRAM
 latch/address behavior, ROM-driven Canvas colors, brightness/blanking and reset.
 The BG1 suite checks the full CPU register-write sequence, sparse VRAM addressing
 and increments, planar tile/map/palette pixels, ROM edits and deterministic reset.
-These checks run before merge without a live Pages deployment. To run either mode separately:
+The complete suite is available locally and nightly/on demand without a live
+Pages deployment. To run either mode separately:
 
 ```sh
 npm run test:local
@@ -531,7 +522,8 @@ npm run test:demo
 
 `npm test` remains the complete local suite. `npm run test:unit` runs Python and
 compilation-reuse checks; `npm run test:demo:built` tests an already-built static
-site without building it again. CI builds once and runs the complete static suite
+site without building it again. Nightly/manual CI builds once and runs the
+complete static suite
 in separate Chromium/Firefox jobs, each with one worker. Every browser still runs
 all 260 SNES cartridges and CPU/IRQ reset replays. Each browser worker compiles
 SNES freshly once, checks the baseline UI/input/audio/reset boundaries once, then
@@ -539,8 +531,10 @@ reuses those exact Wasm bytes with fresh circuit instances for later cartridges.
 Read the [regression timing and coverage record](docs/regression-performance.md)
 for phase logs, cache identity, budgets and measured results. The complete Ubuntu
 reference workflow passed all 68 static checks plus native and unit checks in
-161.2 minutes including queues (304.1 total runner minutes); required subsequent
-CI verification for #30 remains pending after merge.
+161.2 minutes including queues (304.1 total runner minutes). That historical
+acceptance is separate from the pending #34 fast-gate timing.
+For the bounded PR suite, run `npm run test:pr`; see
+[focused and complete commands](docs/pr-validation.md).
 
 The static checks need only Node, Python, the npm packages, and installed Playwright
 browsers; native Verilator and Emscripten are needed only for `test:local`.

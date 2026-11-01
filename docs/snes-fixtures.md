@@ -21,9 +21,17 @@ All CPU cartridges additionally replay their complete execution after
 power reset, comparing timestamped CPU observations, frame and PCM.
 For a focused DSP rerun (including baseline input/reset and LoROM/HiROM checks):
 
+Focused selections are labelled `focused SNES RTL`; complete unfiltered runs keep
+`full SNES RTL`. Historical JSON evidence retains the names used when recorded.
+The [PR gate](pr-validation.md) runs a separate single-cartridge `test.sfc` smoke
+with pixel/PCM, serial input, HDMA/interrupt activity and CPU startup reset checks.
+The former CPU/HDMA/APU corpus selections require additional affected-area
+validation when relevant; they do not run on every PR. The full inventory remains
+nightly/manual and locally executable.
+
 ```sh
 npm run build:demo
-WEBRTL_SNES_FIXTURES='^(apu-endx|audio-echo-wrap)$' npx playwright test --config=playwright.static.config.js --grep 'full SNES RTL'
+WEBRTL_SNES_FIXTURES='^(apu-endx|audio-echo-wrap)$' npx playwright test --config=playwright.static.config.js --grep 'focused SNES RTL'
 ```
 
 The register, bitplane, priority, window, transfer and controller expectations
@@ -256,7 +264,7 @@ For a focused rerun of these PPU regressions:
 
 ```sh
 npm run build:demo
-WEBRTL_SNES_FIXTURES='^(sprite-edges|sprite-interlace(-vflip)?|sprite-rect(-vflip)?|cgram-latch)$' npx playwright test --config=playwright.static.config.js --grep 'full SNES RTL'
+WEBRTL_SNES_FIXTURES='^(sprite-edges|sprite-interlace(-vflip)?|sprite-rect(-vflip)?|cgram-latch)$' npx playwright test --config=playwright.static.config.js --grep 'focused SNES RTL'
 ```
 
 The SLHV and WBGLOG expectations also follow the independent PPU register
@@ -266,7 +274,7 @@ bytes. Run them together with the original CGRAM control:
 
 ```sh
 npm run build:demo
-WEBRTL_SNES_FIXTURES='^(slhv-latch|wbglog-open-bus|cgram-latch)$' npx playwright test --config=playwright.static.config.js --grep 'full SNES RTL'
+WEBRTL_SNES_FIXTURES='^(slhv-latch|wbglog-open-bus|cgram-latch)$' npx playwright test --config=playwright.static.config.js --grep 'focused SNES RTL'
 ```
 
 
@@ -300,7 +308,7 @@ LoROM/HiROM and deterministic reset checks:
 
 ```sh
 npm run build:demo
-WEBRTL_SNES_FIXTURES='^(sprite-small-interlace-|m7-|color-window-|obj-limit-|multi$|audio-(feedback|decay-sustain|sustain|adsr-release))' npx playwright test --config=playwright.static.config.js --grep 'full SNES RTL'
+WEBRTL_SNES_FIXTURES='^(sprite-small-interlace-|m7-|color-window-|obj-limit-|multi$|audio-(feedback|decay-sustain|sustain|adsr-release))' npx playwright test --config=playwright.static.config.js --grep 'focused SNES RTL'
 ```
 
 
@@ -336,7 +344,7 @@ collisions suppress the B write. Ordinary CPU I/O accesses remain available.
 
 ```sh
 npm run build:demo
-WEBRTL_SNES_FIXTURES='^(abus-|wram-|hdma-)' npx playwright test --config=playwright.static.config.js --grep 'full SNES RTL'
+WEBRTL_SNES_FIXTURES='^(abus-|wram-|hdma-)' npx playwright test --config=playwright.static.config.js --grep 'focused SNES RTL'
 ```
 
 ### 5A22 timer IRQs
@@ -383,7 +391,7 @@ reset checks still run in both browsers.
 
 ```sh
 npm run build:demo
-WEBRTL_SNES_FIXTURES='^irq-' npx playwright test --config=playwright.static.config.js --grep 'full SNES RTL' --workers=2
+WEBRTL_SNES_FIXTURES='^irq-' npx playwright test --config=playwright.static.config.js --grep 'focused SNES RTL' --workers=2
 ```
 
 ## 65C816 accumulator and arithmetic
@@ -475,7 +483,7 @@ boundaries, rather than every supported ROM size or cartridge decoder.
 
 ```sh
 npm run build:demo
-WEBRTL_SNES_FIXTURES='^(cpu-|bus-)' npx playwright test --config=playwright.static.config.js --grep 'full SNES RTL' --workers=2
+WEBRTL_SNES_FIXTURES='^(cpu-|bus-)' npx playwright test --config=playwright.static.config.js --grep 'focused SNES RTL' --workers=2
 ```
 
 ## 65C816 stack boundaries
@@ -504,7 +512,7 @@ unchanged. These are bounded boundary regressions, not exhaustive CPU conformanc
 
 ```sh
 npm run build:demo
-WEBRTL_SNES_FIXTURES='^cpu-stack-' npx playwright test --config=playwright.static.config.js --grep 'full SNES RTL' --workers=2
+WEBRTL_SNES_FIXTURES='^cpu-stack-' npx playwright test --config=playwright.static.config.js --grep 'focused SNES RTL' --workers=2
 ```
 
 ## Large OBJ geometry
@@ -529,5 +537,5 @@ Reproduce both review fixes and the retained `sprite-*`/`obj-limit-*` controls i
 
 ```sh
 npm run build:demo
-WEBRTL_SNES_FIXTURES='^(cpu-|obj-geometry-|sprite-|obj-limit-|mode-[01]$)' npx playwright test --config=playwright.static.config.js --grep 'full SNES RTL' --workers=4
+WEBRTL_SNES_FIXTURES='^(cpu-|obj-geometry-|sprite-|obj-limit-|mode-[01]$)' npx playwright test --config=playwright.static.config.js --grep 'focused SNES RTL' --workers=4
 ```

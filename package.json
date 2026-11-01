@@ -8,6 +8,8 @@
     "test:demo:built": "playwright test --config=playwright.static.config.js",
     "test:unit": "python3 -m unittest discover -s tests -v && node --test tests/*.test.cjs",
     "test:pages": "playwright test --config=playwright.pages.config.js",
+    "test:pr": "npm run test:unit && npm run build:demo && npm run test:pr:built",
+    "test:pr:built": "playwright test --config=playwright.pr.config.js",
     "test": "npm run test:unit && npm run test:local && npm run test:demo"
   },
   "devDependencies": {
