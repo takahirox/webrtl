@@ -1,8 +1,6 @@
 // The same conservative selection runs on EVERY PR, including broad changes.
-// Never derive this list from a caller's WEBRTL_SNES_FIXTURES expression.
-const snesFixtures = Object.freeze([
-  "cpu-binary", "hdma-00", "apu-div-normal", "reject-mode5-as0",
-]);
+// Never derive this selection from a caller's WEBRTL_SNES_FIXTURES expression.
+const snesTitle = "SNES PR smoke compiles the complete console and checks cartridge pixels, DSP, input and reset";
 const genericTitles = Object.freeze([
   "serves this checkout's UI, SNES sources and cartridge under /webrtl/",
   "loads the SNES project and compiles an edited counter into fresh browser Wasm",
@@ -13,4 +11,4 @@ const genericTitles = Object.freeze([
   "video frames come from edited RTL, with precise framing and clean controls",
   "PCM originates in RTL, plays through Web Audio, and clears on Pause/Reset/edit",
 ]);
-module.exports = { snesFixtures, genericTitles };
+module.exports = { snesTitle, genericTitles };

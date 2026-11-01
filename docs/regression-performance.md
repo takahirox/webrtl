@@ -5,16 +5,19 @@
 The [fast/full policy](pr-validation.md) supersedes the historical requirement
 below to run comprehensive validation on every PR. The optimized full corpus and
 #30 measurements remain intact; full CI now runs nightly/manual. The PR gate runs
-eight generic/Pages checks and one focused four-cartridge SNES batch in independent
-Chromium jobs, sharing one static build. All four fixtures retain original loops
-and assertions, plus the CPU replay and three LoROM/reset/HiROM baselines.
+eight generic/Pages checks and one dedicated single-cartridge SNES smoke in
+independent Chromium jobs, sharing one static build. The smoke compiles the
+complete console and checks independent pixels/PCM, serial input, HDMA/interrupt
+activity and CPU startup reset replay. Comprehensive fixture loops and the
+LoROM/reset/HiROM UI baselines remain in the full suite.
 The dedicated PR config prevents the full corpus from entering the fast lane.
 
-Budget: preparation 2 minutes, each browser job 8 minutes, each Playwright lane
-450 seconds, aggregate 1 minute; the aggregate additionally fails at 590 seconds
-from run creation, including queue, to reserve cleanup before the 600-second
-acceptance ceiling. Timing summaries retain initial queue and job timestamps
-separately from completed runner work. Full budgets below are unchanged.
+Budget: preparation 2 minutes, each browser job 9 minutes, each Playwright lane
+510 seconds, aggregate 1 minute; the aggregate additionally fails at 590 seconds
+on its creation-to-check estimate, including queue, to reserve aggregate
+setup/cleanup before the 600-second acceptance ceiling. Timing summaries retain
+initial queue and job timestamps separately from completed runner work. Full
+budgets below are unchanged.
 
 **Ubuntu final-revision PR acceptance: pending.** This GitWeave execution may
 commit locally but must not push or create a PR. No successful hosted timing is
@@ -30,7 +33,50 @@ The issue's latest full reference is
 took about 64 seconds. Those are historical comprehensive/publication evidence,
 not fast-PR acceptance.
 
-### Local implementation verification
+### Review fixes and failed hosted evidence
+
+[Ubuntu run 41288950303](https://github.com/takahirox/webrtl/actions/runs/41288950303)
+**failed/cancelled**: compilation took 387.64s and the former SNES harness timed
+out at 440s during baseline reset, before reaching its four selected cartridges.
+The dedicated smoke now avoids the comprehensive harness's repeated
+UI/baseline/fixture simulations;
+it compiles the same full console and observes one boot cartridge instead.
+Browser jobs now allow nine minutes (Playwright 510s; SNES test 500s) to give
+slow compilation headroom within the unchanged <600s overall acceptance and
+590s aggregate guard. The improvement comes from removing repeated simulations;
+no timeout-only success is claimed.
+The [selection policy](pr-validation.md) records its exact limits and the extra
+CPU/PPU/DMA/APU/cartridge evidence required for affected changes.
+
+That run also exposed an Actions/runner clock mismatch. Actions recorded aggregate
+start `09:36:02Z`, while the first runner step began at `08:36:03Z`. Subtracting
+uncalibrated runner time produced the invalid −3087.565s summary. The revised
+calculation anchors the local interval to the Actions job start, producing a
+511.435s live estimate for that observation. The actual completed Actions interval
+is `09:27:34Z` → `09:36:09Z` = **515s**, with **2s initial queue**, 2s dependency
+wait per browser/aggregate and **607s summed runner work**. This is timing evidence
+for a failed run, not successful fast-gate acceptance. Regression tests use these
+actual timestamps, test positive/negative skew and fail on missing calibration.
+The completed-run calculation uses Actions completion directly; the live estimate
+reserves ten seconds for initial setup, precision and cleanup.
+
+A successful hosted run of the revised final tree remains required before #34
+closes.
+
+The revised smoke passed locally on the same macOS/M4 Max toolchain described
+below: **1/1 in 94.09s**, including **81.66s compilation** and **10.81s runtime**.
+The initial 52-batch boot probe failed its independent pixel expectation before
+the real SPC700 upload completed; the passing smoke allows 100 boot batches.
+The generic lane passed **8/8 in 27.44s**. Python **10/10** and Node **4/4** passed,
+including the skew regression and exact full fixture discovery. Actionlint 1.7.12
+passed all three workflows, and 44 relative documentation links/anchors passed.
+Repeating the deliberate built-worker count mutation rejected `0` instead of `3`;
+restoring the original bytes made the counter smoke pass again in 3.1s.
+These local results do not establish Ubuntu final-revision acceptance. The
+comprehensive runtime suite was not rerun; its fixtures, loops and assertions
+are unchanged.
+
+### Superseded four-cartridge implementation verification
 
 On 2026-11-01 the implementation worktree passed 10 Python and 3 Node checks.
 The generic Chromium lane passed 8/8 in **27.33 seconds**; the focused SNES lane
