@@ -1,0 +1,95 @@
+name: Fast PR validation
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fast-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  prepare:
+    name: PR units and static build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run test:unit
+      - run: npm run build:demo
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pr-site-${{ github.sha }}
+          path: .build/pages/webrtl/
+          compression-level: 0
+          retention-days: 3
+
+  browser:
+    name: PR browser (${{ matrix.suite }})
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [generic, snes]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - uses: actions/download-artifact@v4
+        with:
+          name: pr-site-${{ github.sha }}
+          path: .build/pages/webrtl/
+      - name: Verify this run's build provenance
+        run: |
+          python3 -c 'import json,os,subprocess; sha=os.environ["GITHUB_SHA"]; assert subprocess.check_output(["git","rev-parse","HEAD"],text=True).strip() == sha; assert json.load(open(".build/pages/webrtl/build-info.json"))["commit"] == sha'
+      - name: Run bounded real browser compilation and simulation
+        run: npm run test:pr:built -- --project=pr-${{ matrix.suite }}
+      - name: Upload PR results and failure evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-${{ matrix.suite }}-${{ github.sha }}
+          path: |
+            .build/pr-results.json
+            test-results/
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 7
+
+  fast-pr:
+    name: Fast PR checks
+    if: always()
+    needs: [prepare, browser]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 1
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Record run and job clocks
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p .build
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" > .build/pr-run.json
+          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT/jobs?per_page=100" > .build/pr-jobs.json
+      - name: Require all components and enforce creation-to-result budget
+        env:
+          PREPARE: ${{ needs.prepare.result }}
+          BROWSER: ${{ needs.browser.result }}
+        run: node scripts/check-pr-budget.cjs

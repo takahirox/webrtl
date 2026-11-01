@@ -1,4 +1,72 @@
-# Full regression performance (#30)
+# Regression performance (#30 and #34)
+
+## Fast PR policy (#34)
+
+The [fast/full policy](pr-validation.md) supersedes the historical requirement
+below to run comprehensive validation on every PR. The optimized full corpus and
+#30 measurements remain intact; full CI now runs nightly/manual. The PR gate runs
+eight generic/Pages checks and one focused four-cartridge SNES batch in independent
+Chromium jobs, sharing one static build. All four fixtures retain original loops
+and assertions, plus the CPU replay and three LoROM/reset/HiROM baselines.
+The dedicated PR config prevents the full corpus from entering the fast lane.
+
+Budget: preparation 2 minutes, each browser job 8 minutes, each Playwright lane
+450 seconds, aggregate 1 minute; the aggregate additionally fails at 590 seconds
+from run creation, including queue, to reserve cleanup before the 600-second
+acceptance ceiling. Timing summaries retain initial queue and job timestamps
+separately from completed runner work. Full budgets below are unchanged.
+
+**Ubuntu final-revision PR acceptance: pending.** This GitWeave execution may
+commit locally but must not push or create a PR. No successful hosted timing is
+claimed from local validation. Before #34 closes, record the final tested SHA/tree,
+run URL, creation/aggregate-completion timestamps, queue/dependency waits, total
+runner work and accurate pass/fail/fixture counts. Branch-protection migration is
+also a maintainer operation; see the policy.
+
+The issue's latest full reference is
+[41257353210](https://github.com/takahirox/webrtl/actions/runs/41257353210):
+152m53s end to end, Chromium about 118m01s and Firefox 150m54s. The independent
+[Pages publication 41267991542](https://github.com/takahirox/webrtl/actions/runs/41267991542)
+took about 64 seconds. Those are historical comprehensive/publication evidence,
+not fast-PR acceptance.
+
+### Local implementation verification
+
+On 2026-11-01 the implementation worktree passed 10 Python and 3 Node checks.
+The generic Chromium lane passed 8/8 in **27.33 seconds**; the focused SNES lane
+passed 1/1 in **169.45 seconds**, with fresh full-console browser compilation
+(**86.99 seconds**), all four cartridges, the CPU replay and original baseline
+checks. Both reports had zero unexpected, skipped or flaky tests. These lanes
+ran sequentially on macOS 27.2 arm64 / Apple M4 Max, Node 26.12.1, Python 3.13.13
+and pinned Playwright 1.64.1; they do not measure Ubuntu setup, scheduling or
+creation-to-aggregate latency.
+
+A deliberate mutation of the **built artifact only** forced the real simulator
+worker's returned counter value to zero. The selected existing edited-counter
+smoke failed at Step with expected `3`, received `0`. Restoring the original
+worker bytes made the same smoke pass (3.2 seconds). No defect or mocked runtime
+was retained in source or the build.
+
+Actionlint 1.7.12 passed all three workflows. Parsed workflow assertions checked
+PR/main and nightly/manual triggers, independent concurrency, always-run aggregate
+dependencies, both full browsers, deployment dependency/main restriction, timeouts
+and absence of failure suppression. Unit checks cover all sixteen component
+result combinations, boundary/invalid timing failures, queue/runner calculations,
+exact discovery counts and forbidden PR cartridge overrides. Relative documentation
+links/anchors and staged/unstaged whitespace checks passed.
+
+The multi-hour complete runtime suite and native suite were **not rerun** for this
+CI redistribution: no comprehensive circuit loop, fixture, expected value or
+native command changed. Their runtime acceptance here is not claimed. Hosted
+workflow behavior, artifact transfer and <600s final-revision PR timing still
+require the actual Ubuntu run above. The local macOS host is not a standard
+GitHub Actions Ubuntu runner. The complete discovery
+inventory is now **80 static tests** (40 per browser), including the six generic
+mode tests added in #32 after #30's 68-test measurement. Each browser still has
+13 SNES batches, 260 named fixtures and 29 CPU/IRQ replays. Fixture annotations
+make the inventory visible in discovery/reports; no original oracle is removed.
+
+## Historical full regression performance (#30)
 
 The optimization retains the complete local `npm test` coverage. It reduces
 repeated compilation and identical baseline checks; no cartridge, independent
@@ -101,8 +169,9 @@ The browser split reduces elapsed feedback latency separately from work saved by
 reuse. It does **not** itself reduce simulation work; installation/download costs
 on two runners must be included in total runner time. npm's download cache is
 retained, native tools are installed only in the Chromium job, the static build is not
-repeated, and each static runner installs only its own browser. Superseded PR
-revisions cancel the entire old full-validation group. There is no duplicate
+repeated, and each static runner installs only its own browser. Historically, superseded PR
+revisions cancelled the old full-validation group; #34 moves PR cancellation to
+the fast group and retains nightly/manual full runs. There is no duplicate
 branch-push full run. The final `Full regression suite` job fails if preparation
 or either browser fails/skips/cancels. Timing/results artifacts upload on success
 and failure, and JSON reports retain accurate pass/fail/skip counts.
@@ -118,7 +187,8 @@ npm run test:demo:built -- --project=firefox
 ```
 
 `WEBRTL_SNES_FIXTURES` remains an explicitly focused local selection. It is never
-set in CI; focused results must not be labelled a complete suite.
+set in comprehensive CI; the dedicated PR config uses its own fixed selection.
+Focused results must not be labelled a complete suite.
 
 The reference budget is **180 minutes per browser job**, **under 190
 minutes elapsed feedback** including preparation, and **under 370 total runner
@@ -139,7 +209,8 @@ Pages retains its own ten-minute build/smoke/deploy bounds, artifact provenance,
 failure propagation and non-cancelling deployment ordering. It has no dependency
 on full validation. The [#26 sequencing record](pages-validation.md#sequencing-outcome-and-30-follow-up)
 keeps the cancelled full result visible and records the independent successful
-publication; the ordinary full-check-before-merge policy remains in force.
+publication. The full-check-before-merge policy described here is historical
+and is superseded by #34's fast gate plus affected-area review evidence.
 
 ## Local validation
 
@@ -162,7 +233,7 @@ split into two batches in each browser, using the same one-worker configuration:
 
 ```sh
 WEBRTL_SNES_FIXTURES='^(mode-[0-7]|depth-[0-6]|sprite-(low|high)|overscan|interlace|window|math)$' \
-  npm run test:demo:built -- --grep 'full SNES RTL'
+  npm run test:demo:built -- --grep 'focused SNES RTL'
 ```
 
 The complete optimized static run passed **68/68 checks in 3,374.63 seconds
