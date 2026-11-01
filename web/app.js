@@ -7,13 +7,15 @@ const ui = Object.fromEntries(
     "interface", "frontend", "video", "audio-status", "timing", "run-help", "cpu-result", "cpu-trace",
     "cartridge-controls", "cartridge", "test-cartridge", "cartridge-status",
     "sim-mode", "clock-hz", "debug-controls", "signal-filter", "signals", "signal-row", "inspect", "signal-values",
-    "condition", "condition-value", "capture", "signal-history", "input-signal", "input-value", "apply-input", "debug-status"]
+    "condition", "condition-value", "capture", "signal-history", "input-signal", "input-value", "apply-input", "debug-status",
+    "example-controls", "history-panel"]
     .map((id) => [id, document.getElementById(id)]),
 );
 const browser = document.documentElement.dataset.mode === "browser";
 const projectTools = browser ? await import("./project.js") : null;
 let files = {};
 let activeFile = null;
+const editorPositions = new Map();
 const audio = new AudioOutput();
 const canvas = ui.video.getContext("2d");
 let selected = "counter";
@@ -59,6 +61,7 @@ function controls() {
   ui.compile.disabled = busy || switching;
   ui.source.disabled = busy || (browser && !activeFile);
   ui.project.disabled = busy;
+  ui["example-controls"].disabled = busy;
   ui["rename-file"].disabled = !activeFile;
   ui["remove-file"].disabled = !activeFile;
   ui.run.disabled = switching || busy || !simulator || advancing || timer !== null || (selected === "snes" && !cartridgeLoaded);
@@ -68,8 +71,10 @@ function controls() {
   ui["cartridge-controls"].disabled = busy || !simulator || advancing || switching;
   ui["sim-mode"].disabled = busy || !simulator || advancing || switching || timer !== null;
   ui["debug-controls"].hidden = ui["sim-mode"].value !== "debug";
+  ui["history-panel"].hidden = ui["sim-mode"].value !== "debug";
   ui["debug-controls"].disabled = busy || !simulator || advancing || switching || timer !== null;
   ui["clock-hz"].disabled = busy || advancing || switching || timer !== null;
+  document.querySelector(".toolbar").dataset.state = !ui.errors.hidden ? "error" : busy || switching ? "busy" : timer !== null ? "running" : "idle";
 }
 
 function pause() {
@@ -110,14 +115,21 @@ function discard() {
 
 function showError(error) {
   discard();
-  ui.errors.textContent = error.message;
-  ui.errors.hidden = false;
+  revealError(error);
   ui.status.textContent = "Failed. Fix the source or toolchain and compile again.";
 }
 
+function revealError(error) {
+  ui.errors.textContent = error.message;
+  ui.errors.hidden = false;
+  document.querySelector(".toolbar").dataset.state = "error";
+  // Keep failures discoverable after the panes reflow, without moving keyboard focus.
+  ui.errors.scrollIntoView({ block: "nearest" });
+}
+
 function projectChanged() {
-  discard();
   ui.errors.hidden = true;
+  discard();
   ui.diagnostics.textContent = "";
   ui.status.textContent = "Source or project changed. Compile to simulate this version.";
 }
@@ -145,9 +157,16 @@ function selectInterface(board) {
 }
 
 function selectFile(name) {
+  if (activeFile) editorPositions.set(activeFile, {
+    start: ui.source.selectionStart, end: ui.source.selectionEnd,
+    direction: ui.source.selectionDirection, scroll: ui.source.scrollTop,
+  });
   activeFile = name;
   ui.files.value = name || "";
   ui.source.value = name ? files[name] : "";
+  const position = editorPositions.get(name);
+  ui.source.setSelectionRange(position?.start || 0, position?.end || 0, position?.direction);
+  ui.source.scrollTop = position?.scroll || 0;
   ui.filename.value = name || "";
   ui["source-label"].textContent = name ? `Verilog source · ${name}` : "Verilog source · no files";
   controls();
@@ -160,8 +179,8 @@ function refreshFiles(name) {
 
 // File-operation errors leave the project (and any running circuit) intact.
 function projectError(error) {
-  ui.errors.textContent = error.message;
-  ui.errors.hidden = false;
+  revealError(error);
+  ui.status.textContent = "Action failed. See diagnostics for details.";
 }
 
 function checkNewName(name, names = Object.keys(files)) {
@@ -260,6 +279,8 @@ if (browser) {
         ? [["split-counter.v", "./examples/split-counter/split-counter.v"], ["counter-next.v", "./examples/split-counter/counter-next.v"]]
         : [[`${board}.v`, board === "counter" ? "./example.v" : `./examples/${board}.v`]];
       const entries = await Promise.all(sources.map(async ([name, url]) => [name, await loadSource(url)]));
+      editorPositions.clear();
+      activeFile = null;
       files = Object.fromEntries(entries);
       ui.frontend.value = example === "snes" ? "slang" : "verilog";
       ui.top.value = example === "debug-ram" ? "debug_ram" : example === "bg1" ? "cpu816_bg1" : example === "backdrop" ? "cpu816_backdrop" : example === "bus" ? "bus_test" : split ? "split_counter" : boards[board].top;
@@ -344,10 +365,10 @@ function showCpuOutput(output) {
 }
 
 ui.compile.addEventListener("click", async () => {
+  ui.errors.hidden = true;
   discard();
   busy = true;
   controls();
-  ui.errors.hidden = true;
   ui.diagnostics.textContent = "";
   ui.status.textContent = browser ? "Loading browser compiler…" : "Compiling with Verilator and Emscripten…";
   try {

@@ -16,7 +16,7 @@ module.exports = defineConfig({
   projects: [
     {
       name: "pr-generic", use: { browserName: "chromium" },
-      testMatch: [/\/pages\/smoke\.spec\.js$/, /\/static\/(modes.*|outputs)\.spec\.js$/],
+      testMatch: [/\/pages\/smoke\.spec\.js$/, /\/static\/(modes.*|outputs|workspace)\.spec\.js$/],
       grep: new RegExp(`(?:${genericTitles.map(escape).join("|")})$`),
     },
     {
