@@ -278,8 +278,9 @@ failure prevents deployment. An active Pages deployment is allowed to finish.
 Before merge, require **Fast PR validation / Fast PR checks** for the latest
 revision. Every PR runs Python/Node units, edited RTL browser compilation,
 generic clock/RAM/Fast–Debug continuity, Canvas/Web Audio checks, and a bounded
-four-cartridge genuine SNES integration selection. Both Chromium lanes test the
-same run's SHA-named static artifact and verify its provenance. Superseded PR
+single-cartridge genuine SNES integration smoke (complete console compilation).
+Both Chromium lanes test the same run's SHA-named static artifact and verify its
+provenance. Superseded PR
 runs cancel; failures, cancellations, skips and overruns cannot pass the aggregate.
 The target is **under 600 seconds from run creation through aggregate completion**,
 including setup and queue; Ubuntu acceptance for #34 remains pending.

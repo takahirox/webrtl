@@ -17,8 +17,8 @@ Every PR runs the same conservative selection in
 counter-only test. Selection does not depend on changed filenames. The dedicated
 [PR config](../playwright.pr.config.js) rejects a cartridge-expression override.
 Unit discovery checks reject missing selected tests, accidental corpus expansion,
-and loss of the complete fixture inventory. No comprehensive assertion or
-simulation loop is shortened for the fast lane.
+and loss of the complete fixture inventory. The PR smoke has its own bounded
+observations; no comprehensive assertion or simulation loop is changed.
 
 | Every PR | Observable behavior |
 | --- | --- |
@@ -26,13 +26,19 @@ simulation loop is shortened for the fast lane.
 | Two Pages smoke checks | Same-commit served files, user-edited counter → real frontend/Clang/Wasm → Step=3,6; static same-origin GETs |
 | Four generic mode checks | RAM, inputs, both clock edges, Fast→Debug→Fast continuity, reset, breakpoints/history, asynchronous cascades, unsigned wide inspection |
 | Two output checks | Edited RTL → Canvas pixels and framing/errors; independent PCM/sample timing → real Web Audio; pause/reset/edit lifecycle and bounds |
-| One focused SNES batch | Compile the complete SNES RTL via Slang, keyboard/gamepad, Canvas, PCM, Fast/Debug controls; original LoROM + exact reset replay + HiROM baselines; DMA/HDMA, NMI/IRQ, sample clock and bus assertions |
-| Four named cartridges | `cpu-binary` + its exact reset replay (independent arithmetic/status expectations), `hdma-00` (CPU observations and HDMA), `apu-div-normal` (SPC700 division/PCM), `reject-mode5-as0` (intentional bad-frame oracle must reject >50,000 pixels) |
+| One SNES cartridge smoke | Compile the complete unmodified console via Slang/Clang in the browser; boot `test.sfc` through the production simulator worker; check every tile/palette pixel, exact independently calculated DSP PCM, sample clock, serial B input, HDMA and NMI/IRQ activity; power-reset into a fresh instance and compare every startup CPU bus transaction |
 
-The baseline and four selected cartridges exercise genuine CPU/PPU/APU/cartridge/
-DMA/control integration. They do **not** establish compatibility across all 260
+The SNES smoke exercises genuine CPU/PPU/APU/cartridge/DMA/control integration.
+It runs 32,768 startup clocks, 1,638,400 boot/output clocks, 786,432 input
+clocks and a 32,768-clock CPU startup replay, with unchanged production resets.
+It does not repeat the comprehensive UI/LoROM/HiROM baselines or run the four
+previously selected corpus cartridges on each PR; those remain in the full suite.
+It does **not** establish compatibility across all 260
 cartridge variants, instruction/addressing combinations, display modes, DSP
-states, interrupt positions, Firefox behavior or trusted-local toolchains.
+states, interrupt positions, HiROM, SNES keyboard/gamepad UI behavior, Firefox
+behavior or trusted-local toolchains. Changes to CPU arithmetic, HDMA edge cases,
+SPC700 division or cartridge mapping require the affected corpus cases below;
+the single boot cartridge does not replace that evidence.
 
 ## Additional affected-area validation before merge
 
@@ -103,12 +109,18 @@ never reclassify them as success or discard their assertions.
 
 ## Budgets, provenance and acceptance
 
-Preparation has a two-minute limit, browser jobs eight minutes, Playwright 450
+Preparation has a two-minute limit, browser jobs nine minutes, Playwright 510
 seconds per lane (including server startup), and the aggregate one minute.
-The aggregate queries this run/attempt's Actions timestamps and fails at **590s
-from run creation**, including setup, transfers, dependency scheduling and queue,
-reserving ten seconds for cleanup. It reports initial queue, job start/end clocks
-and completed runner work separately. An overrun is a failure to investigate,
+The aggregate queries this run/attempt's Actions timestamps. For its running job,
+it anchors the runner-local duration since the first setup step to the Actions
+job start, avoiding subtraction across clocks (the first Ubuntu run had a
+one-hour offset). It fails at a **590s creation-to-check estimate**, reserving
+ten seconds for initial aggregate setup, timestamp precision and cleanup.
+Initial queue, dependency waits, job start/end clocks and completed runner work
+are separate. The definitive creation-to-result duration must use the completed
+aggregate's Actions `completed_at` minus the run's `created_at`; rerunning the
+budget script on completed job JSON uses exactly those timestamps.
+An overrun is a failure to investigate,
 not grounds to raise timeouts or accept cancelled work. Superseded PR revisions
 cancel their entire group; nightly/manual runs and Pages deployment ordering use
 independent groups.
