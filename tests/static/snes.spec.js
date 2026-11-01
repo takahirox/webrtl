@@ -415,6 +415,33 @@ async function frameMismatch(page, green = false) {
   }, green);
 }
 
+async function verifyModeHandoff(page) {
+  // Reuse the baseline UI's circuit and held gamepad input after its reset.
+  await page.locator("#run").click();
+  await expect.poll(() => frameMismatch(page, true), { timeout: 30000, intervals: [500] }).toBe(0);
+  await page.locator("#pause").click();
+  await expect(page.locator("#step")).toBeEnabled();
+  const pausedCycles = Number.parseInt(await page.locator("#timing").textContent(), 10);
+  await page.locator("#sim-mode").selectOption("debug");
+  await expect(page.locator("#sim-mode")).toBeEnabled();
+  await expect(page.locator("#status")).toContainText(`paused at cycle ${pausedCycles}`);
+  const buttonsId = await page.locator("#signals option").evaluateAll((options) => options.find((o) => o.textContent.startsWith("buttons ")).value);
+  await page.locator("#signals").selectOption(buttonsId);
+  await page.locator("#step").click();
+  await expect(page.locator("#step")).toBeEnabled();
+  await expect(page.locator("#signal-values")).toContainText("= 0x800");
+  await expect(page.locator("#timing")).toContainText(`${pausedCycles + 1} cycles`);
+  await page.locator("#sim-mode").selectOption("fast");
+  await expect(page.locator("#sim-mode")).toBeEnabled();
+  await page.locator("#run").click();
+  await page.waitForFunction((previous) => Number.parseInt(document.getElementById("timing").textContent, 10) > previous, pausedCycles + 1);
+  await page.locator("#pause").click();
+  await expect(page.locator("#step")).toBeEnabled();
+  await page.locator("#reset").click();
+  await expect(page.locator("#step")).toBeEnabled();
+  await expect(page.locator("#timing")).toContainText("0 cycles");
+}
+
 for (const [batchIndex, modeCartridges] of fixtureBatches.entries()) {
 test(`full SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: boots a local cartridge, renders DMA tiles, produces DSP PCM, handles input and repeats reset`, async ({ page, browser }, info) => {
   // Bound failures by batch, while sharing only immutable compilation bytes
@@ -464,7 +491,8 @@ test(`full SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: boots a lo
   } else {
     console.log("SNES phase compile start", info.project.name, key);
     await page.locator("#compile").click();
-    await expect(page.locator("#compile")).toBeEnabled({ timeout: 300000 });
+    // Allow the application's ten-minute Slang watchdog to report its result.
+    await expect(page.locator("#compile")).toBeEnabled({ timeout: 610000 });
     await expect(page.locator("#errors")).toBeHidden();
     console.log("SNES compiled", await page.evaluate(() => window.compiled.metrics));
     await expect(page.locator("#run")).toBeDisabled();
@@ -516,6 +544,7 @@ test(`full SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: boots a lo
     });
     async function load(bytes) {
       await call({ action: "power-reset" });
+      await call({ action: "mode", mode: "debug" });
       await call({ action: "cartridge", cartridge: bytes });
       for (let offset = 0; offset < bytes.length; offset += 16384) {
         await call({ action: "cartridge-chunk", offset, bytes: bytes.slice(offset, offset + 16384) });
@@ -648,6 +677,7 @@ test(`full SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: boots a lo
   expect(results.repeat.trace).toEqual(results.first.trace);
   expect(results.hi.hashes.at(-1)).toEqual(results.first.hashes.at(-1));
   expect(results.hi.nonzero).toBeGreaterThan(500);
+  if (!cached) await verifyModeHandoff(page);
   const aux = results.modeResults.find((r) => r.name === "apu-aux");
   const auxRepeat = results.modeResults.find((r) => r.name === "apu-aux-repeat");
   if (aux && auxRepeat) {

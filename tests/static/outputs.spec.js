@@ -150,6 +150,7 @@ test("video frames come from edited RTL, with precise framing and clean controls
   const bars = [[255, 0, 0, 255], [0, 255, 0, 255], [0, 0, 255, 255], [255, 255, 255, 255]];
   await expect.poll(() => pixels(page)).toEqual(bars);
   await page.locator("#pause").click();
+  await expect(page.locator("#run")).toBeEnabled();
   const time = await page.locator("#timing").textContent();
   await page.waitForTimeout(150);
   await expect(page.locator("#timing")).toHaveText(time);
@@ -162,8 +163,11 @@ test("video frames come from edited RTL, with precise framing and clean controls
   await page.locator("#run").click();
   await expect(page.locator("#pause")).toBeDisabled();
   await expect(page.locator("#run")).toBeEnabled();
-  await expect(page.locator("#timing")).toHaveText("0 cycles · 0.000 simulated seconds");
-  expect(await pixels(page)).toEqual(Array(4).fill([0, 0, 0, 0]));
+  // Pause acknowledges the completed batch instead of hiding advanced state.
+  const pausedCycles = await page.evaluate(() => window.deliveries.at(-1).cycles);
+  expect(pausedCycles).toBeGreaterThan(0);
+  await expect(page.locator("#timing")).toContainText(`${pausedCycles} cycles`);
+  expect(await pixels(page)).toEqual(bars);
   await page.locator("#reset").click();
   await page.locator("#step").click();
   await expect(page.locator("#timing")).toContainText("1 cycles");

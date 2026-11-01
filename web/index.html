@@ -24,6 +24,7 @@
         <select id="example">
           <option value="single">Single-file counter</option>
           <option value="split">Two-file counter</option>
+          <option value="debug-ram">Generic RAM pipeline · Fast/Debug</option>
           <option value="bus">CPU bus · ROM/RAM self-test (pass = 1, fail = 255)</option>
           <option value="cpu816">65C816 CPU · machine-code ROM test</option>
           <option value="snes">SNES · experimental base console RTL</option>
@@ -36,6 +37,7 @@
         <label for="interface">Output interface</label>
         <select id="interface">
           <option value="counter">8-bit counter</option>
+          <option value="generic">Generic · clk/reset with arbitrary inputs and outputs</option>
           <option value="cpu816">65C816 test result and bus trace</option>
           <option value="video">Video · 64 × 48 RGB</option>
           <option value="audio">Audio · mono PCM16</option>
@@ -89,6 +91,32 @@
           <p hidden>CPU result <output id="cpu-result" aria-live="polite">—</output>
             · <a href="https://github.com/takahirox/webrtl/blob/main/docs/cpu816.md">Program and bus guide</a></p>
           <details hidden><summary>CPU bus trace (up to 128 sampled cycles)</summary><pre id="cpu-trace"></pre></details>
+        </div>
+        <div class="browser-only">
+          <label for="sim-mode">Simulation mode</label>
+          <select id="sim-mode" disabled><option value="fast">Fast</option><option value="debug">Debug</option></select>
+          <label for="clock-hz">Declared clock rate (Hz, 0 = unspecified)</label>
+          <input id="clock-hz" type="number" min="0" value="10">
+          <fieldset id="debug-controls" hidden disabled>
+            <legend>Debug · settled clock boundaries</legend>
+            <label for="signal-filter">Find hierarchical signal</label>
+            <input id="signal-filter" type="search" placeholder="Signal or instance name">
+            <label for="signals">Signal parts (select up to 16 for capture)</label>
+            <select id="signals" multiple size="8"></select>
+            <label for="signal-row">Memory row offset</label><input id="signal-row" type="number" min="0" value="0">
+            <button id="inspect" type="button">Inspect selected</button>
+            <pre id="signal-values"></pre>
+            <label for="condition">Stop condition on first selected signal</label>
+            <select id="condition"><option value="none">None</option><option value="value">Equals</option>
+              <option value="change">Changes</option><option value="rising">Zero → nonzero</option><option value="falling">Nonzero → zero</option></select>
+            <label for="condition-value">Unsigned value (decimal or 0x hex)</label><input id="condition-value" value="0">
+            <button id="capture" type="button">Apply condition and capture selection</button>
+            <pre id="signal-history"></pre>
+            <label for="input-signal">External input</label><select id="input-signal"></select>
+            <label for="input-value">Unsigned hex value</label><input id="input-value" value="0x0">
+            <button id="apply-input" type="button">Set input</button>
+            <p id="debug-status">Inspect any width; capture and conditions support signal parts up to 32 bits. History retains 256 clocks.</p>
+          </fieldset>
         </div>
         <div class="controls">
           <button id="run" disabled>Run</button>

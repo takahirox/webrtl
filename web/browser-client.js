@@ -10,7 +10,10 @@ export async function compileBrowser(project, progress) {
   let result;
   try {
     result = await new Promise((resolve, reject) => {
-      const seconds = project.frontend === "slang" ? 300 : 120;
+      // The shared debug-capable SNES model exceeds five minutes on the
+      // reference CI runner. Keep compilation bounded without discarding it
+      // before Clang can finish (see docs/simulation-modes.md).
+      const seconds = project.frontend === "slang" ? 600 : 120;
       const timeout = setTimeout(() => reject(new Error(`Compilation exceeded ${seconds} seconds. Simplify the design or retry.`)), seconds * 1000);
       const finish = (callback, value) => { clearTimeout(timeout); callback(value); };
       compiler.onerror = (event) => finish(reject, workerError(event));
@@ -79,7 +82,13 @@ export async function compileBrowser(project, progress) {
   };
   return {
     _sim_step: () => call("step"),
-    _sim_batch: (cycles, buttons = 0) => call("batch", undefined, cycles, { buttons }),
+    _sim_pause: () => call("pause"),
+    _sim_mode: (mode, snapshot) => call("mode", undefined, undefined, { mode, snapshot }),
+    _sim_signals: () => call("discover"),
+    _sim_inspect: (refs) => call("inspect", undefined, undefined, { refs }),
+    _sim_debug: (signals, breakpoint) => call("debug-config", undefined, undefined, { signals, breakpoint }),
+    _sim_inputs: (inputs) => call("inputs", undefined, undefined, { inputs }),
+    _sim_batch: (cycles, buttons) => call("batch", undefined, cycles, { buttons }),
     _sim_cartridge: loadCartridge,
     _sim_output: () => output,
     _sim_reset: () => project.board === "snes" && mountedCartridge ? loadCartridge(mountedCartridge) : call("reset"),

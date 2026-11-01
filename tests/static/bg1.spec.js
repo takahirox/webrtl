@@ -82,6 +82,7 @@ async function probe(page, board, commands) {
     });
     try {
       await call({ action: "init", wasm: window.lastWasm });
+      await call({ action: "mode", mode: "debug" });
       const results = [];
       for (const command of commands) {
         const data = await call(command);
@@ -120,11 +121,15 @@ function romEdit(changes) {
 }
 
 test("CPU BG1 compiles, renders, edits ROM tile/map/palette and resets through Video", async ({ page }, testInfo) => {
+  // Seven real compilations: the debug-capable baseline alone took 30.48 s
+  // on CI. Include every ROM edit and reset within a bounded total budget.
+  test.setTimeout(420_000);
   const requests = [], errors = [];
   page.on("request", (request) => requests.push(request));
   page.on("pageerror", (error) => errors.push(error.message));
   await load(page);
   const compileMs = await compile(page);
+  const compilationMs = [compileMs];
   const frame = expectedFrame();
   const replies = await probe(page, "video", [
     { action: "batch", batchCycles: 3071 }, { action: "step" },
@@ -194,7 +199,7 @@ test("CPU BG1 compiles, renders, edits ROM tile/map/palette and resets through V
   ]) {
     await edit(page, "bg1-rom.v", romEdit(changes));
     solid(await pixels(page), [0, 0, 0, 0]);
-    await compile(page);
+    compilationMs.push(await compile(page));
     await show(page, expected);
     await reset(page);
     await show(page, expected);
@@ -203,6 +208,10 @@ test("CPU BG1 compiles, renders, edits ROM tile/map/palette and resets through V
   await page.locator("#run").click();
   await expect(page.locator("#pause")).toBeDisabled();
   await reset(page);
+  console.log(`BG1 compilation times: ${JSON.stringify(compilationMs)}`);
+  await testInfo.attach("bg1-compilation-times.json", {
+    body: JSON.stringify(compilationMs), contentType: "application/json",
+  });
   expect(await page.evaluate(() => window.circuits.every((c) => c.valid))).toBe(true);
   expect(errors).toEqual([]);
   const base = new URL(page.url());

@@ -1,6 +1,7 @@
 // Fixed board contracts, shared by compiler validation and browser scheduling.
 // Rates describe simulated time; wall-clock timers only request bounded batches.
 export const boards = {
+  generic: { top: "top", clockHz: 0, batchCycles: 256, ports: {} },
   snes: {
     top: "snes", clockHz: 21477270, batchCycles: 16384,
     width: 512, height: 480, sampleRate: 32000,
