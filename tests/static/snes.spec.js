@@ -491,7 +491,8 @@ test(`full SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: boots a lo
   } else {
     console.log("SNES phase compile start", info.project.name, key);
     await page.locator("#compile").click();
-    await expect(page.locator("#compile")).toBeEnabled({ timeout: 300000 });
+    // Allow the application's ten-minute Slang watchdog to report its result.
+    await expect(page.locator("#compile")).toBeEnabled({ timeout: 610000 });
     await expect(page.locator("#errors")).toBeHidden();
     console.log("SNES compiled", await page.evaluate(() => window.compiled.metrics));
     await expect(page.locator("#run")).toBeDisabled();

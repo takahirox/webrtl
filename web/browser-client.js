@@ -10,7 +10,10 @@ export async function compileBrowser(project, progress) {
   let result;
   try {
     result = await new Promise((resolve, reject) => {
-      const seconds = project.frontend === "slang" ? 300 : 120;
+      // The shared debug-capable SNES model exceeds five minutes on the
+      // reference CI runner. Keep compilation bounded without discarding it
+      // before Clang can finish (see docs/simulation-modes.md).
+      const seconds = project.frontend === "slang" ? 600 : 120;
       const timeout = setTimeout(() => reject(new Error(`Compilation exceeded ${seconds} seconds. Simplify the design or retry.`)), seconds * 1000);
       const finish = (callback, value) => { clearTimeout(timeout); callback(value); };
       compiler.onerror = (event) => finish(reject, workerError(event));

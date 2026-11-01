@@ -233,3 +233,58 @@ symbols, independently reproduced with `build.py`. This is the known setup limit
 in the README; the compatible Verilator 5.020 reference check remains necessary
 in CI. It is not reported as a passing native regression or a browser compiler
 failure. Public-site verification remains pending as described above.
+
+### Compilation budgets after integration with main (#32)
+
+The debug-capable configuration must finish before the browser client's compiler
+watchdog expires. In [Chromium job 124680741582](https://github.com/takahirox/webrtl/actions/runs/41249781681/job/124680741582),
+the integrated head `ff0b34e3c49355f5f13788c80e584d07a7d28587` reached Clang
+after about 37 seconds but did not finish within the old 300-second limit. All
+thirteen SNES batches consequently failed before cartridge assertions. Slang
+compilation now has a **600-second** client watchdog, and the SNES test waits up
+to 610 seconds so it can observe either the completed compile or the application's
+error. The existing thirty-minute batch and 180-minute browser-job limits remain
+in force.
+
+The same job measured **30.48 seconds** for the first BG1 compilation. That test
+compiles seven real models (the original plus six independent ROM edits), so even
+seven equal-cost compilations would consume 213.36 seconds of its former
+240-second total before rendering, UI and reset checks. Its total is now bounded
+at **420 seconds**; each compilation retains the 120-second client limit. Every
+edit/pixel/reset assertion remains, and the test logs and attaches all seven
+compilation durations to make subsequent cost growth visible.
+
+These limits accommodate the shared debug-capable model. CXXRTL/Clang optimization,
+clock semantics, the shared static build, compilation and module reuse, and the
+complete fixture coverage are preserved. Full Chromium/Firefox and native
+validation remain required for the next published PR head.
+
+Fresh local validation on 2026-11-01 (Apple M4 Max, 64 GiB, macOS arm64, Node
+26.12.1, Playwright 1.64.1, one worker) passed **24/24 focused browser checks in
+867.40 seconds**, with no failures, skips or flaky results. Each browser ran all
+three BG1 tests, six mode/handoff tests, two SNES batches and the general Slang
+test. The SNES selection was 22 named cartridges plus the CPU-width reset replay;
+each browser compiled once and reused that module in the second batch. Existing
+baseline pixel/PCM/input/reset and Fast/Debug handoff assertions also passed.
+
+| Fresh local measurement | Chromium | Firefox |
+| --- | ---: | ---: |
+| Complete BG1 ROM-edit/pixel/reset test | 76.15 s | 79.09 s |
+| Range of its seven compilation durations | 8.34–8.87 s | 8.87–9.41 s |
+| Fresh SNES compilation | 98.57 s | 82.18 s |
+
+All four saved SNES modules were byte-identical to the pre-fix local compile
+(SHA-256 `23fd1c6214e8a09be8bfc444cea76de02e199f1cb3a62461c040432858f71b15`).
+These are local timings, not hosted-runner results. Reproduce the focused browser
+selection after building:
+
+```sh
+WEBRTL_SNES_FIXTURES='^(mode-[0-7]|depth-[0-6]|sprite-(low|high)|overscan|interlace|window|math|cpu-width)$' \
+  npm run test:demo:built -- tests/static/bg1.spec.js tests/static/modes.spec.js \
+  tests/static/modes-regressions.spec.js tests/static/snes.spec.js
+```
+
+The ten Python tests, one Node reuse check, static build, two Pages smoke tests
+(3.2 seconds), JavaScript syntax and whitespace checks also passed. Complete
+hosted validation of the new published head remains pending; this focused local
+result does not waive it.
