@@ -61,6 +61,17 @@ Ensure genuinely necessary post-merge checks are recorded separately as pending
 until performed; do not add them routinely. Pre-merge validation does not prove
 deployment or publication succeeded.
 
+For #34's CI policy, require **Fast PR checks** for the latest revision and follow
+[the exact selection and affected-area rules](pr-validation.md). For substantial
+compiler/runtime/debugger/SNES changes, inspect additional focused/manual evidence
+(commands, fixture names, tested SHA and actual results). A bounded pass cannot
+justify behavior it does not observe. Require complete manual validation when
+focused evidence cannot justify the change; do not require the multi-hour status
+unconditionally on every PR. Check nightly failures and their investigation links;
+a fast pass does not clear them. Do not close #34 until the final revision has an
+actual Ubuntu PR run under 600 seconds creation-to-aggregate completion, with
+queue and runner work reported separately.
+
 ## Resolve findings and necessary questions
 
 - **Agent-fixable findings:** request concrete fixes, identifying the affected

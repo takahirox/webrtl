@@ -1,8 +1,6 @@
 name: Publish GitHub Pages
 
 on:
-  pull_request:
-    branches: [main]
   push:
     branches: [main]
   workflow_dispatch:
@@ -18,7 +16,7 @@ concurrency:
 jobs:
   build:
     name: Build and smoke test Pages
-    if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     outputs:

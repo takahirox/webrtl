@@ -83,14 +83,18 @@ integration coverage when redistributing checks.
    whitespace checks above. UI changes need relevant controls, diagnostics and
    output lifecycle checks; compiler/runtime/RTL changes need relevant Python,
    real compilation and circuit regressions. CI/build changes need affected setup,
-   static assets and artifact-path validation. Use focused checks for fast feedback
-   and applicable full suites for pre-merge regression confidence; focused runs
-   do not replace required coverage. `npm test` runs `test:unit` (Python and reuse
+   static assets and artifact-path validation. Require the fast PR gate and
+   additional affected-area evidence before merge,
+   following [the selection policy](pr-validation.md). A fast pass does not prove
+   exhaustive cartridge compatibility; use focused or complete extra checks when
+   the changed behavior needs them. `npm test` runs `test:unit` (Python and reuse
    checks), `test:local`, then `test:demo` (including `build:demo`). The
    [full-validation workflow](../.github/workflows/validation.yml) runs the same
-   coverage for PRs to `main` and manual dispatch, building once and testing
+   coverage nightly and on manual dispatch, building once and testing
    Chromium/Firefox in independent jobs. The [Pages workflow](../.github/workflows/pages.yml)
-   independently builds and smoke-tests its own artifact; only `main` deploys it.
+   independently builds and smoke-tests its own `main` publication artifact.
+   [Fast PR validation](../.github/workflows/pr.yml) reuses the Pages smoke on
+   its single build and runs bounded Chromium generic/SNES lanes on every PR.
    Keep mandatory pre-merge checks applicable to the change, optional checks such
    as extra-browser exploration separate, and genuinely
    required live publication checks recorded separately after merge.
@@ -113,7 +117,8 @@ integration coverage when redistributing checks.
 6. **Maintain an execution-time budget.** See the
    [regression performance record](regression-performance.md) for the
    reference-runner budget, bounded comparisons and completed Ubuntu acceptance.
-   No successful historical Ubuntu full-suite baseline is claimed. Use the scoped
+   A completed optimized Ubuntu full run is recorded separately from the
+   original cancelled baseline and the pending #34 fast-gate acceptance. Use the scoped
    [SNES measurements](snes.md#validation-and-measurements)
    and [recorded run evidence](snes-validation.json) as context, not a normal-CI
    promise: they cover differing fixture selections and worker counts. Establish a

@@ -17,6 +17,12 @@ checks, and unperformed checks with reasons. Choose checks appropriate to the
 changed files and available repository tooling; do not invent commands or require
 unrelated runtime suites for documentation-only changes.
 
+For substantial compiler/runtime/debugger/SNES changes, record additional
+affected-area evidence per [the CI policy](../docs/pr-validation.md): changed
+behavior, commands/fixture names, tested SHA, results and artifact/run links.
+Explain why the observations cover the change and identify unresolved gaps.
+Fast PR checks alone do not establish exhaustive SNES compatibility.
+
 ## Required post-merge verification
 
 List genuinely necessary checks possible only after merge as pending until
