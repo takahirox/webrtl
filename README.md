@@ -25,8 +25,18 @@ destructive-action safeguards and necessary warnings.
 
 Demo URL: **https://takahirox.github.io/webrtl/** (published after the Pages workflow
 successfully deploys `main`). Edit the supplied RTL and click **Compile**. The first
-compile downloads the toolchain; progress and errors appear below the editor,
-and successful compiler output is available under **Compiler diagnostics**.
+compile downloads the toolchain. A compact toolbar keeps **Compile**, **Run**,
+**Pause**, **Step**, **Reset** and **Fast / Debug** together, with live status.
+The light workspace places the flat project file list on the left, the source
+editor in the center and actual simulation output/debug controls on the right.
+**Diagnostics & details** below holds compiler output, errors, CPU bus trace and
+real sampled signal history; failures are announced and brought into view.
+At narrower widths, panes reflow below the editor instead of squeezing three
+columns. Each region stays keyboard accessible. Project settings and simulation
+settings hold the frontend, output interface and declared clock rate; help and
+limits are available in the project sidebar. This layout applies the three
+[UI/UX principles](#uiux) above through spacing, stable controls and progressive
+disclosure.
 
 The browser starts with the original single-file counter. Use the **Verilog project**
 controls to work with multiple sources:
@@ -38,7 +48,7 @@ controls to work with multiple sources:
    selected source. Renaming a file does not rename modules or their references.
 3. Enter the exact, case-sensitive HDL module name in **Top module**. This is a
    module name, not a filename; all project files are passed to the browser compiler.
-4. Click **Compile**, then use the simulation controls below. File or top-module
+4. Click **Compile**, then use the toolbar simulation controls. File or top-module
    changes discard the old simulation; switching the selected file alone keeps it.
 
 The browser compiler starts in **Fast** mode. Pause and select **Debug** to inspect

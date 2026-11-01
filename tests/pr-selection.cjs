@@ -4,6 +4,7 @@ const snesTitle = "SNES PR smoke compiles the complete console and checks cartri
 const genericTitles = Object.freeze([
   "serves this checkout's UI, SNES sources and cartridge under /webrtl/",
   "loads the SNES project and compiles an edited counter into fresh browser Wasm",
+  "workspace keeps editing central, reflows panes and exposes compilation failures",
   "generic RTL retains RAM, both clock edges and inputs through Fast/Debug handoff",
   "falling-edge outputs settle before inspection, history, conditions and mode handoff",
   "clock-triggered asynchronous cascades settle across Fast/Debug capture and conditions",

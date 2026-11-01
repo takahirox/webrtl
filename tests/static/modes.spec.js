@@ -282,6 +282,7 @@ test("asynchronous inputs settle before inspection and handoff without false cha
 });
 
 test("mode controls inspect/stop, pause a pending Fast batch, reset and recompile", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
   await load(page);
   await expect(page.locator("#sim-mode")).toHaveValue("fast");
   await expect(page.locator("#debug-controls")).toBeHidden();
@@ -309,9 +310,22 @@ test("mode controls inspect/stop, pause a pending Fast batch, reset and recompil
   expect(await page.evaluate(() => window.pausedWhilePending)).toBe(true);
   await expect(page.locator("#timing")).toContainText(`${paused} cycles`);
   await expect(page.locator("#timing")).not.toContainText("real time");
+  // Reflow while paused, then inspect and stop on a real signal change.
+  await page.setViewportSize({ width: 768, height: 900 });
   await page.locator("#sim-mode").selectOption("debug");
   await expect(page.locator("#status")).toContainText(`paused at cycle ${paused}`);
-  await page.locator("#step").click();
+  await page.locator("#signals").selectOption(address);
+  await page.locator("#inspect").click();
+  await expect(page.locator("#signal-values")).toContainText(`= 0x${(paused % 16).toString(16)}`);
+  await page.locator("#condition").selectOption("change");
+  await page.locator("#capture").click();
+  await page.evaluate(() => { window.pauseOnRequest = false; });
+  await page.locator("#run").click();
+  await expect(page.locator("#status")).toContainText(`Condition met at cycle ${paused + 1}`);
+  await expect(page.locator("#signal-history")).toContainText(`${paused + 1}:`);
+  await page.locator("#sim-mode").selectOption("fast");
+  await expect(page.locator("#status")).toContainText(`paused at cycle ${paused + 1}`);
+  await page.locator("#sim-mode").selectOption("debug");
   await expect(page.locator("#timing")).toContainText(`${paused + 1} cycles`);
   await page.locator("#reset").click();
   await expect(page.locator("#timing")).toHaveText("0 cycles · clock rate unspecified");
@@ -334,6 +348,7 @@ test("mode controls inspect/stop, pause a pending Fast batch, reset and recompil
   await page.locator("#signals").selectOption(sum);
   await page.locator("#inspect").click();
   await expect(page.locator("#signal-values")).toContainText("= 0x0001");
+  await page.getByText("Simulation settings", { exact: true }).click();
   await page.locator("#clock-hz").fill("1000");
   await page.locator("#step").click();
   await expect(page.locator("#timing")).toContainText("3 cycles · 0.003 simulated seconds");
