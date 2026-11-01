@@ -295,9 +295,10 @@ prove exhaustive SNES compatibility or clear a failing nightly regression.
 Read [the CI selection, review requirements and failure response](docs/pr-validation.md)
 for exactly what each PR exercises, additional required affected-area evidence for
 substantial RTL/compiler/runtime/debugger changes, and investigation of full-suite
-failures. Administrators must replace the former unconditional full/PR Pages
-required checks with **Fast PR checks** in branch protection/rulesets. Settings
-are not modified here; reviewers enforce this policy until configured. Merge
+failures. Maintainers may optionally require **Fast PR checks** in branch
+protection/rulesets, without unconditional full/old PR Pages requirements. This
+repository setting is recommended, not a pre-merge acceptance condition;
+reviewers must still verify the latest revision's automated Fast PR evidence. Merge
 queues need equivalent `merge_group` coverage before use.
 
 To reproduce the publication checks locally after installing Chromium:

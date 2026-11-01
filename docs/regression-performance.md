@@ -23,8 +23,9 @@ budgets below are unchanged.
 commit locally but must not push or create a PR. No successful hosted timing is
 claimed from local validation. Before #34 closes, record the final tested SHA/tree,
 run URL, creation/aggregate-completion timestamps, queue/dependency waits, total
-runner work and accurate pass/fail/fixture counts. Branch-protection migration is
-also a maintainer operation; see the policy.
+runner work and accurate pass/fail/fixture counts. Requiring the fast status in
+branch protection is an optional maintainer recommendation, not an acceptance
+condition; see the policy.
 
 The issue's latest full reference is
 [41257353210](https://github.com/takahirox/webrtl/actions/runs/41257353210):

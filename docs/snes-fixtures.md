@@ -23,8 +23,11 @@ For a focused DSP rerun (including baseline input/reset and LoROM/HiROM checks):
 
 Focused selections are labelled `focused SNES RTL`; complete unfiltered runs keep
 `full SNES RTL`. Historical JSON evidence retains the names used when recorded.
-The [PR gate](pr-validation.md) uses a separate fixed four-cartridge selection;
-the full inventory remains nightly/manual and locally executable.
+The [PR gate](pr-validation.md) runs a separate single-cartridge `test.sfc` smoke
+with pixel/PCM, serial input, HDMA/interrupt activity and CPU startup reset checks.
+The former CPU/HDMA/APU corpus selections require additional affected-area
+validation when relevant; they do not run on every PR. The full inventory remains
+nightly/manual and locally executable.
 
 ```sh
 npm run build:demo
