@@ -62,7 +62,10 @@ async function compile(page) {
 
 async function select(page, board) {
   await page.locator("#example").selectOption(board === "counter" ? "single" : board);
+  const acceptReplacement = (dialog) => dialog.accept();
+  page.on("dialog", acceptReplacement);
   await page.locator("#load-example").click();
+  page.off("dialog", acceptReplacement);
   await expect(page.locator("#source")).toHaveValue(readFileSync(`examples/${board}.v`, "utf8"));
   await expect(page.getByLabel("Output interface", { exact: true })).toHaveValue(board);
 }
@@ -121,6 +124,7 @@ test("video supports multiple source files, a selected top, and independent inte
   await page.getByLabel("Source file", { exact: true }).selectOption("video.v");
   await expect(source).toHaveValue(edited);
   await expect(page.locator("#run")).toBeEnabled();
+  if (!await page.locator("#interface").isVisible()) await page.locator(".project-settings summary").click();
   await page.getByLabel("Output interface", { exact: true }).selectOption("counter");
   await expect(page.locator("#run")).toBeDisabled();
   await expect(page.locator("#video")).toBeHidden();

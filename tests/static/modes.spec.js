@@ -286,6 +286,10 @@ test("mode controls inspect/stop, pause a pending Fast batch, reset and recompil
   await load(page);
   await expect(page.locator("#sim-mode")).toHaveValue("fast");
   await expect(page.locator("#debug-controls")).toBeHidden();
+  await expect(page.locator("#generic-io")).toBeVisible();
+  await expect(page.locator("#generic-io")).toContainText("out sum [0 +: 16] = 0x0000");
+  await expect(page.locator("#generic-io")).toContainText("in enable [0 +: 1] = 0x0");
+  await expect(page.locator("#history-panel")).toBeHidden();
   await page.locator("#sim-mode").selectOption("debug");
   await expect(page.locator("#signals option")).not.toHaveCount(0);
   await page.locator("#input-signal").selectOption("enable");
@@ -300,8 +304,14 @@ test("mode controls inspect/stop, pause a pending Fast batch, reset and recompil
   await expect(page.locator("#status")).toContainText("Condition met at cycle 3");
   await expect(page.locator("#signal-values")).toContainText("= 0x3");
   await expect(page.locator("#signal-history")).toContainText("3: 0x3");
+  await page.locator("#detail-panel > summary").click();
+  await page.locator("#history-panel > summary").click();
+  await expect(page.locator("#signal-history")).toBeVisible();
+  await expect(page.locator("#generic-io")).toContainText("out shadow [0 +: 16] = 0x1234");
   await page.locator("#sim-mode").selectOption("fast");
   await expect(page.locator("#status")).toContainText("paused at cycle 3");
+  await expect(page.locator("#debug-controls")).toBeHidden();
+  await expect(page.locator("#history-panel")).toBeHidden();
   await page.evaluate(() => { window.pauseOnRequest = true; });
   await page.locator("#run").click();
   await expect(page.locator("#run")).toBeEnabled();

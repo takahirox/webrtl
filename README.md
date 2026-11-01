@@ -25,27 +25,31 @@ destructive-action safeguards and necessary warnings.
 
 Demo URL: **https://takahirox.github.io/webrtl/** (published after the Pages workflow
 successfully deploys `main`). Edit the supplied RTL and click **Compile**. The first
-compile downloads the toolchain. A compact toolbar keeps **Compile**, **Run**,
-**Pause**, **Step**, **Reset** and **Fast / Debug** together, with live status.
+compile shows the ~185 MB tool download and memory warning alongside live progress
+(the Compile tooltip also describes it before starting). A compact toolbar keeps
+**Compile**, **Run**, **Pause**, **Step**, **Reset** and **Fast / Debug** together, with live status.
 The light workspace places the flat project file list on the left, the source
 editor in the center and actual simulation output/debug controls on the right.
-**Diagnostics & details** below holds compiler output, errors, CPU bus trace and
+**Details** below opens on demand for compiler output, errors, CPU bus trace and
 real sampled signal history; failures are announced and brought into view.
 At narrower widths, panes reflow below the editor instead of squeezing three
 columns. Each region stays keyboard accessible. Project settings and simulation
-settings hold the frontend, output interface and declared clock rate; help and
-limits are available in the project sidebar. This layout applies the three
+settings (initially collapsed) hold the frontend, output interface and declared
+clock rate; help and limits are available in the project sidebar. This layout
+applies the three
 [UI/UX principles](#uiux) above through spacing, stable controls and progressive
 disclosure.
 
 The browser starts with the original single-file counter. Use the **Verilog project**
 controls to work with multiple sources:
 
-1. Enter a filename and click **Add file**, or use **Import local .v files** to
-   select multiple files at once. Imports add files to the current project.
+1. Click **+ (Add file)** and enter a filename in the dialog, or use
+   **↥ (Import local .v files)** to select multiple files at once. Imports add files
+   to the current project.
 2. Choose a **Source file** to edit. Edits are kept when switching files. Enter a
-   new filename and click **Rename file**, or click **Remove file** to remove the
-   selected source. Renaming a file does not rename modules or their references.
+   new filename via **Selected file actions → Rename file**, or choose
+   **Remove file** and confirm removal of the selected source. Renaming a file does
+   not rename modules or their references.
 3. Enter the exact, case-sensitive HDL module name in **Top module**. This is a
    module name, not a filename; all project files are passed to the browser compiler.
 4. Click **Compile**, then use the toolbar simulation controls. File or top-module
@@ -61,7 +65,8 @@ for clock boundaries, input controls, live snapshot compatibility, limitations,
 validation and throughput measurements.
 
 For a small multi-file demonstration, choose **Two-file counter** and click
-**Load example (replaces project)**. The top module `split_counter` in
+**Load example**. Edited projects require confirmation before replacement.
+The top module `split_counter` in
 [split-counter.v](examples/split-counter/split-counter.v) instantiates `counter_next`
 from [counter-next.v](examples/split-counter/counter-next.v). Compile and Step to 1.
 Select `counter-next.v`, change `current + 8'd1` to `current + 8'd3`, compile again,

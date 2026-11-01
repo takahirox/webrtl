@@ -5,6 +5,7 @@ const genericTitles = Object.freeze([
   "serves this checkout's UI, SNES sources and cartridge under /webrtl/",
   "loads the SNES project and compiles an edited counter into fresh browser Wasm",
   "workspace keeps editing central, reflows panes and exposes compilation failures",
+  "mode controls inspect/stop, pause a pending Fast batch, reset and recompile",
   "generic RTL retains RAM, both clock edges and inputs through Fast/Debug handoff",
   "falling-edge outputs settle before inspection, history, conditions and mode handoff",
   "clock-triggered asynchronous cascades settle across Fast/Debug capture and conditions",

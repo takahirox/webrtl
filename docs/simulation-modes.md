@@ -17,13 +17,17 @@ as the existing CXXRTL runtime. Use **Generic RAM pipeline · Fast/Debug** for a
 two-file example with a 16-byte writable RAM, an accumulator, a 65-bit register,
 and falling-edge state. In Debug, set `enable` to `0x1` and `stimulus` to `0x13`,
 select `address`, set Equals to 3, Apply, and Run. Execution stops at cycle 3.
-Select `storage.memory` and a row offset to inspect a RAM word.
+Select `storage.memory` and a row offset to inspect a RAM word. Both modes show
+up to 256 real top-level I/O parts (excluding `clk`/`reset`) as unsigned hex after
+each worker response. Open **Details → Sampled signal history** in Debug for
+captured values; compiler diagnostics and CPU bus trace share the Details area.
 
 ## Execution configuration
 
 Both modes use the same RTL-derived Yosys CXXRTL (`-O6 -g4`) model compiled with
-the pinned browser Clang at `-O2`. Debug metadata is cold and initialized lazily;
-CXXRTL computes optimized-out public combinational wires only on inspection.
+the pinned browser Clang at `-O2`. Debug metadata is initialized lazily for Generic
+I/O readout or Debug inspection; CXXRTL computes optimized-out public
+combinational wires only on inspection.
 No extra compiler, server, emulator, input upload or cartridge upload is involved.
 Live build/session identity uses Web Crypto on HTTPS or loopback origins.
 Verilator is not added as a browser backend: this increment uses the established
