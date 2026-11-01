@@ -4,6 +4,10 @@ test("compiles and runs the real counter, edited HDL, and build errors", async (
   const pageErrors = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
   await page.goto("/");
+  for (const id of ["project", "example-controls", "sim-mode", "debug-controls", "cartridge-controls"]) {
+    await expect(page.locator(`#${id}`)).toBeHidden();
+  }
+  await expect(page.getByText("Trusted local development only. Compile only HDL you trust.")).toBeVisible();
   const source = page.getByLabel("8-bit counter · counter.v");
   const compile = page.getByRole("button", { name: "Compile", exact: true });
   const step = page.getByRole("button", { name: "Step", exact: true });
