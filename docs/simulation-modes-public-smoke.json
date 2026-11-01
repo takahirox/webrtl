@@ -1,0 +1,32 @@
+{
+  "verified_at": "2026-11-01T03:11:03.608Z",
+  "url": "https://takahirox.github.io/webrtl/",
+  "deployed_commit": "4ca96c8cec9b4530e1e19386466a13850253f74e",
+  "deployment_run": "https://github.com/takahirox/webrtl/actions/runs/41267991542",
+  "browser": "Chromium 156.0.8078.4",
+  "result": "passed",
+  "project": "User-edited two-file debug_ram RTL, sum increment changed by +1",
+  "assertions": [
+    "Deployed build-info matches merge commit",
+    "Browser compilation of edited multi-file RTL",
+    "Fast pause requested during pending Wasm batch",
+    "Debug handoff retains live snapshot and inputs",
+    "Hierarchical registers and writable RAM inspected",
+    "Debug Step advances exactly one clock and changes circuit state",
+    "Register and RAM inspection is identical across a paused Debug/Fast/Debug round trip",
+    "Return to Fast retains snapshot; resumed run advances cycles without reset",
+    "No page errors; all browser requests are same-site GETs"
+  ],
+  "cycles": {
+    "fast_pause": 16383,
+    "debug_step": 16384,
+    "resumed_fast_pause": 32767
+  },
+  "observed_state": {
+    "before_debug_step": "shadow[0] = 0x176c\nstorage memory[0] = 0xa0\nsum[0] = 0x0558",
+    "after_debug_step": "shadow[0] = 0x1430\nstorage memory[0] = 0xa0\nsum[0] = 0x0604",
+    "continued": "shadow[0] = 0xae60\nstorage memory[0] = 0x78\nsum[0] = 0xbc54"
+  },
+  "page_errors": [],
+  "request_count": 33
+}
