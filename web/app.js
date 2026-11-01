@@ -8,13 +8,16 @@ const ui = Object.fromEntries(
     "cartridge-controls", "cartridge", "test-cartridge", "cartridge-status",
     "sim-mode", "clock-hz", "debug-controls", "signal-filter", "signals", "signal-row", "inspect", "signal-values",
     "condition", "condition-value", "capture", "signal-history", "input-signal", "input-value", "apply-input", "debug-status",
-    "example-controls", "history-panel"]
+    "example-controls", "history-panel", "file-dialog", "file-form", "file-dialog-title", "save-file", "cancel-file", "file-error",
+    "import-button", "detail-panel", "compile-notice", "generic-io"]
     .map((id) => [id, document.getElementById(id)]),
 );
 const browser = document.documentElement.dataset.mode === "browser";
+if (!browser) ui.compile.title = "Compile with the trusted local Verilator/Emscripten toolchain";
 const projectTools = browser ? await import("./project.js") : null;
 let files = {};
 let activeFile = null;
+let projectEdited = false, toolchainReady = false, fileOperation = "add";
 const editorPositions = new Map();
 const audio = new AudioOutput();
 const canvas = ui.video.getContext("2d");
@@ -70,6 +73,7 @@ function controls() {
   ui.reset.disabled = switching || busy || !simulator || advancing;
   ui["cartridge-controls"].disabled = busy || !simulator || advancing || switching;
   ui["sim-mode"].disabled = busy || !simulator || advancing || switching || timer !== null;
+  ui.run.title = browser ? "Fast: bounded batches as quickly as practical; Debug: paced to the board clock where specified" : "Run targets 10 clock cycles per second";
   ui["debug-controls"].hidden = ui["sim-mode"].value !== "debug";
   ui["history-panel"].hidden = ui["sim-mode"].value !== "debug";
   ui["debug-controls"].disabled = busy || !simulator || advancing || switching || timer !== null;
@@ -92,6 +96,7 @@ function clearOutput() {
   ui["cpu-result"].textContent = "—";
   ui["cpu-trace"].textContent = "";
   ui["signal-history"].textContent = "";
+  ui["generic-io"].textContent = "";
   ui["signal-values"].textContent = "";
   ui.condition.value = "none";
   ui["debug-status"].textContent = "Inspect any width; capture and conditions support signal parts up to 32 bits. History retains 256 clocks.";
@@ -122,12 +127,14 @@ function showError(error) {
 function revealError(error) {
   ui.errors.textContent = error.message;
   ui.errors.hidden = false;
+  ui["detail-panel"].open = true;
   document.querySelector(".toolbar").dataset.state = "error";
   // Keep failures discoverable after the panes reflow, without moving keyboard focus.
   ui.errors.scrollIntoView({ block: "nearest" });
 }
 
 function projectChanged() {
+  projectEdited = true;
   ui.errors.hidden = true;
   discard();
   ui.diagnostics.textContent = "";
@@ -137,6 +144,7 @@ function projectChanged() {
 function selectInterface(board) {
   selected = board;
   ui.interface.value = board;
+  ui["generic-io"].hidden = board !== "generic";
   ui.video.hidden = board !== "video" && board !== "snes";
   ui.video.width = boards[board].width || 64;
   ui.video.height = board === "snes" ? 224 : boards[board].height || 48;
@@ -150,7 +158,7 @@ function selectInterface(board) {
   ui.count.parentElement.hidden = board !== "counter";
   ui["cpu-result"].parentElement.hidden = board !== "cpu816";
   ui["cpu-trace"].parentElement.hidden = board !== "cpu816";
-  ui["run-help"].textContent = board === "counter" ? (browser ? "Step = one full clock cycle. Fast runs bounded batches; Debug runs at 10 cycles per second." : "Step = one full clock cycle. Run = 10 cycles per second.") :
+  ui["run-help"].textContent = board === "counter" ? (browser ? "Step = one full clock cycle. Fast runs bounded batches; Debug targets 10 cycles per second." : "Step = one full clock cycle. Run targets 10 cycles per second.") :
     board === "generic" ? "Step = one full clock cycle. Fast runs bounded Wasm batches; Debug supports signal conditions and selected history." :
     board === "cpu816" ? "Step = one CPU clock. Debug targets 10,000 clocks/s; Fast runs bounded batches. A result freezes the CPU until Reset." :
     `Step = one clock cycle (silent). Debug targets ${boards[board].clockHz} simulated clocks/s. Fast runs as quickly as practical while pacing audio.`;
@@ -167,7 +175,6 @@ function selectFile(name) {
   const position = editorPositions.get(name);
   ui.source.setSelectionRange(position?.start || 0, position?.end || 0, position?.direction);
   ui.source.scrollTop = position?.scroll || 0;
-  ui.filename.value = name || "";
   ui["source-label"].textContent = name ? `Verilog source · ${name}` : "Verilog source · no files";
   controls();
 }
@@ -196,30 +203,52 @@ if (browser) {
     projectChanged();
     selectInterface(ui.interface.value);
   });
-  ui["add-file"].addEventListener("click", () => {
+  function editFilename(operation) {
+    fileOperation = operation;
+    ui["file-dialog-title"].textContent = operation === "add" ? "Add file" : `Rename ${activeFile}`;
+    ui["save-file"].textContent = operation === "add" ? "Add file" : "Rename file";
+    ui.filename.value = operation === "add" ? "" : activeFile;
+    ui["file-error"].hidden = true;
+    ui["file-error"].textContent = "";
+    ui["file-dialog"].showModal();
+    ui.filename.select();
+  }
+  ui["add-file"].addEventListener("click", () => editFilename("add"));
+  ui["rename-file"].addEventListener("click", () => editFilename("rename"));
+  ui["cancel-file"].addEventListener("click", () => ui["file-dialog"].close());
+  ui["file-form"].addEventListener("submit", (event) => {
+    event.preventDefault();
     try {
       const name = ui.filename.value;
+      if (fileOperation === "rename" && name === activeFile) { ui["file-dialog"].close(); return; }
       checkNewName(name);
-      files[name] = "";
+      if (fileOperation === "add") files[name] = "";
+      else {
+        files = Object.fromEntries(Object.entries(files).map(([key, source]) => [key === activeFile ? name : key, source]));
+        editorPositions.delete(activeFile);
+        // Preserve the active editor selection under its new name.
+        activeFile = name;
+      }
       projectChanged();
       refreshFiles(name);
-    } catch (error) { projectError(error); }
-  });
-  ui["rename-file"].addEventListener("click", () => {
-    try {
-      const name = ui.filename.value;
-      if (name === activeFile) return;
-      checkNewName(name);
-      files = Object.fromEntries(Object.entries(files).map(([key, source]) => [key === activeFile ? name : key, source]));
-      projectChanged();
-      refreshFiles(name);
-    } catch (error) { projectError(error); }
+      ui["file-dialog"].close();
+      ui.source.focus();
+    } catch (error) {
+      ui["file-error"].textContent = error.message;
+      ui["file-error"].hidden = false;
+      ui.filename.focus();
+    }
   });
   ui["remove-file"].addEventListener("click", () => {
+    if (!confirm(`Remove "${activeFile}"? Its source and in-memory edits will be lost.`)) return;
+    editorPositions.delete(activeFile);
     delete files[activeFile];
+    activeFile = null;
     projectChanged();
     refreshFiles(Object.keys(files)[0] || null);
+    (activeFile ? ui.files : ui["add-file"]).focus();
   });
+  ui["import-button"].addEventListener("click", () => ui["import-files"].click());
   ui["import-files"].addEventListener("change", async () => {
     const imported = Array.from(ui["import-files"].files);
     if (!imported.length) return;
@@ -250,6 +279,7 @@ if (browser) {
     }
   });
   ui["load-example"].addEventListener("click", async () => {
+    if (projectEdited && !confirm("Replace all project files with the selected example? Your in-memory edits will be lost.")) return;
     busy = true;
     controls();
     try {
@@ -287,6 +317,7 @@ if (browser) {
       projectChanged();
       selectInterface(board);
       refreshFiles(entries[0][0]);
+      projectEdited = false;
     } catch (error) { projectError(error); }
     finally { busy = false; controls(); }
   });
@@ -313,6 +344,7 @@ async function simulate(action, playAudio = false) {
     if (result instanceof Promise) await result;
     if (simulator !== active) return;
     ui.count.textContent = active._sim_count();
+    showGenericIO(active._sim_output?.());
     const output = active._sim_output?.();
     if (output) {
       const clockHz = declaredClockHz();
@@ -352,6 +384,11 @@ async function simulate(action, playAudio = false) {
   }
 }
 
+function showGenericIO(output) {
+  if (selected === "generic") ui["generic-io"].textContent = (output?.io || [])
+    .map((item) => `${item.direction} ${item.name} [${item.lsb} +: ${item.width}] = 0x${item.hex}`).join("\n");
+}
+
 function showCpuOutput(output) {
   ui["cpu-result"].textContent = output.count === 1 ? "PASS" : output.count === 255 ? "FAIL" : `Running (${output.count})`;
   if (!output.trace?.length) return;
@@ -370,6 +407,7 @@ ui.compile.addEventListener("click", async () => {
   busy = true;
   controls();
   ui.diagnostics.textContent = "";
+  ui["compile-notice"].hidden = !browser || toolchainReady;
   ui.status.textContent = browser ? "Loading browser compiler…" : "Compiling with Verilator and Emscripten…";
   try {
     if (browser) {
@@ -378,7 +416,10 @@ ui.compile.addEventListener("click", async () => {
         { files, top: ui.top.value, board: selected, frontend: ui.frontend.value },
         (progress) => { ui.status.textContent = progress; },
       );
+      toolchainReady = true;
+      ui["compile-notice"].hidden = true;
       ui.diagnostics.textContent = simulator.diagnostics;
+      showGenericIO(simulator._sim_output());
       ui["sim-mode"].value = "fast";
       if (selected === "snes" && cartridgeData) {
         await simulator._sim_cartridge(cartridgeData);
@@ -553,7 +594,7 @@ if (browser) {
     } catch (error) { projectError(error); }
   });
   ui["apply-input"].addEventListener("click", async () => {
-    try { await simulator._sim_inputs({ [ui["input-signal"].value]: ui["input-value"].value }); await inspectSelected(); }
+    try { await simulator._sim_inputs({ [ui["input-signal"].value]: ui["input-value"].value }); showGenericIO(simulator._sim_output()); await inspectSelected(); }
     catch (error) { projectError(error); }
   });
 }

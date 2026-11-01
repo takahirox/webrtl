@@ -159,6 +159,12 @@ self.onmessage = async ({ data: { id, action, wasm, board: requestedBoard, batch
     } else throw new Error("Unknown simulator action.");
     const reply = { id, count: simulator.sim_count(), cycles, seconds: board.clockHz ? cycles / board.clockHz : 0,
       mode, elapsedMs: performance.now() - started, ...extra };
+    // Generic boards have no fixed readout. Expose bounded real top-level I/O
+    // in either mode without enabling Debug capture or changing circuit state.
+    if (selected === "generic") reply.io = discover()
+      .filter((item) => (item.flags & 3) && item.depth === 1 && !["clk", "reset"].includes(item.name))
+      .slice(0, 256).map((item) => ({ name: item.name, lsb: item.lsb, width: item.width,
+        direction: item.flags & 1 ? "in" : "out", ...inspect({ id: item.id, row: 0 }) }));
     if (selected === "snes") reply.memoryBytes = simulator.memory.buffer.byteLength;
     const transfers = [];
     if (selected === "cpu816" || selected === "snes") {

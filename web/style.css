@@ -11,7 +11,7 @@ body { margin: 0; }
 .workspace {
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr) minmax(320px, .64fr);
-  grid-template-rows: auto minmax(0, 1fr) 190px;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   grid-template-areas: "toolbar toolbar toolbar" "project editor simulation" "project detail detail";
   gap: 1px;
   height: 100dvh;
@@ -35,8 +35,8 @@ h2 { margin: 0 0 16px; font-size: 12px; text-transform: uppercase; letter-spacin
 .editor-pane { grid-area: editor; display: flex; flex-direction: column; padding: 18px 0 0; }
 .editor-pane h2, #source-label { margin-left: 18px; margin-right: 18px; }
 .simulation-pane { grid-area: simulation; }
-.detail-pane { grid-area: detail; padding-top: 12px; padding-bottom: 12px; background: #fbfcff; }
-.detail-pane h2 { margin-bottom: 10px; }
+.detail-pane { grid-area: detail; padding-top: 12px; padding-bottom: 12px; background: #fbfcff; max-height: 220px; }
+#detail-panel { margin: 0; }
 fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
 legend { font-weight: 600; padding: 0; margin-bottom: 12px; }
 label { display: block; font-weight: 600; font-size: 12px; margin: 14px 0 6px; }
@@ -53,7 +53,7 @@ p { line-height: 1.5; font-size: 12px; overflow-wrap: anywhere; }
 #example-controls { display: flex; align-items: center; gap: 8px; }
 #example-controls label, .mode-control label { margin: 0; }
 #example { width: 180px; }
-#load-example { max-width: 140px; text-align: left; font-weight: 500; font-size: 11px; }
+#load-example { white-space: nowrap; }
 .controls { display: flex; flex-wrap: wrap; gap: 6px; }
 .mode-control { display: flex; align-items: center; gap: 8px; }
 #sim-mode { width: 86px; }
@@ -64,6 +64,15 @@ p { line-height: 1.5; font-size: 12px; overflow-wrap: anywhere; }
 #files option { padding: 6px; border-radius: 3px; }
 #files option:checked { background: #dfeaff linear-gradient(#dfeaff, #dfeaff); color: #173f89; }
 #project button { margin-top: 6px; }
+.file-toolbar { display: flex; align-items: center; gap: 6px; margin: 14px 0 6px; }
+.file-toolbar label { flex: 1; margin: 0; }
+.file-toolbar button { margin: 0 !important; min-width: 30px; }
+dialog { width: min(360px, calc(100% - 32px)); border: 1px solid #a8b6ca; border-radius: 8px; padding: 20px; color: inherit; }
+dialog::backdrop { background: #23344d66; }
+dialog .controls { margin-top: 16px; }
+#file-error { color: #92211a; }
+#compile-notice { flex-basis: 100%; margin: 0; }
+#generic-io { margin-top: 0; }
 #project p { color: #526079; }
 #source-label { margin-top: 0; padding: 9px 12px; background: #edf3ff; border-radius: 5px 5px 0 0; color: #234f91; overflow-wrap: anywhere; }
 #source {
@@ -107,13 +116,14 @@ pre:empty { padding: 0; margin: 0; }
   .project-pane { max-height: 560px; }
   .editor-pane { min-height: 520px; height: 560px; }
   .simulation-pane { max-height: none; }
-  .detail-pane { min-height: 150px; max-height: 300px; }
+  .detail-pane { max-height: 300px; }
   #video { max-width: 420px; }
 }
 @media (max-width: 600px) {
   .workspace { display: flex; flex-direction: column; }
   .toolbar { padding: 12px; gap: 10px; }
-  #example-controls { flex-wrap: wrap; }
+  #example-controls { flex: 1 1 100%; }
+  #example { flex: 1; }
   .pane { padding: 16px; }
   .editor-pane { padding: 16px 0 0; min-height: 440px; }
   #source { min-height: 350px; }

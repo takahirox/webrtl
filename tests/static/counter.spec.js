@@ -159,6 +159,7 @@ test("reports missing tooling, permits retry, and diagnoses an incompatible inte
   await compile.click();
   await expect(page.getByRole("alert")).toContainText(/failed|fetch/i, { timeout: 120000 });
   await expect(compile).toBeEnabled();
+  await expect(page.locator("#compile-notice")).toBeVisible();
   await expect(page.locator("#step")).toBeDisabled();
   await context.unroute("**/tools/yosys/*.wasm");
   await page.locator("#source").fill("module counter(input clk, input reset, output [3:0] count); assign count=0; endmodule");
@@ -238,6 +239,7 @@ test("runs the two-file example, retains edits across files, and compiles a sele
     expect(request.url()).not.toContain("/api/");
   }
   // The original example remains available after working on a multi-file project.
+  page.once("dialog", (dialog) => dialog.accept());
   await page.getByLabel("Example", { exact: true }).selectOption("single");
   await page.getByRole("button", { name: "Load example (replaces project)", exact: true }).click();
   await expect(source).toHaveValue(readFileSync("examples/counter.v", "utf8"));
@@ -249,7 +251,18 @@ test("imports multiple files atomically, manages files, and recovers from projec
   await page.goto("./");
   const source = page.locator("#source");
   const files = page.getByLabel("Source file", { exact: true });
-  const filename = page.getByLabel("Filename to add or rename");
+  const filename = page.getByRole("textbox", { name: "Filename", exact: true });
+  const fileError = page.locator("#file-error");
+  async function nameFile(action, name) {
+    if (!await page.locator("#file-dialog").isVisible()) {
+      if (action === "Rename file" && !await page.locator("#rename-file").isVisible())
+        await page.locator("#file-actions summary").click();
+      await page.getByRole("button", { name: action, exact: true }).click();
+    }
+    await filename.fill(name);
+    await page.locator("#save-file").click();
+  }
+  page.on("dialog", (dialog) => dialog.accept());
   const top = page.getByLabel("Top module", { exact: true });
   const input = page.getByLabel("Import local .v files (adds to project)");
   const alert = page.getByRole("alert");
@@ -260,30 +273,24 @@ test("imports multiple files atomically, manages files, and recovers from projec
   await expect(source).toHaveValue(original);
 
   for (const name of ["bad name.v", "not-verilog.txt", "-option.v", "bad.v;"]) {
-    await filename.fill(name);
-    await page.getByRole("button", { name: "Add file", exact: true }).click();
-    await expect(alert).toContainText("Invalid source name");
+    await nameFile("Add file", name);
+    await expect(fileError).toContainText("Invalid source name");
     await expect(source).toHaveValue(original);
   }
-  await filename.fill("counter.v");
-  await page.getByRole("button", { name: "Add file", exact: true }).click();
-  await expect(alert).toContainText("already exists");
+  await nameFile("Add file", "counter.v");
+  await expect(fileError).toContainText("already exists");
 
-  await filename.fill("scratch.v");
-  await page.getByRole("button", { name: "Add file", exact: true }).click();
+  await nameFile("Add file", "scratch.v");
   await source.fill("// scratch edits");
   await files.selectOption("counter.v");
   await expect(source).toHaveValue(original);
   await files.selectOption("scratch.v");
   await expect(source).toHaveValue("// scratch edits");
-  await filename.fill("counter.v");
-  await page.getByRole("button", { name: "Rename file", exact: true }).click();
-  await expect(alert).toContainText("already exists");
-  await filename.fill("../scratch.v");
-  await page.getByRole("button", { name: "Rename file", exact: true }).click();
-  await expect(alert).toContainText("Invalid source name");
-  await filename.fill("renamed.v");
-  await page.getByRole("button", { name: "Rename file", exact: true }).click();
+  await nameFile("Rename file", "counter.v");
+  await expect(fileError).toContainText("already exists");
+  await nameFile("Rename file", "../scratch.v");
+  await expect(fileError).toContainText("Invalid source name");
+  await nameFile("Rename file", "renamed.v");
   await expect(files).toHaveValue("renamed.v");
   await expect(source).toHaveValue("// scratch edits");
   await page.getByRole("button", { name: "Remove file", exact: true }).click();
@@ -335,12 +342,12 @@ test("imports multiple files atomically, manages files, and recovers from projec
   await expect(page.locator("#count")).toHaveText("5");
 
   // Empty projects and empty new files give fixable errors rather than losing data.
+  if (!await page.locator("#remove-file").isVisible()) await page.locator("#file-actions summary").click();
   for (let i = 0; i < 3; i++) await page.getByRole("button", { name: "Remove file", exact: true }).click();
   await expect(source).toBeDisabled();
   await compile.click();
   await expect(alert).toContainText("at least one .v source file");
-  await filename.fill("new.v");
-  await page.getByRole("button", { name: "Add file", exact: true }).click();
+  await nameFile("Add file", "new.v");
   await compile.click();
   await expect(alert).toContainText('"new.v" is empty');
   await expect(source).toBeEnabled();

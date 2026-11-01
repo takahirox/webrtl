@@ -12,7 +12,7 @@
       <header class="toolbar">
         <h1>WebRTL</h1>
         <fieldset id="example-controls" class="browser-only" disabled aria-label="Bundled examples">
-          <label for="example">Example</label>
+          <label for="example" class="sr-only">Example</label>
           <select id="example">
             <option value="single">Single-file counter</option>
             <option value="split">Two-file counter</option>
@@ -25,41 +25,43 @@
             <option value="video">Video test pattern · 64 × 48 RGB</option>
             <option value="audio">Audio tone · mono PCM16</option>
           </select>
-          <button id="load-example" type="button">Load example (replaces project)</button>
+          <button id="load-example" type="button" aria-label="Load example (replaces project)" title="Replace project with the selected example">Load example</button>
         </fieldset>
         <div class="controls" role="group" aria-label="Compile and simulate">
-          <button id="compile" class="primary" disabled>Compile</button>
+          <button id="compile" class="primary" title="First compile: ~185 MB of tool assets; compiler memory can reach hundreds of MiB or more. Use a desktop with several GB available." disabled>Compile</button>
           <button id="run" disabled>Run</button>
           <button id="pause" disabled>Pause</button>
-          <button id="step" disabled>Step</button>
+          <button id="step" title="Advance one full clock cycle" disabled>Step</button>
           <button id="reset" disabled>Reset</button>
         </div>
         <div class="mode-control browser-only">
-          <label for="sim-mode">Simulation mode</label>
+          <label for="sim-mode" class="sr-only">Simulation mode</label>
           <select id="sim-mode" disabled><option value="fast">Fast</option><option value="debug">Debug</option></select>
         </div>
         <p id="status" role="status">Loading example…</p>
+        <p id="compile-notice" class="notice" role="status" hidden>First compile loads ~185 MB of tool assets (transfer may be compressed or cached). Compiler memory can reach hundreds of MiB or more; use a desktop with several GB available. HDL stays in this browser.</p>
       </header>
       <aside class="project-pane pane" aria-labelledby="project-heading">
         <h2 id="project-heading">Project</h2>
-        <p class="browser-only">First Compile loads ~185 MB of tools. Use a recent desktop browser with sufficient memory. HDL stays in this browser.</p>
         <fieldset id="project" class="browser-only" disabled>
           <legend class="sr-only">Verilog project</legend>
           <label for="top">Top module</label>
           <input id="top" type="text" value="counter" spellcheck="false" autocomplete="off">
-          <label for="files">Source file</label>
+          <div class="file-toolbar">
+            <label for="files">Source file</label>
+            <button id="add-file" type="button" aria-label="Add file" title="Add file">+</button>
+            <button id="import-button" type="button" aria-label="Import local .v files" title="Import local .v files">↥</button>
+          </div>
           <select id="files" size="6"></select>
-          <label for="filename">Filename to add or rename</label>
-          <input id="filename" type="text" placeholder="helper.v" spellcheck="false" autocomplete="off">
-          <div>
-            <button id="add-file" type="button">Add file</button>
+          <label for="import-files" class="sr-only">Import local .v files (adds to project)</label>
+          <input id="import-files" type="file" accept=".v" multiple hidden>
+          <details id="file-actions">
+            <summary>Selected file actions</summary>
             <button id="rename-file" type="button">Rename file</button>
             <button id="remove-file" type="button">Remove file</button>
-          </div>
-          <label for="import-files">Import local .v files (adds to project)</label>
-          <input id="import-files" type="file" accept=".v" multiple>
-          <details class="project-settings" open>
-            <summary>Project settings</summary>
+          </details>
+          <details class="project-settings">
+            <summary title="Output interface and HDL frontend">Project settings</summary>
             <label for="interface">Output interface</label>
             <select id="interface">
               <option value="counter">8-bit counter</option>
@@ -76,6 +78,7 @@
               <option value="verilog">Yosys Verilog · 128 KiB</option>
               <option value="slang">Slang SystemVerilog · 2 MiB</option>
             </select>
+            <p>Slang supports SystemVerilog and larger sources; it can require more compilation time and memory.</p>
           </details>
           <details>
             <summary>Source limits &amp; storage</summary>
@@ -92,12 +95,13 @@
         </details>
       </aside>
       <section class="editor-pane pane" aria-labelledby="editor-heading">
-        <h2 id="editor-heading">Editor</h2>
+        <h2 id="editor-heading" class="sr-only">Editor</h2>
         <label id="source-label" for="source">8-bit counter · counter.v</label>
         <textarea id="source" spellcheck="false" disabled></textarea>
       </section>
       <section class="simulation-pane pane" aria-labelledby="simulation-heading">
-        <h2 id="simulation-heading">Simulation</h2>
+        <h2 id="simulation-heading" class="sr-only">Simulation</h2>
+        <pre id="generic-io" aria-label="Generic input and output values" hidden></pre>
         <p class="readout">count <output id="count" aria-live="polite">—</output></p>
         <div class="browser-only">
           <fieldset id="cartridge-controls" hidden>
@@ -106,9 +110,13 @@
             <input id="cartridge" type="file" accept=".sfc,.smc">
             <button id="test-cartridge" type="button">Load original test cartridge</button>
             <p id="cartridge-status">Compile, then load a local ROM or the original test cartridge.</p>
+            <p><a href="#video">Focus canvas</a> for controller input.</p>
+            <details><summary>Cartridge &amp; controller help</summary>
+            <p>Use only ROMs you have the legal right to use. ROMs stay in browser memory.</p>
             <p>Focus the canvas for keyboard input: Z=B, X=A, A=Y, S=X, Q=L, W=R,
               arrows=D-pad, Enter=Start, Shift=Select. Standard gamepads also work.
               Experimental integration; <a href="https://github.com/takahirox/webrtl/blob/main/docs/snes.md">coverage and limitations</a>.</p>
+            </details>
           </fieldset>
           <canvas id="video" width="64" height="48" tabindex="0" aria-label="RTL video output" hidden></canvas>
           <p id="audio-status" hidden>Click Run to enable audio. Step advances silently.</p>
@@ -142,18 +150,35 @@
             <p id="debug-status">Inspect any width; capture and conditions support signal parts up to 32 bits. History retains 256 clocks.</p>
           </fieldset>
         </div>
-        <p id="run-help">Step = one full clock cycle. Run = 10 cycles per second.</p>
+        <details class="simulation-help"><summary>Simulation help</summary>
+          <p id="run-help">Step advances one full clock cycle.</p>
+        </details>
       </section>
       <section class="detail-pane pane" aria-labelledby="detail-heading">
-        <h2 id="detail-heading">Diagnostics &amp; details</h2>
-        <pre id="errors" role="alert" hidden></pre>
-        <details class="browser-only"><summary>Compiler diagnostics</summary><pre id="diagnostics"></pre></details>
-        <details class="browser-only" hidden><summary>CPU bus trace (up to 128 sampled cycles)</summary><pre id="cpu-trace"></pre></details>
-        <details id="history-panel" class="browser-only" hidden open>
-          <summary>Sampled signal history · up to 256 clocks</summary>
-          <pre id="signal-history"></pre>
+        <h2 id="detail-heading" class="sr-only">Diagnostics and details</h2>
+        <details id="detail-panel">
+          <summary>Details</summary>
+          <pre id="errors" role="alert" hidden></pre>
+          <details id="compiler-details" class="browser-only"><summary>Compiler diagnostics</summary><pre id="diagnostics"></pre></details>
+          <details class="browser-only" hidden><summary>CPU bus trace (up to 128 sampled cycles)</summary><pre id="cpu-trace"></pre></details>
+          <details id="history-panel" class="browser-only" hidden>
+            <summary>Sampled signal history · up to 256 clocks</summary>
+            <pre id="signal-history"></pre>
+          </details>
         </details>
       </section>
     </main>
+    <dialog id="file-dialog" aria-labelledby="file-dialog-title">
+      <form id="file-form">
+        <h2 id="file-dialog-title">Add file</h2>
+        <label for="filename">Filename</label>
+        <input id="filename" type="text" placeholder="helper.v" spellcheck="false" autocomplete="off" required autofocus aria-describedby="file-error">
+        <p id="file-error" role="alert" hidden></p>
+        <div class="controls">
+          <button id="save-file" type="submit">Add file</button>
+          <button id="cancel-file" type="button">Cancel</button>
+        </div>
+      </form>
+    </dialog>
   </body>
 </html>
