@@ -1,0 +1,455 @@
+{
+  "baseline": "45fc501100aaed73145b9056c95e5446a6271a92",
+  "sourceBaseCommit": "241423559e416ab7d8b90544f9b452570826da9a",
+  "sourceWorktreeDirty": true,
+  "toolchain": {
+    "yosys": "0.70.1258",
+    "clang": "22.0.0-git20542-10"
+  },
+  "node": "v26.12.1",
+  "sourceFingerprint": "e3ba22fbd0a1641b6ebe3dfb0854795b3e2c2509f121ed760764008c5a3ae6d8",
+  "date": "2026-11-02T06:06:04.110Z",
+  "browser": "156.0.8078.4",
+  "platform": "darwin/arm64",
+  "osRelease": "27.2.0",
+  "cpu": "Apple M4 Max",
+  "logicalCpus": 16,
+  "physicalMemoryBytes": 68719476736,
+  "methodology": "Three sequential warmed trials per engine; production compiler/workers, identical RTL, deterministic input changes. Wall time includes worker/IO/media copying, excludes reset/mount/warmup and UI/audio pacing. CPU is summed CDP browser-process CPU; RSS is a sampled sum (shared pages may be double counted), not peak memory. Baseline has no memory metric. RAM declares a comparison target of 1 MHz; it is not a measured hardware specification. Compile/mount CPU includes reset and cartridge loading. Current variants reuse one compiled module.",
+  "results": [
+    {
+      "name": "counter",
+      "top": "counter",
+      "clockHz": 10,
+      "files": [
+        "counter.v"
+      ],
+      "batchCycles": 16384,
+      "measuredBatches": 2048,
+      "warmupBatches": 16,
+      "measurements": [
+        {
+          "engine": "baseline-cxxrtl",
+          "compilation": {
+            "compileMs": 2155.300000011921,
+            "wasmBytes": 125892,
+            "cxxrtlBytes": 2577
+          },
+          "compileAndMountCpuSeconds": 5.954744999999999,
+          "sampledBrowserRssAfterCompileBytes": 1306492928,
+          "trials": [
+            {
+              "wallMs": 58.69999998807907,
+              "clocksPerSecond": 571625758.2080803,
+              "wasmMemoryBytes": null,
+              "engine": "baseline-cxxrtl",
+              "realTimeRatio": 57162575.82080803,
+              "browserCpuSeconds": 0.0710380000000006,
+              "sampledBrowserRssBytes": 1035026432
+            },
+            {
+              "wallMs": 57.19999998807907,
+              "clocksPerSecond": 586615944.1781994,
+              "wasmMemoryBytes": null,
+              "engine": "baseline-cxxrtl",
+              "realTimeRatio": 58661594.41781994,
+              "browserCpuSeconds": 0.059636000000000244,
+              "sampledBrowserRssBytes": 1040596992
+            },
+            {
+              "wallMs": 55.89999997615814,
+              "clocksPerSecond": 600258175.5690746,
+              "wasmMemoryBytes": null,
+              "engine": "baseline-cxxrtl",
+              "realTimeRatio": 60025817.55690746,
+              "browserCpuSeconds": 0.05736200000000036,
+              "sampledBrowserRssBytes": 1046151168
+            }
+          ]
+        },
+        {
+          "engine": "cxxrtl",
+          "compilation": {
+            "compileMs": 2151.5,
+            "wasmBytes": 126232,
+            "fastBackend": {
+              "supported": true,
+              "reason": "",
+              "registers": 1,
+              "memories": 0
+            },
+            "fastSourceBytes": 573,
+            "cxxrtlBytes": 2577
+          },
+          "compileAndMountCpuSeconds": 5.875791,
+          "sampledBrowserRssAfterCompileBytes": 1254293504,
+          "trials": [
+            {
+              "wallMs": 53.5,
+              "clocksPerSecond": 627185644.8598131,
+              "wasmMemoryBytes": 196608,
+              "engine": "cxxrtl",
+              "realTimeRatio": 62718564.48598131,
+              "browserCpuSeconds": 0.0648370000000007,
+              "sampledBrowserRssBytes": 1070940160
+            },
+            {
+              "wallMs": 55.90000003576279,
+              "clocksPerSecond": 600258174.9290357,
+              "wasmMemoryBytes": 196608,
+              "engine": "cxxrtl",
+              "realTimeRatio": 60025817.49290357,
+              "browserCpuSeconds": 0.058135000000001824,
+              "sampledBrowserRssBytes": 1074987008
+            },
+            {
+              "wallMs": 46.89999997615814,
+              "clocksPerSecond": 715446311.6643405,
+              "wasmMemoryBytes": 196608,
+              "engine": "cxxrtl",
+              "realTimeRatio": 71544631.16643405,
+              "browserCpuSeconds": 0.04786899999999861,
+              "sampledBrowserRssBytes": 1080393728
+            }
+          ]
+        },
+        {
+          "engine": "scheduled",
+          "compilation": {
+            "compileMs": 2151.5,
+            "wasmBytes": 126232,
+            "fastBackend": {
+              "supported": true,
+              "reason": "",
+              "registers": 1,
+              "memories": 0
+            },
+            "fastSourceBytes": 573,
+            "cxxrtlBytes": 2577
+          },
+          "compileAndMountCpuSeconds": 5.875791,
+          "sampledBrowserRssAfterCompileBytes": 1254293504,
+          "trials": [
+            {
+              "wallMs": 30,
+              "clocksPerSecond": 1118481066.6666667,
+              "wasmMemoryBytes": 196608,
+              "engine": "scheduled",
+              "realTimeRatio": 111848106.66666667,
+              "browserCpuSeconds": 0.031758999999999205,
+              "sampledBrowserRssBytes": 1086062592
+            },
+            {
+              "wallMs": 32.30000001192093,
+              "clocksPerSecond": 1038836903.6413653,
+              "wasmMemoryBytes": 196608,
+              "engine": "scheduled",
+              "realTimeRatio": 103883690.36413653,
+              "browserCpuSeconds": 0.03397399999999884,
+              "sampledBrowserRssBytes": 1091731456
+            },
+            {
+              "wallMs": 30.200000047683716,
+              "clocksPerSecond": 1111073905.5304592,
+              "wasmMemoryBytes": 196608,
+              "engine": "scheduled",
+              "realTimeRatio": 111107390.55304591,
+              "browserCpuSeconds": 0.032459000000001126,
+              "sampledBrowserRssBytes": 1097285632
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "ram-accumulator",
+      "top": "debug_ram",
+      "clockHz": 1000000,
+      "files": [
+        "debug-ram.v",
+        "debug-store.v"
+      ],
+      "batchCycles": 16384,
+      "measuredBatches": 512,
+      "warmupBatches": 16,
+      "measurements": [
+        {
+          "engine": "baseline-cxxrtl",
+          "compilation": {
+            "compileMs": 2663.399999976158,
+            "wasmBytes": 143436,
+            "cxxrtlBytes": 35483
+          },
+          "compileAndMountCpuSeconds": 6.9962399999999985,
+          "sampledBrowserRssAfterCompileBytes": 1647869952,
+          "trials": [
+            {
+              "wallMs": 1146.7999999523163,
+              "clocksPerSecond": 7314795.95426299,
+              "wasmMemoryBytes": null,
+              "engine": "baseline-cxxrtl",
+              "realTimeRatio": 7.31479595426299,
+              "browserCpuSeconds": 1.1514799999999994,
+              "sampledBrowserRssBytes": 1365016576
+            },
+            {
+              "wallMs": 1136.5999999642372,
+              "clocksPerSecond": 7380439.908731256,
+              "wasmMemoryBytes": null,
+              "engine": "baseline-cxxrtl",
+              "realTimeRatio": 7.3804399087312555,
+              "browserCpuSeconds": 1.1382519999999978,
+              "sampledBrowserRssBytes": 1365950464
+            },
+            {
+              "wallMs": 1146.5999999642372,
+              "clocksPerSecond": 7316071.864871483,
+              "wasmMemoryBytes": null,
+              "engine": "baseline-cxxrtl",
+              "realTimeRatio": 7.316071864871483,
+              "browserCpuSeconds": 1.147354,
+              "sampledBrowserRssBytes": 1366999040
+            }
+          ]
+        },
+        {
+          "engine": "cxxrtl",
+          "compilation": {
+            "compileMs": 2657.600000023842,
+            "wasmBytes": 145004,
+            "fastBackend": {
+              "supported": true,
+              "reason": "",
+              "registers": 24,
+              "memories": 1
+            },
+            "fastSourceBytes": 13302,
+            "cxxrtlBytes": 34921
+          },
+          "compileAndMountCpuSeconds": 6.931402000000002,
+          "sampledBrowserRssAfterCompileBytes": 1707409408,
+          "trials": [
+            {
+              "wallMs": 1160.7000000476837,
+              "clocksPerSecond": 7227197.380593935,
+              "wasmMemoryBytes": 196608,
+              "engine": "cxxrtl",
+              "realTimeRatio": 7.227197380593935,
+              "browserCpuSeconds": 1.1551009999999984,
+              "sampledBrowserRssBytes": 1422213120
+            },
+            {
+              "wallMs": 1131.3999999761581,
+              "clocksPerSecond": 7414360.968867573,
+              "wasmMemoryBytes": 196608,
+              "engine": "cxxrtl",
+              "realTimeRatio": 7.414360968867573,
+              "browserCpuSeconds": 1.1323360000000022,
+              "sampledBrowserRssBytes": 1423130624
+            },
+            {
+              "wallMs": 1125.5999999642372,
+              "clocksPerSecond": 7452565.742951781,
+              "wasmMemoryBytes": 196608,
+              "engine": "cxxrtl",
+              "realTimeRatio": 7.452565742951781,
+              "browserCpuSeconds": 1.1261679999999927,
+              "sampledBrowserRssBytes": 1424097280
+            }
+          ]
+        },
+        {
+          "engine": "scheduled",
+          "compilation": {
+            "compileMs": 2657.600000023842,
+            "wasmBytes": 145004,
+            "fastBackend": {
+              "supported": true,
+              "reason": "",
+              "registers": 24,
+              "memories": 1
+            },
+            "fastSourceBytes": 13302,
+            "cxxrtlBytes": 34921
+          },
+          "compileAndMountCpuSeconds": 6.931402000000002,
+          "sampledBrowserRssAfterCompileBytes": 1707409408,
+          "trials": [
+            {
+              "wallMs": 72.80000001192093,
+              "clocksPerSecond": 115228131.84926337,
+              "wasmMemoryBytes": 196608,
+              "engine": "scheduled",
+              "realTimeRatio": 115.22813184926336,
+              "browserCpuSeconds": 0.0759299999999925,
+              "sampledBrowserRssBytes": 1424998400
+            },
+            {
+              "wallMs": 72.20000004768372,
+              "clocksPerSecond": 116185706.29445753,
+              "wasmMemoryBytes": 196608,
+              "engine": "scheduled",
+              "realTimeRatio": 116.18570629445753,
+              "browserCpuSeconds": 0.07325099999999907,
+              "sampledBrowserRssBytes": 1425915904
+            },
+            {
+              "wallMs": 73.69999998807907,
+              "clocksPerSecond": 113821004.08896679,
+              "wasmMemoryBytes": 196608,
+              "engine": "scheduled",
+              "realTimeRatio": 113.82100408896679,
+              "browserCpuSeconds": 0.07434299999999894,
+              "sampledBrowserRssBytes": 1426915328
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "snes",
+      "top": "snes",
+      "clockHz": 21477270,
+      "files": [
+        "snes.v",
+        "snes-core.v"
+      ],
+      "batchCycles": 16384,
+      "measuredBatches": 32,
+      "warmupBatches": 100,
+      "measurements": [
+        {
+          "engine": "baseline-cxxrtl",
+          "compilation": {
+            "compileMs": 89694.5,
+            "wasmBytes": 591753,
+            "cxxrtlBytes": 2458345
+          },
+          "compileAndMountCpuSeconds": 99.63152700000002,
+          "sampledBrowserRssAfterCompileBytes": 2079801344,
+          "trials": [
+            {
+              "wallMs": 1806.699999988079,
+              "clocksPerSecond": 290190.9558883375,
+              "wasmMemoryBytes": 20709376,
+              "engine": "baseline-cxxrtl",
+              "realTimeRatio": 0.01351153828621317,
+              "browserCpuSeconds": 1.8325039999999717,
+              "sampledBrowserRssBytes": 2101641216
+            },
+            {
+              "wallMs": 1887.300000011921,
+              "clocksPerSecond": 277797.91235982004,
+              "wasmMemoryBytes": 20709376,
+              "engine": "baseline-cxxrtl",
+              "realTimeRatio": 0.012934507614786239,
+              "browserCpuSeconds": 1.9160660000000007,
+              "sampledBrowserRssBytes": 2043953152
+            },
+            {
+              "wallMs": 1869.1000000238419,
+              "clocksPerSecond": 280502.915838271,
+              "wasmMemoryBytes": 20709376,
+              "engine": "baseline-cxxrtl",
+              "realTimeRatio": 0.013060454882686253,
+              "browserCpuSeconds": 1.8993539999999882,
+              "sampledBrowserRssBytes": 2065022976
+            }
+          ]
+        },
+        {
+          "engine": "cxxrtl",
+          "compilation": {
+            "compileMs": 71268.80000001192,
+            "wasmBytes": 909782,
+            "fastBackend": {
+              "supported": true,
+              "reason": "",
+              "registers": 594,
+              "memories": 29
+            },
+            "fastSourceBytes": 920329,
+            "cxxrtlBytes": 1826386
+          },
+          "compileAndMountCpuSeconds": 86.373445,
+          "sampledBrowserRssAfterCompileBytes": 2332278784,
+          "trials": [
+            {
+              "wallMs": 3658.2999999523163,
+              "clocksPerSecond": 143314.65434951583,
+              "wasmMemoryBytes": 20643840,
+              "engine": "cxxrtl",
+              "realTimeRatio": 0.006672852478434914,
+              "browserCpuSeconds": 3.687176999999963,
+              "sampledBrowserRssBytes": 2330329088
+            },
+            {
+              "wallMs": 3656.100000023842,
+              "clocksPerSecond": 143400.89165957744,
+              "wasmMemoryBytes": 20643840,
+              "engine": "cxxrtl",
+              "realTimeRatio": 0.00667686776110639,
+              "browserCpuSeconds": 3.691427000000033,
+              "sampledBrowserRssBytes": 2286321664
+            },
+            {
+              "wallMs": 3654.899999976158,
+              "clocksPerSecond": 143447.97395371148,
+              "wasmMemoryBytes": 20643840,
+              "engine": "cxxrtl",
+              "realTimeRatio": 0.0066790599528576714,
+              "browserCpuSeconds": 3.683875999999998,
+              "sampledBrowserRssBytes": 2286288896
+            }
+          ]
+        },
+        {
+          "engine": "scheduled",
+          "compilation": {
+            "compileMs": 71268.80000001192,
+            "wasmBytes": 909782,
+            "fastBackend": {
+              "supported": true,
+              "reason": "",
+              "registers": 594,
+              "memories": 29
+            },
+            "fastSourceBytes": 920329,
+            "cxxrtlBytes": 1826386
+          },
+          "compileAndMountCpuSeconds": 86.373445,
+          "sampledBrowserRssAfterCompileBytes": 2332278784,
+          "trials": [
+            {
+              "wallMs": 644.5,
+              "clocksPerSecond": 813480.2172226532,
+              "wasmMemoryBytes": 20643840,
+              "engine": "scheduled",
+              "realTimeRatio": 0.037876332384081085,
+              "browserCpuSeconds": 0.6739919999999984,
+              "sampledBrowserRssBytes": 2286764032
+            },
+            {
+              "wallMs": 637,
+              "clocksPerSecond": 823058.0847723705,
+              "wasmMemoryBytes": 20643840,
+              "engine": "scheduled",
+              "realTimeRatio": 0.03832228606207262,
+              "browserCpuSeconds": 0.6669590000000198,
+              "sampledBrowserRssBytes": 2286436352
+            },
+            {
+              "wallMs": 637.6999999880791,
+              "clocksPerSecond": 822154.618174378,
+              "wasmMemoryBytes": 20643840,
+              "engine": "scheduled",
+              "realTimeRatio": 0.03828021988708891,
+              "browserCpuSeconds": 0.6666749999999411,
+              "sampledBrowserRssBytes": 2286649344
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
