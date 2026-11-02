@@ -32,7 +32,9 @@ export async function compileProject(project, progress) {
         ? `read_slang -j 1 --single-unit --top ${top} ${names.join(" ")}`
         : `read_verilog -sv ${names.join(" ")}`,
       `hierarchy -check -top ${top}`,
-      "proc", "flatten", ...(frontend === "slang" ? ["opt_clean"] : []), "check -assert",
+      // Simplify Slang's combinational cones before emitting both evaluators.
+      // Disable flip-flop rewrites to retain supported sequential cell types.
+      "proc", "flatten", ...(frontend === "slang" ? ["opt -noff"] : []), "check -assert",
       `rename ${top} webrtltop`,
       "memory_collect", "write_json design.json", "write_cxxrtl -O6 -g4 design.cc",
     ].join("; ")], files, options);

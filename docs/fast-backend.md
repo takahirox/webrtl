@@ -153,6 +153,8 @@ staged baseline assets before running other suites or publishing.
 
 ### Recorded results (2026-11-02)
 
+These initial measurements precede the compilation-cost follow-up below.
+
 Apple M4 Max, 64 GiB, macOS arm64, Chromium 156.0.8078.4, Node 26.12.1,
 Playwright 1.64.1 and the pinned toolchain. Baseline is `45fc501`; current sources
 are identified by the report's SHA-256 `sourceFingerprint` (a checked dirty
@@ -206,3 +208,45 @@ Emscripten 6.0.13 setup; this is recorded as a failure, not a browser-backend pa
 Hosted Ubuntu PR timing and the exhaustive nightly cartridge suite have not been
 run from this node. The existing automated PR budget and full-suite requirements
 remain unchanged. No live Pages smoke is a pre-merge dependency for this change.
+
+### Compilation-cost follow-up
+
+The [first Ubuntu PR run](https://github.com/takahirox/webrtl/actions/runs/41390949403)
+failed: browser Clang had not finished compiling both evaluators when the SNES
+smoke reached its 500-second limit. Slang elaboration now runs `opt -noff` instead
+of just `opt_clean` before generating either evaluator. This folds constants,
+merges redundant combinational logic and simplifies muxes once, reducing work for
+both generated kernels. `-noff` disables flip-flop optimization so the scheduled
+generator retains its supported sequential cell types. The default Verilog
+frontend retains its existing pipeline and inspectable unused state.
+
+For the complete SNES design, scheduled source shrinks from 1,624,441 to 920,329
+bytes and reference source from 2,482,985 to 1,826,386 bytes; all 594 register cells
+and 29 memories remain. Clang still uses `-O2`. No PR assertion, fixture selection,
+timeout or aggregate budget changes.
+
+The [refreshed benchmark record](fast-backend-compilation-benchmark.json) uses the
+same harness, toolchain, machine and workloads described above. SNES compilation
+now takes 145.20 s versus the earlier dual-kernel 197.45 s; Wasm shrinks from
+771,040 to 718,955 bytes. Medians from three warmed trials are:
+
+| Workload | Old Fast (million clocks/s) | Current reference | Compiled schedule |
+| --- | ---: | ---: | ---: |
+| counter | 602.414 | 598.118 | 1029.277 |
+| ram-accumulator | 7.313 | 7.377 | 114.286 |
+| snes | 0.292 | 0.278 | 0.815 |
+
+The scheduled SNES result is 0.0380× real time, still about 26.3 times below the
+stretch target. The reference is about 5% slower than the old backend in this run;
+the scheduled result improves on the earlier 0.722 million clocks/s measurement.
+
+Local validation passed 10 Python and 7 Node checks, all 13 generic PR browser
+checks, and the SNES PR smoke with this Slang pipeline (148 exact media intervals
+plus state/handoff checks). The focused six-cartridge command above also passed
+on the final compiler: `mode-7`, `bus-sram-hirom`, `dma-1`, `audio-gain`, `irq-h-80`
+and `cpu-binary`, including the two CPU/IRQ reset repeats. All eight executions
+passed scheduled/reference equivalence over 164 exact intervals each. This
+focused browser run took 257.32 s, including 132.53 s of compilation.
+
+These are local measurements, not an Ubuntu gate pass. The final-revision Ubuntu
+Fast PR run remains required after publication; this fix node does not push.
