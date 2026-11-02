@@ -84,7 +84,7 @@ test("discovery keeps the bounded PR selection separate from every full browser 
   assert.equal(fast.filter((title) => title === snesTitle).length, 1);
 
   const full = all(discover("playwright.static.config.js"));
-  assert.equal(full.length, 82);
+  assert.equal(full.length, 86);
   assert.equal(full.filter((spec) => spec.title.startsWith("full SNES RTL batch ")).length, 26);
   for (const project of ["chromium", "firefox"]) {
     const names = full.flatMap((spec) => spec.tests)

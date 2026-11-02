@@ -1,0 +1,102 @@
+{
+  "issue": 42,
+  "date": "2026-11-02",
+  "sourceBaseCommit": "45fc501100aaed73145b9056c95e5446a6271a92",
+  "sourceFingerprint": "f40152b5493b91925240a237b1384be4f2b4c3be5d6a02c6bdba1a23465896a3",
+  "environment": {
+    "platform": "darwin/arm64",
+    "osRelease": "27.2.0",
+    "cpu": "Apple M4 Max",
+    "logicalCpus": 16,
+    "physicalMemoryBytes": 68719476736,
+    "node": "v26.12.1",
+    "browser": "156.0.8078.4",
+    "toolchain": {
+      "yosys": "0.70.1258",
+      "clang": "22.0.0-git20542-10"
+    }
+  },
+  "checks": [
+    {
+      "command": "npm run test:pr",
+      "passed": 13,
+      "failed": 0,
+      "skipped": 0,
+      "flaky": 0,
+      "browserPhaseSeconds": 266.609588
+    },
+    {
+      "command": "WEBRTL_SNES_FAST_EQUIVALENCE=1 WEBRTL_SNES_FIXTURES='^(cpu-binary|irq-h-80|dma-1|mode-7|audio-gain|bus-sram-hirom)$' npm run test:demo:built -- --project=chromium tests/static/counter.spec.js tests/static/cpu-bus.spec.js tests/static/cpu816.spec.js tests/static/modes.spec.js tests/static/modes-fast.spec.js tests/static/modes-regressions.spec.js tests/static/outputs.spec.js tests/static/snes.spec.js",
+      "passed": 24,
+      "failed": 0,
+      "skipped": 0,
+      "flaky": 0,
+      "browserPhaseSeconds": 510.934045
+    },
+    {
+      "command": "npm run test:demo:built -- --project=firefox tests/static/modes.spec.js tests/static/modes-fast.spec.js tests/static/modes-regressions.spec.js tests/static/outputs.spec.js",
+      "passed": 11,
+      "failed": 0,
+      "skipped": 0,
+      "flaky": 0,
+      "browserPhaseSeconds": 54.099391000000004
+    }
+  ],
+  "unit": {
+    "command": "npm run test:unit",
+    "pythonPassed": 10,
+    "nodePassed": 6,
+    "failed": 0,
+    "finalRerun": "passed"
+  },
+  "firefoxExecution": "Same read-only static build/server as Chromium; temporary config disabled its webServer and isolated output files. The recorded command reproduces the selection with the normal server.",
+  "snesComparisons": {
+    "prExactMediaIntervals": 148,
+    "genericStateBoundaries": 64,
+    "corpusFixtures": [
+      "mode-7",
+      "bus-sram-hirom",
+      "dma-1",
+      "audio-gain",
+      "irq-h-80",
+      "irq-h-80-repeat",
+      "cpu-binary",
+      "cpu-binary-repeat"
+    ],
+    "corpusComparedIntervals": [
+      164,
+      164,
+      164,
+      164,
+      224,
+      224,
+      164,
+      164
+    ],
+    "state": "32 distributed register items plus first/second/last rows of every memory; corpus adds CPU/IRQ-observed WRAM locations. Generic compares every catalog item and RAM row.",
+    "finalBindingGuard": "Final generator still accepts SNES and emits byte-identical kernel C++ to the tested implementation; final benchmark recompiles it."
+  },
+  "benchmark": {
+    "command": "node scripts/benchmark-fast.cjs 45fc501100aaed73145b9056c95e5446a6271a92 --snes",
+    "report": "fast-backend-benchmark.json",
+    "status": "passed; actual engine selection asserted for each trial"
+  },
+  "native": {
+    "status": "failed in existing native toolchain",
+    "initialCommand": "npm run test:local",
+    "initialBlocker": "Port 8765 occupied; no existing process was stopped. Isolated config used 18765 and separate artifacts.",
+    "isolatedBrowserResult": "Native build returned HTTP 422; Step never enabled.",
+    "diagnosisCommand": "python3 build.py examples/counter.v .build/fast-native-diagnosis",
+    "diagnosisResult": "em++/wasm-ld failed: undefined pthread_getaffinity_np, sched_getcpu and pthread_setaffinity_np.",
+    "verilator": "5.052",
+    "emscripten": "6.0.13",
+    "nativeCompilerFilesChanged": false
+  },
+  "correctedFailure": "First PR attempt passed 12/13: a new fallback fixture was rejected by Yosys check -assert for its self-dependent asynchronous reset. Replaced it with a valid generated-clock fixture; final PR and focused Chromium/Firefox runs pass.",
+  "notRun": [
+    "Hosted Ubuntu PR aggregate/timing (no push or PR authorized)",
+    "Exhaustive nightly cartridge corpus",
+    "Deployed Pages smoke (not a pre-merge condition)"
+  ],
+  "limits": "SNES scheduled throughput is about 0.0336x its master-clock target. Native toolchain regression is not claimed as passing. Compatible-layout in-process retention is supported; serialized/cross-build restore is rejected."
+}

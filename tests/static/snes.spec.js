@@ -536,7 +536,7 @@ test(`${suiteLabel} SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: b
   // Small startup batches retain the whole CPU/DMA bus trace. No test emulates
   // instructions, graphics or DSP operations.
   const runtimeStarted = performance.now();
-  const results = await page.evaluate(async ({ cartridge, modeCartridges, pixelSource, baseline }) => {
+  const results = await page.evaluate(async ({ cartridge, modeCartridges, pixelSource, baseline, compareFast }) => {
     const expectedPixel = new Function(`return (${pixelSource})`)();
     const worker = new Worker("./simulator-worker.js", { type: "module" });
     let id = 0;
@@ -605,6 +605,21 @@ test(`${suiteLabel} SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: b
       // CPU and timer observations must replay exactly after a power reset.
       const runtimeCartridges = modeCartridges.flatMap((f) => /^(irq|cpu)-/.test(f.name) ?
         [f, { ...f, name: `${f.name}-repeat` }] : [f]);
+      async function state(observations) {
+        await call({ action: "mode", mode: "debug" });
+        const { signals } = await call({ action: "discover" });
+        const registers = signals.filter((s) => s.type === 1);
+        const refs = Array.from({ length: 32 }, (_, i) => ({ id: registers[Math.floor(i * (registers.length - 1) / 31)].id, row: 0 }));
+        for (const memory of signals.filter((s) => s.depth > 1))
+          for (const row of [0, 1, memory.depth - 1]) refs.push({ id: memory.id, row });
+        const wram = signals.find((s) => s.name === "wram" && s.depth === 131072);
+        if (wram) for (const address of new Set(observations.map((entry) => entry[1] & 0x1ffff)))
+          refs.push({ id: wram.id, row: address });
+        const values = [];
+        for (let i = 0; i < refs.length; i += 256)
+          values.push(...(await call({ action: "inspect", refs: refs.slice(i, i + 256) })).values);
+        return values;
+      }
       for (const fixture of runtimeCartridges) {
         console.log("SNES fixture start", `${modeResults.length + 1}/${runtimeCartridges.length}`, fixture.name);
         const fixtureStarted = performance.now();
@@ -612,7 +627,7 @@ test(`${suiteLabel} SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: b
         const loadedAt = performance.now();
         let heartbeat = loadedAt;
         let frame, height;
-        const trace = [], pcm = [], hdma = [], observations = [];
+        const trace = [], pcm = [], hdma = [], observations = [], media = [];
         // Allow feedback to settle and the large Mode 7 map to initialize.
         // Interlace needs both fields; zero timers need 256 ticks plus a frame.
         const batches = fixture.name === "audio-feedback" ? 664 :
@@ -622,6 +637,7 @@ test(`${suiteLabel} SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: b
         for (let i = 0; i < batches; i++) {
           const output = await call({ action: "batch", batchCycles: i < 64 ? 512 : 16384,
             buttons: fixture.name === "auto" ? 2048 : fixture.name === "serial" ? 0xa55 : 0 });
+          if (compareFast) media.push({ cycles: output.cycles, height: output.height, frame: output.frame, audio: output.audio });
           if (performance.now() - heartbeat >= 10000) {
             console.log("SNES phase simulation", fixture.name, `${i + 1}/${batches} batches`);
             heartbeat = performance.now();
@@ -651,8 +667,29 @@ test(`${suiteLabel} SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: b
             if (examples.length < 4) examples.push({ x, y, actual: Array.from(frame.slice(offset, offset + 4)), expected });
           }
         }
+        if (compareFast) {
+          const referenceState = await state(observations);
+          await load(new Uint8Array(fixture.bytes));
+          const mode = await call({ action: "mode", mode: "fast" });
+          if (mode.backend !== "scheduled") throw new Error(`Scheduled kernel unavailable for ${fixture.name}`);
+          for (let i = 0; i < batches; i++) {
+            const output = await call({ action: "batch", batchCycles: i < 64 ? 512 : 16384,
+              buttons: fixture.name === "auto" ? 2048 : fixture.name === "serial" ? 0xa55 : 0 });
+            const expected = media[i];
+            if (output.cycles !== expected.cycles || output.height !== expected.height)
+              throw new Error(`${fixture.name}: Fast edge/frame timing differs at ${output.cycles}`);
+            for (const key of ["frame", "audio"]) {
+              const a = output[key] || [], b = expected[key] || [];
+              if (a.length !== b.length || a.some((value, j) => value !== b[j]))
+                throw new Error(`${fixture.name}: Fast ${key} differs at ${output.cycles}`);
+            }
+          }
+          if (JSON.stringify(await state(observations)) !== JSON.stringify(referenceState))
+            throw new Error(`${fixture.name}: Fast state/RAM/CPU observation differs`);
+          console.log("SNES fixture Fast equivalence passed", fixture.name, `${batches} exact intervals`);
+        }
         const onset = pcm.findIndex((sample) => sample !== 0);
-        modeResults.push({ name: fixture.name, height, mismatches, examples, frameHash: frame && frameHash(frame),
+        modeResults.push({ name: fixture.name, fastEquivalence: compareFast ? "passed" : "not-requested", height, mismatches, examples, frameHash: frame && frameHash(frame),
           trace, pcm: pcm.slice(-256), onset: pcm.slice(onset, onset + 2048), hdma, observations,
           sampleCount: pcm.length, cycles: 64 * 512 + (batches - 64) * 16384,
           timing: { loadResetMs: loadedAt - fixtureStarted,
@@ -663,7 +700,7 @@ test(`${suiteLabel} SNES RTL batch ${batchIndex + 1}/${fixtureBatches.length}: b
       return { first, repeat, hi, modeResults, metrics: window.compiled.metrics,
         validWasm: WebAssembly.validate(window.compiled.wasm) };
     } finally { worker.terminate(); }
-  }, { cartridge: Array.from(rom), modeCartridges, pixelSource: pixel.toString(), baseline: cached?.baseline });
+  }, { cartridge: Array.from(rom), modeCartridges, pixelSource: pixel.toString(), baseline: cached?.baseline, compareFast: process.env.WEBRTL_SNES_FAST_EQUIVALENCE === "1" });
   phases.runtimeMs = performance.now() - runtimeStarted;
   writeFileSync(info.outputPath("snes-fixture-results.json"), JSON.stringify(results.modeResults));
   expect(results.validWasm).toBe(true);

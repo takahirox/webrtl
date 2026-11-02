@@ -7,6 +7,7 @@ let simulator;
 let circuitModule;
 let board, boardName;
 let cycles = 0;
+let fastBackend = "cxxrtl", backendChoice = "auto";
 let mode = "fast", catalog, selection = [], history = [], checkpoint;
 let build, session, generation = 0, inputState = {}, cartridgeIdentity = null;
 const decoder = new TextDecoder();
@@ -36,18 +37,18 @@ function inspect(ref) {
 }
 function retain() {
   // This is a live-state capability, not a serialized memory dump or rewind.
-  return checkpoint = { format: "webrtl-live-state", version: 1, backend: "cxxrtl", build,
+  return checkpoint = { format: "webrtl-live-state", version: 2, backend: "shared-rtl-state-v1", engine: mode === "debug" ? "cxxrtl" : fastBackend, build,
     session, generation, cycles, phase: "settled-low", initialized: true,
     retention: "shared-live-model", inputs: { ...inputState }, cartridge: cartridgeIdentity,
     media: "pending-playback-cleared", trace: "bounded-forward-history", token: crypto.randomUUID() };
 }
 function validateCheckpoint(value) {
   if (!checkpoint || JSON.stringify(value) !== JSON.stringify(checkpoint))
-    throw new Error("Incompatible or expired live snapshot: only the same paused model, build and generation can resume; serialized/cross-backend restore is unsupported.");
+    throw new Error("Incompatible or expired live snapshot: only the same paused model, build and generation can resume; serialized/cross-build restore is unsupported.");
 }
 
 self.onmessage = async ({ data: { id, action, wasm, board: requestedBoard, batchCycles, cartridge, offset, bytes, buttons,
-    mode: requestedMode, signals, breakpoint, inputs, snapshot, refs } }) => {
+    mode: requestedMode, backend: requestedBackend, signals, breakpoint, inputs, snapshot, refs } }) => {
   const selected = requestedBoard ?? boardName;
   let extra = {}, advanced = false;
   const started = performance.now();
@@ -62,7 +63,7 @@ self.onmessage = async ({ data: { id, action, wasm, board: requestedBoard, batch
       if (action === "init") {
         circuitModule = await WebAssembly.compile(wasm);
         build = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", wasm))).map((v) => v.toString(16).padStart(2, "0")).join("");
-        session = crypto.randomUUID(); mode = "fast";
+        session = crypto.randomUUID(); mode = "fast"; backendChoice = "auto";
       }
       catalog = null; history = []; selection = []; checkpoint = null; inputState = {}; cartridgeIdentity = null;
       generation++;
@@ -72,13 +73,22 @@ self.onmessage = async ({ data: { id, action, wasm, board: requestedBoard, batch
       simulator = instance.exports;
       simulator._initialize();
       simulator.sim_reset();
+      fastBackend = backendChoice === "auto" ? (simulator.sim_fast_available() ? "scheduled" : "cxxrtl") : backendChoice;
+      simulator.sim_select_backend(fastBackend === "scheduled" ? 1 : 0);
       cycles = 0;
     } else if (action === "step" || action === "batch") {
       const count = action === "step" ? 1 : batchCycles;
       if (!Number.isInteger(count) || count < 1 || count > 16384) throw new Error("Invalid simulation batch size.");
       if (selected === "snes" && buttons !== undefined) {
         if (!Number.isInteger(buttons) || buttons < 0 || buttons > 4095) throw new Error("Invalid controller buttons.");
-        simulator.sim_buttons(buttons); inputState.buttons = `0x${buttons.toString(16)}`;
+        const value = `0x${buttons.toString(16)}`;
+        if (inputState.buttons !== value) {
+          simulator.sim_buttons(buttons);
+          // Apply external asynchronous controls at low clock before either
+          // evaluator samples its next edge, just like Generic input injection.
+          simulator.sim_debug_settle();
+          inputState.buttons = value;
+        }
       }
       const completed = mode === "debug" ? simulator.sim_debug_batch(count) : (simulator.sim_batch(count), count);
       cycles += completed;
@@ -122,6 +132,15 @@ self.onmessage = async ({ data: { id, action, wasm, board: requestedBoard, batch
       mode = requestedMode;
       extra.snapshot = retain();
       if (mode === "debug") extra.signals = discover();
+    } else if (action === "backend") {
+      if (!["auto", "cxxrtl", "scheduled"].includes(requestedBackend)) throw new Error("Unknown Fast backend.");
+      if (snapshot !== undefined) validateCheckpoint(snapshot);
+      if (requestedBackend === "scheduled" && !simulator.sim_fast_available())
+        throw new Error("Scheduled Fast backend is unavailable for this design. Keep CXXRTL; see compiler diagnostics for the compatibility restriction. Circuit state is retained.");
+      backendChoice = requestedBackend;
+      fastBackend = requestedBackend === "auto" ? (simulator.sim_fast_available() ? "scheduled" : "cxxrtl") : requestedBackend;
+      simulator.sim_select_backend(fastBackend === "scheduled" ? 1 : 0);
+      extra.snapshot = retain();
     } else if (action === "discover") {
       if (mode !== "debug") throw new Error("Signal discovery requires Debug Mode.");
       extra.signals = discover();
@@ -158,7 +177,8 @@ self.onmessage = async ({ data: { id, action, wasm, board: requestedBoard, batch
       simulator.sim_debug_settle(); checkpoint = null;
     } else throw new Error("Unknown simulator action.");
     const reply = { id, count: simulator.sim_count(), cycles, seconds: board.clockHz ? cycles / board.clockHz : 0,
-      mode, elapsedMs: performance.now() - started, ...extra };
+      mode, backend: mode === "debug" ? "cxxrtl" : fastBackend, fastBackend, fastAvailable: Boolean(simulator.sim_fast_available()),
+      memoryBytes: simulator.memory.buffer.byteLength, elapsedMs: performance.now() - started, ...extra };
     // Generic boards have no fixed readout. Expose bounded real top-level I/O
     // in either mode without enabling Debug capture or changing circuit state.
     if (selected === "generic") reply.io = discover()

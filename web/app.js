@@ -6,7 +6,7 @@ const ui = Object.fromEntries(
     "project", "files", "filename", "add-file", "rename-file", "remove-file", "import-files", "top", "example", "load-example",
     "interface", "frontend", "video", "audio-status", "timing", "run-help", "cpu-result", "cpu-trace",
     "cartridge-controls", "cartridge", "test-cartridge", "cartridge-status",
-    "sim-mode", "clock-hz", "debug-controls", "signal-filter", "signals", "signal-row", "inspect", "signal-values",
+    "sim-mode", "fast-backend", "backend-status", "clock-hz", "debug-controls", "signal-filter", "signals", "signal-row", "inspect", "signal-values",
     "condition", "condition-value", "capture", "signal-history", "input-signal", "input-value", "apply-input", "debug-status",
     "example-controls", "history-panel", "file-dialog", "file-form", "file-dialog-title", "save-file", "cancel-file", "file-error",
     "import-button", "detail-panel", "compile-notice", "generic-io"]
@@ -72,6 +72,7 @@ function controls() {
   ui.step.disabled = switching || busy || !simulator || advancing || timer !== null || (selected === "snes" && !cartridgeLoaded);
   ui.reset.disabled = switching || busy || !simulator || advancing;
   ui["cartridge-controls"].disabled = busy || !simulator || advancing || switching;
+  ui["fast-backend"].disabled = !browser || !simulator || busy || advancing || switching || timer !== null;
   ui["sim-mode"].disabled = busy || !simulator || advancing || switching || timer !== null;
   ui.run.title = browser ? "Fast: bounded batches as quickly as practical; Debug: paced to the board clock where specified" : "Run targets 10 clock cycles per second";
   ui["debug-controls"].hidden = ui["sim-mode"].value !== "debug";
@@ -109,6 +110,7 @@ function discard() {
     try { simulator._sim_destroy(); } catch { /* An aborted module may already be unusable. */ }
   }
   simulator = null;
+  showBackend();
   debugSignals = []; ui.signals.replaceChildren(); ui["signal-values"].textContent = "";
   ui["signal-history"].textContent = "";
   cartridgeLoaded = false;
@@ -403,6 +405,8 @@ ui.compile.addEventListener("click", async () => {
       ui.diagnostics.textContent = simulator.diagnostics;
       showGenericIO(simulator._sim_output());
       ui["sim-mode"].value = "fast";
+      ui["fast-backend"].value = "auto";
+      showBackend();
       if (selected === "snes" && cartridgeData) {
         await simulator._sim_cartridge(cartridgeData);
         cartridgeLoaded = true;
@@ -547,7 +551,25 @@ async function inspectSelected() {
     ui["signal-values"].textContent = values.map((value) => `${catalog[value.id].name}[${value.row}] = 0x${value.hex}`).join("\n");
   } catch (error) { if (simulator === active) throw error; }
 }
+function showBackend() {
+  const output = simulator?._sim_output?.();
+  ui["backend-status"].textContent = !output ? "" : output.backend === "scheduled" ?
+    "Compiled schedule · shared circuit state" : output.fastAvailable ?
+      "CXXRTL reference · shared circuit state" : "CXXRTL fallback · see compiler diagnostics for the compatibility restriction";
+}
 if (browser) {
+  ui["fast-backend"].addEventListener("change", async () => {
+    switching = true; controls(); audio.clear();
+    const activeBackend = simulator._sim_output().fastBackend;
+    try {
+      const { snapshot } = await simulator._sim_pause();
+      await simulator._sim_backend(ui["fast-backend"].value, snapshot);
+      ui.status.textContent = `Backend changed at cycle ${simulator._sim_output().cycles}. State retained.`;
+    } catch (error) {
+      ui["fast-backend"].value = activeBackend;
+      projectError(error);
+    } finally { showBackend(); switching = false; controls(); }
+  });
   ui["signal-filter"].addEventListener("input", filteredSignals);
   ui["sim-mode"].addEventListener("change", async () => {
     switching = true; controls(); audio.clear();
@@ -561,7 +583,7 @@ if (browser) {
       }
       ui.status.textContent = `${ui["sim-mode"].value === "fast" ? "Fast" : "Debug"} Mode · paused at cycle ${result.cycles}. State retained.`;
     } catch (error) { projectError(error); }
-    finally { switching = false; controls(); }
+    finally { showBackend(); switching = false; controls(); }
   });
   ui.inspect.addEventListener("click", () => inspectSelected().catch(projectError));
   ui.capture.addEventListener("click", async () => {
