@@ -60,6 +60,12 @@ export async function compileProject(project, progress) {
     const response = await fetch(new URL("./tools/cxxrtl.json", import.meta.url));
     if (!response.ok) throw new Error("Could not load CXXRTL runtime headers. Reload and retry.");
     const headers = await response.json();
+    // Let Clang optimize each bit-vector template before deciding to inline it.
+    // Forced early expansion duplicates its loops throughout both evaluators,
+    // making LLVM repeatedly simplify them inside very large functions.
+    if (fast.supported) headers.cxxrtl["cxxrtl.h"] = headers.cxxrtl["cxxrtl.h"].replace(
+      "#define CXXRTL_ALWAYS_INLINE inline __attribute__((__always_inline__))",
+      "#define CXXRTL_ALWAYS_INLINE inline");
     const wrapper = await fetch(new URL("./browser-simulator.cpp", import.meta.url));
     if (!wrapper.ok) throw new Error("Could not load the simulator adapter. Reload and retry.");
     const debugWrapper = await fetch(new URL("./debug-runtime.cpp", import.meta.url));

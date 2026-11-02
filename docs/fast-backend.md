@@ -250,3 +250,51 @@ focused browser run took 257.32 s, including 132.53 s of compilation.
 
 These are local measurements, not an Ubuntu gate pass. The final-revision Ubuntu
 Fast PR run remains required after publication; this fix node does not push.
+
+### Dual-evaluator template inlining
+
+The [second Ubuntu PR run](https://github.com/takahirox/webrtl/actions/runs/41394236296)
+also timed out in browser Clang before runtime assertions. For supported scheduled
+designs, the compiler now changes the pinned virtual CXXRTL header's
+`CXXRTL_ALWAYS_INLINE` definition to ordinary `inline`. Clang can simplify each
+bit-vector template before deciding whether to expand it into the two large
+evaluators. This avoids repeatedly optimizing the same template loops after
+forced early expansion. `-O2` remains enabled. Reference-only fallback builds keep
+the original header and inlining policy.
+
+Final local validation passed `npm run test:pr`: 10 Python tests, 7 Node tests and
+all 14 Chromium PR checks in 146.03 seconds of browser testing. The complete SNES
+smoke compiled in 70.76 seconds and executed its original assertions in 24.35
+seconds, including 148 exact media deliveries, state/handoff comparisons and the
+fresh-power-reset CPU replay. The PR selection, assertions and timing budgets
+are preserved.
+
+The [inlining benchmark record](fast-backend-inlining-benchmark.json) uses the
+same production-browser harness, pinned toolchain and Apple M4 Max environment
+as the earlier measurements. Three warmed trials per engine give these medians
+in millions of complete clocks/s:
+
+| Workload | Old Fast | Current reference | Compiled schedule | Current compile seconds | Current Wasm bytes |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| counter | 586.616 | 627.186 | 1111.074 | 2.15 | 126,232 |
+| ram-accumulator | 7.316 | 7.414 | 115.228 | 2.66 | 145,004 |
+| snes | 0.281 | 0.143 | 0.822 | 71.27 | 909,782 |
+
+SNES compilation falls from the previous dual-evaluator measurement of 145.20 s
+to 71.27 s, about 51% less. Wasm grows from 718,955 to
+909,782 bytes (about 27%). Scheduled throughput stays near the previous
+0.815 million clocks/s, reaching 0.0383× real time. The generic RAM schedule
+retains its material improvement over the old Fast engine. Full compilation,
+CPU, sampled browser RSS and Wasm memory costs are in the record.
+
+There is a deliberate tradeoff: the reference evaluator in the dual-evaluator
+SNES module drops from the previous 0.278 to approximately 0.143 million clocks/s.
+Ordinary inlining leaves more helper calls in that evaluator. Debug stepping and
+explicit reference runs therefore cost more, while the scheduled Fast path keeps
+its throughput and starts sooner. Unsupported designs keep the original
+reference-only compilation policy. Correctness and state continuity are covered
+by the existing equivalence assertions, rather than inferred from performance.
+
+These are local results. A successful final-revision Ubuntu **Fast PR checks**
+run under 600 seconds remains required after publication; no hosted pass is
+claimed here.
