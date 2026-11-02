@@ -39,7 +39,7 @@ export function parseVectors(text, io) {
   return lines.map((line, row) => {
     const cells = line.split(",").map((s) => s.trim());
     if (cells.length !== ports.length) throw new Error(`CSV row ${row + 1}: wrong column count.`);
-    const sample = { inputs: {}, expected: {} };
+    const sample = { inputs: Object.create(null), expected: Object.create(null) };
     ports.forEach((port, i) => {
       if (!/^(0x[0-9a-f]+|[0-9]+)$/i.test(cells[i])) throw new Error(`CSV row ${row + 1}: unsigned integer required for ${port.name}.`);
       const value = BigInt(cells[i]);
