@@ -1,9 +1,10 @@
-# CPU bus and ROM/RAM self-test
+# CPU bus and ROM/RAM regression fixture
 
-Load **CPU bus · ROM/RAM self-test (pass = 1, fail = 255)** in the browser's
-**Example** selector, click **Load example (replaces project)**, then **Compile**.
-This selects the five source files in [examples/cpu-bus](../examples/cpu-bus),
-top module `bus_test`, and the existing **8-bit counter** output interface.
+This repository-only fixture preserves independent bus regression coverage; it
+is not bundled in the Example selector or static site. Remove the initial counter
+file, import the five `.v` files from [tests/fixtures/cpu-bus](../tests/fixtures/cpu-bus),
+set **Top module** to `bus_test` and **Output interface** to **8-bit counter**,
+then **Compile**. See [fixture setup](../tests/fixtures/README.md).
 All files are compiled together by Yosys/Clang in the browser into a fresh Wasm
 circuit. No native compiler, build API, uploaded ROM, or precompiled circuit is
 used. The static site works under `/webrtl/`.
@@ -66,14 +67,14 @@ RAM is a four-element register array with synchronous writes/reset and
 combinational reads. Clearing this small array is intentional; it does not claim
 efficient block-RAM inference for large memories on an FPGA.
 
-- [bus-test.v](../examples/cpu-bus/bus-test.v) connects master and decoder and
+- [bus-test.v](../tests/fixtures/cpu-bus/bus-test.v) connects master and decoder and
   maps the result register to the Counter contract's `count` output.
-- [bus-master.v](../examples/cpu-bus/bus-master.v) sequences transactions and checks
+- [bus-master.v](../tests/fixtures/cpu-bus/bus-master.v) sequences transactions and checks
   the readback against independent constants. It is a test state machine, not a CPU.
-- [bus-decoder.v](../examples/cpu-bus/bus-decoder.v) selects the address ranges
+- [bus-decoder.v](../tests/fixtures/cpu-bus/bus-decoder.v) selects the address ranges
   and gates writes.
-- [bus-rom.v](../examples/cpu-bus/bus-rom.v) supplies the inline ROM data.
-- [bus-ram.v](../examples/cpu-bus/bus-ram.v) implements writable memory.
+- [bus-rom.v](../tests/fixtures/cpu-bus/bus-rom.v) supplies the inline ROM data.
+- [bus-ram.v](../tests/fixtures/cpu-bus/bus-ram.v) implements writable memory.
 
 ## Test sequence and expected results
 
@@ -129,10 +130,3 @@ A later CPU adapter would need to translate its bus strobes, address width,
 read/write phases and any wait behavior into this contract; no core compatibility
 has been verified. Large memories and physical FPGA integration are outside this
 example's scope.
-
-**Required post-merge verification for #14 — pending:** after deployment, run an
-automated browser check against <https://takahirox.github.io/webrtl/> in a fresh
-context: load this example, compile, observe the 13-step sequence above and PASS,
-then Reset and Run to PASS again. Record browser/version, deployment commit and
-actual results separately. Local static-site tests are pre-merge evidence and do
-not prove that the deployed site serves this change.

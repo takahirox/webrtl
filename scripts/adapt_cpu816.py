@@ -10,7 +10,7 @@ import re
 import sys
 
 source = Path(sys.argv[1])
-target = Path(__file__).resolve().parents[1] / "examples/cpu816"
+target = Path(__file__).resolve().parents[1] / "tests/fixtures/cpu816"
 banner = "// WebRTL adaptation: package-qualified types and case-function ROMs for Yosys.\n"
 
 

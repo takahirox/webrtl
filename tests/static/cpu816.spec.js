@@ -1,7 +1,8 @@
 const { test, expect } = require("@playwright/test");
 const { readFileSync } = require("node:fs");
+const { importProject, cpuSources } = require("../import-project.cjs");
 
-const rtl = (name) => readFileSync(`examples/cpu816/${name}`, "utf8");
+const rtl = (name) => readFileSync(`tests/fixtures/cpu816/${name}`, "utf8");
 // Observed bus cycles, not an ISA interpreter. Rows are cycle/address/data/flags;
 // flags: valid=8, VPA=4, VDA=2, write=1. Idle CPU cycles are omitted.
 const expectedTrace = [
@@ -45,8 +46,10 @@ async function observe(page) {
 async function load(page) {
   // Use the same real-compiler smoke test against Pages after deployment.
   await page.goto(process.env.WEBRTL_PUBLIC_URL || "./");
-  await page.locator("#example").selectOption("cpu816");
-  await page.locator("#load-example").click();
+  await importProject(page, [
+    ...["cpu816-test.v", "cpu816-memory.v", "cpu816-rom.v"].map((name) => `tests/fixtures/cpu816/${name}`),
+    ...cpuSources.map((name) => `tests/fixtures/cpu816/${name}`),
+  ], "cpu816_test", "cpu816");
   await expect(page.locator("#source")).toHaveValue(rtl("cpu816-test.v"));
   await expect(page.locator("#files option")).toHaveCount(12);
   await expect(page.locator("#interface")).toHaveValue("cpu816");

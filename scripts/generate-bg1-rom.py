@@ -66,7 +66,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--check', action='store_true')
     args = parser.parse_args()
-    path = Path(__file__).resolve().parents[1] / 'examples/cpu816-bg1/bg1-rom.v'
+    path = Path(__file__).resolve().parents[1] / 'tests/fixtures/cpu816-bg1/bg1-rom.v'
     if args.check:
         if path.read_text() != source():
             parser.exit(1, 'BG1 ROM differs from generator\n')

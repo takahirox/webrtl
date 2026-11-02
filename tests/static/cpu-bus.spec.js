@@ -1,14 +1,14 @@
 const { test, expect } = require("@playwright/test");
 const { readFileSync } = require("node:fs");
+const { importProject } = require("../import-project.cjs");
 
 const names = ["bus-test.v", "bus-master.v", "bus-rom.v", "bus-ram.v", "bus-decoder.v"];
-const rtl = (name) => readFileSync(`examples/cpu-bus/${name}`, "utf8");
+const rtl = (name) => readFileSync(`tests/fixtures/cpu-bus/${name}`, "utf8");
 const trace = [18, 183, 52, 145, 86, 243, 120, 221, 183, 145, 243, 221, 1];
 
 async function load(page) {
   await page.goto("./");
-  await page.locator("#example").selectOption("bus");
-  await page.locator("#load-example").click();
+  await importProject(page, names.map((name) => `tests/fixtures/cpu-bus/${name}`), "bus_test", "counter");
   await expect(page.locator("#source")).toHaveValue(rtl("bus-test.v"));
   await expect(page.locator("#files option")).toHaveText(names);
   await expect(page.locator("#top")).toHaveValue("bus_test");
