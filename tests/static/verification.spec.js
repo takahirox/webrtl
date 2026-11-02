@@ -84,6 +84,21 @@ test("clocked SV harness, invalid reference and cancellation leave usable contro
   await page.locator("#cancel-verification").click();
   await expect(page.locator("#verification-status")).toContainText("Cancelled");
   await expect(page.locator("#compile")).toBeEnabled();
+  await page.locator("#files").selectOption("adder.v");
+  const originalRTL = await page.locator("#source").inputValue();
+  await page.locator(".project-settings summary").click();
+  for (const frontend of ["verilog", "slang"]) {
+    await page.locator("#frontend").selectOption(frontend);
+    for (const timing of ["buf #(5) delayed_buf(y,a);", "assign y=a; specify (a => y)=5; endspecify"]) {
+      await page.locator("#source").fill(`module adder(input clk, reset, a, output y); ${timing} endmodule`);
+      await verify(page, "synthesizable clocked SV harnesses only");
+      await expect(page.locator("#test-results li")).toHaveCount(0);
+      await expect(page.locator("#export-vcd")).toBeDisabled();
+    }
+  }
+  await page.locator("#frontend").selectOption("verilog");
+  await page.locator(".project-settings summary").click();
+  await page.locator("#source").fill(originalRTL);
   await page.locator("#top").fill("adder_tb");
   await page.locator("#reference-model").selectOption(":sv");
   await verify(page, "PASS · 16/16");
@@ -117,6 +132,23 @@ test("clocked SV harness, invalid reference and cancellation leave usable contro
   await page.locator("#source").fill("raise RuntimeError('reference bug')");
   await verify(page, "reference bug");
   await expect(page.locator("#verify")).toBeEnabled();
+
+  // Legal HDL names must survive CSV parsing and transport to the live RTL.
+  for (const direction of ["out", "in"]) {
+    const input = direction === "in" ? "__proto__" : "a";
+    const output = direction === "out" ? "__proto__" : "sum";
+    await page.locator("#files").selectOption("adder.v");
+    await page.locator("#source").fill(`module adder(input clk, reset, input [7:0] ${input}, b, output reg [7:0] ${output});
+      always @(posedge clk) if (reset) ${output} <= 0; else ${output} <= ${input} + b;
+      endmodule`);
+    await page.locator("#files").selectOption("adder.py");
+    await page.locator("#source").fill(`print('${input},b,${output}')\nprint('1,2,99')`);
+    await verify(page, "FAIL at sample 1, cycle 1");
+    await expect(page.locator("#test-results")).toContainText(`${output}: expected 0x63, actual 0x03`);
+    await expect(page.locator("#test-results")).toContainText(`"${input}":"0x1"`);
+    await page.locator("#source").fill(`print('${input},b,${output}')\nprint('1,2,3')`);
+    await verify(page, "PASS · 1/1");
+  }
 });
 
 test("mixed-language project paths preserve edits and enforce reference execution bounds", async ({ page }, testInfo) => {
