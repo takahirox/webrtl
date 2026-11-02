@@ -28,8 +28,13 @@ successfully deploys `main`). Edit the supplied RTL and click **Compile**. The f
 compile shows the ~185 MB tool download and memory warning alongside live progress
 (the Compile tooltip also describes it before starting). A compact toolbar keeps
 **Compile**, **Run**, **Pause**, **Step**, **Reset** and **Fast / Debug** together, with live status.
-The light workspace places the flat project file list on the left, the source
-editor in the center and actual simulation output/debug controls on the right.
+The dark workspace places project files/folders on the left, editable source tabs
+and an optional split reference editor in the center, and real verification and
+simulation output/debug controls on the right. Design / Simulation / Verification
+navigation focuses the relevant workspace controls.
+[Browser verification](docs/verification.md) runs standard C++17 or Python reference
+programs against generic RTL, or a synthesizable clocked SV harness, with real
+PASS/FAIL evidence, retained failure Debug and sampled VCD waveforms.
 **Details** below opens on demand for compiler output, errors, CPU bus trace and
 real sampled signal history; failures are announced and brought into view.
 At narrower widths, panes reflow below the editor instead of squeezing three
@@ -40,11 +45,11 @@ applies the three
 [UI/UX principles](#uiux) above through spacing, stable controls and progressive
 disclosure.
 
-The browser starts with the original single-file counter. Use the **Verilog project**
+The browser starts with the original single-file counter. Use the **Source project**
 controls to work with multiple sources:
 
 1. Click **+ (Add file)** and enter a filename in the dialog, or use
-   **↥ (Import local .v files)** to select multiple files at once. Imports add files
+   **↥ (Import local source files)** to select multiple files at once. Imports add files
    to the current project.
 2. Choose a **Source file** to edit. Edits are kept when switching files. Enter a
    new filename via **Selected file actions → Rename file**, or choose
@@ -198,12 +203,12 @@ texts ship in [third-party-notices.txt](web/third-party-notices.txt).
   compiler-required features enabled. Safari/WebKit and mobile browsers have not
   been validated. No SharedArrayBuffer, cross-origin isolation headers, special
   browser flags, or compilation backend is required.
-- **Filenames** are flat, case-sensitive names ending in lowercase `.v`. Start
-  with a letter, digit or underscore, followed by letters, digits, underscores or
-  hyphens (for example `counter-next.v`). Paths, spaces, leading hyphens, other
-  punctuation, and duplicate filenames are rejected. No directory/project import
-  or include-tree resolution is provided. The `.v` extension also applies to the
-  supported subset of SystemVerilog.
+- **Filenames** are case-sensitive relative `.v`, `.sv`, `.cpp` or `.py` paths.
+  Each directory/file stem starts with a letter, digit or underscore, followed by
+  letters, digits, underscores or hyphens. Absolute paths, traversal, spaces,
+  shell characters and duplicate paths are rejected. Import folder retains
+  relative source paths. Only HDL goes to the HDL compiler; standalone models
+  run through their selected language runtime. See [verification limits](docs/verification.md).
 - **Top-module names** start with an ASCII letter, followed by ASCII letters,
   digits or underscores. Enter the declared module name exactly; it need not match
   a filename. Escaped identifiers are unsupported. The Counter interface requires scalar
@@ -223,17 +228,17 @@ texts ship in [third-party-notices.txt](web/third-party-notices.txt).
   and asynchronous resets, and internal module instances. This is a two-state,
   cycle-based CXXRTL simulation, not a full event-driven language simulator.
   Unknown/high-impedance values and uninitialized state do not have full four-state
-  semantics. HDL timing delays, testbench tasks, DPI, external C++, filesystem I/O,
+  semantics. HDL timing delays, event-driven testbench tasks, DPI, filesystem I/O,
   external includes, arbitrary project imports, assertions and full SystemVerilog
   are outside this milestone. Yosys may ignore simulation-only constructs; use
   synthesizable clocked logic and inspect diagnostics.
 - At most **128 KiB total UTF-8 source** across all project files (raised to fit
   the 65C816 core), with nonempty
-  source in every file at compile time, and one compile at a time. Imports are
+  HDL source in every compiled file and at most 128 files, and one compile at a time. Imports are
   checked against the total limit before adding files; edited source is checked
   on Compile. The optional **Slang SystemVerilog** frontend permits **2 MiB**
   for larger projects such as the SNES source set. Compilation, including downloads,
-  has a **120-second** deadline (**300 seconds** with Slang).
+  has a **120-second** deadline (**600 seconds** with Slang).
   A simulation request has a
   **10-second** watchdog. Timeout terminates the relevant worker and permits a new
   compile. Timer throttling in background tabs can delay both simulation and

@@ -2,6 +2,9 @@
 // Never derive this selection from a caller's WEBRTL_SNES_FIXTURES expression.
 const snesTitle = "SNES PR smoke compiles the complete console and checks cartridge pixels, DSP, input and reset";
 const genericTitles = Object.freeze([
+  "mixed-language project paths preserve edits and enforce reference execution bounds",
+  "C++ and Python references compare real RTL, expose a mismatch and export sampled VCD",
+  "clocked SV harness, invalid reference and cancellation leave usable controls",
   "serves this checkout's UI, SNES sources and cartridge under /webrtl/",
   "loads the SNES project and compiles an edited counter into fresh browser Wasm",
   "workspace keeps editing central, reflows panes and exposes compilation failures",

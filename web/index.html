@@ -11,6 +11,11 @@
     <main class="workspace">
       <header class="toolbar">
         <h1>WebRTL</h1>
+        <nav class="workspace-nav browser-only" aria-label="Workspaces">
+          <button type="button" data-workspace="design" aria-pressed="true">Design</button>
+          <button type="button" data-workspace="simulation" aria-pressed="false">Simulation</button>
+          <button type="button" data-workspace="verification" aria-pressed="false">Verification</button>
+        </nav>
         <fieldset id="example-controls" class="browser-only" disabled aria-label="Bundled examples">
           <label for="example" class="sr-only">Example</label>
           <select id="example">
@@ -39,17 +44,20 @@
       <aside class="project-pane pane" aria-labelledby="project-heading">
         <h2 id="project-heading">Project</h2>
         <fieldset id="project" class="browser-only" disabled>
-          <legend class="sr-only">Verilog project</legend>
+          <legend class="sr-only">Source project</legend>
           <label for="top">Top module</label>
           <input id="top" type="text" value="counter" spellcheck="false" autocomplete="off">
           <div class="file-toolbar">
             <label for="files">Source file</label>
             <button id="add-file" type="button" aria-label="Add file" title="Add file">+</button>
-            <button id="import-button" type="button" aria-label="Import local .v files" title="Import local .v files">↥</button>
+            <button id="import-button" type="button" aria-label="Import local source files" title="Import local source files">↥</button>
           </div>
-          <select id="files" size="6"></select>
-          <label for="import-files" class="sr-only">Import local .v files (adds to project)</label>
-          <input id="import-files" type="file" accept=".v" multiple hidden>
+          <select id="files" size="6" aria-label="Source file"></select>
+          <div id="project-tree" aria-label="Project folders"></div>
+          <label for="import-files" class="sr-only">Import local source files (adds to project)</label>
+          <button id="import-folder" type="button">Import folder</button>
+          <input id="folder-files" type="file" webkitdirectory multiple hidden aria-label="Import source folder">
+          <input id="import-files" type="file" accept=".v,.sv,.cpp,.py" multiple hidden>
           <details id="file-actions">
             <summary>Selected file actions</summary>
             <button id="rename-file" type="button">Rename file</button>
@@ -73,11 +81,11 @@
               <option value="verilog">Yosys Verilog · 128 KiB</option>
               <option value="slang">Slang SystemVerilog · 2 MiB</option>
             </select>
-            <p>Slang supports SystemVerilog and larger sources; it can require more compilation time and memory.</p>
+            <p>Synthesizable SystemVerilog only; no event-driven timing, classes or UVM. Slang it can require more compilation time and memory.</p>
           </details>
           <details>
             <summary>Source limits &amp; storage</summary>
-            <p>Flat .v filenames only; 128 KiB total source (2 MiB with Slang). Projects stay in memory until reload.
+            <p>Relative .v, .sv, .cpp and .py paths; 128 KiB total source (2 MiB with Slang). Projects stay in memory until reload.
               Switching files keeps edits. Loading an example replaces all files.</p>
           </details>
         </fieldset>
@@ -92,10 +100,35 @@
       <section class="editor-pane pane" aria-labelledby="editor-heading">
         <h2 id="editor-heading" class="sr-only">Editor</h2>
         <label id="source-label" for="source">8-bit counter · counter.v</label>
-        <textarea id="source" spellcheck="false" disabled></textarea>
+        <div id="source-tabs" class="browser-only" role="group" aria-label="Open source files"></div>
+        <div class="editor-tools browser-only">
+          <label for="split-file">Compare editor</label><select id="split-file"><option value="">Single editor</option></select>
+        </div>
+        <div class="editor-columns">
+          <textarea id="source" spellcheck="false" disabled></textarea>
+          <div id="reference-editor" hidden><label id="reference-label" for="reference-source">Reference source</label>
+            <textarea id="reference-source" spellcheck="false"></textarea></div>
+        </div>
       </section>
       <section class="simulation-pane pane" aria-labelledby="simulation-heading">
         <h2 id="simulation-heading" class="sr-only">Simulation</h2>
+        <section id="verification-pane" class="browser-only" aria-labelledby="verification-heading">
+          <h2 id="verification-heading">Verification</h2>
+          <details id="verification-config"><summary>Run configuration</summary>
+            <button id="load-verification" type="button">Load adder verification files</button>
+            <label for="reference-model">Reference model / testbench</label>
+            <select id="reference-model"><option value="">Choose .cpp or .py file</option><option value=":sv">Clocked SV harness</option></select>
+            <div id="harness-config" hidden>
+              <label for="failure-signal">Harness failure output (0 = pass)</label><input id="failure-signal" value="failed">
+              <label for="verification-cycles">Clocks to check (1–256)</label><input id="verification-cycles" type="number" min="1" max="256" value="16">
+            </div>
+            <p>Generic interface, clk/reset. Inputs applied at low clock; compare after one full cycle. Reference stdout: numeric CSV with port-name columns. <a href="https://github.com/takahirox/webrtl/blob/main/docs/verification.md">Workflow &amp; limits</a></p>
+          </details>
+          <div class="controls"><button id="verify" type="button" disabled>Verify</button><button id="cancel-verification" type="button" disabled>Cancel</button></div>
+          <p id="verification-status" role="status">No verification run.</p>
+          <ol id="test-results" aria-label="Sample results"></ol>
+          <button id="debug-mismatch" type="button" hidden>Inspect failure in RTL Debug</button>
+        </section>
         <pre id="generic-io" aria-label="Generic input and output values" hidden></pre>
         <p class="readout">count <output id="count" aria-live="polite">—</output></p>
         <div class="browser-only">
@@ -154,6 +187,14 @@
       </section>
       <section class="detail-pane pane" aria-labelledby="detail-heading">
         <h2 id="detail-heading" class="sr-only">Diagnostics and details</h2>
+        <details id="waveform-panel" class="browser-only"><summary>Waveforms · sampled RTL</summary>
+          <p id="trace-boundary">No recorded samples. One tick = one full cycle; settled low clock only.</p>
+          <div class="controls"><button id="export-vcd" type="button" disabled>Export VCD</button><button id="export-vectors" type="button" disabled>Export comparison CSV</button></div>
+          <label for="waveform-signal">Signal</label><select id="waveform-signal" disabled></select>
+          <label for="waveform-sample">Recorded sample</label><input id="waveform-sample" type="range" min="1" max="1" value="1" disabled>
+          <pre id="waveform-values" aria-live="polite"></pre>
+          <div id="waveform-scroll"><svg id="waveform" role="img" aria-label="Recorded signal waveform" height="70"></svg></div>
+        </details>
         <details id="detail-panel">
           <summary>Details</summary>
           <pre id="errors" role="alert" hidden></pre>

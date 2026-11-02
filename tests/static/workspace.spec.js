@@ -26,7 +26,7 @@ test("workspace keeps editing central, reflows panes and exposes compilation fai
   await expect(details).not.toHaveAttribute("open");
   await expect(page.getByRole("region", { name: "Editor", exact: true })).toBeVisible();
   await expect(page.getByRole("region", { name: "Simulation", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Import local .v files", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Import local source files", exact: true })).toBeVisible();
   await add.focus();
   await page.keyboard.press("Enter");
   await expect(page.getByRole("dialog", { name: "Add file", exact: true })).toBeVisible();
@@ -44,7 +44,7 @@ test("workspace keeps editing central, reflows panes and exposes compilation fai
   expect(editor.width).toBeGreaterThan(simulation.width * 1.3);
   expect(editor.width).toBeGreaterThan(project.width * 2);
   expect(detail.y).toBeGreaterThanOrEqual(editor.y + editor.height);
-  expect(detail.height).toBeLessThan(80);
+  expect(detail.height).toBeLessThan(110);
   expect(detail.y + detail.height).toBeLessThanOrEqual(900);
   await noPageOverflow(page);
   for (const id of ["compile", "run", "pause", "step", "reset", "sim-mode", "example"]) {
@@ -95,7 +95,7 @@ test("workspace keeps editing central, reflows panes and exposes compilation fai
 
   // Import has a discoverable keyboard button and adds without replacing edits.
   const chooser = page.waitForEvent("filechooser");
-  await page.getByRole("button", { name: "Import local .v files", exact: true }).click();
+  await page.getByRole("button", { name: "Import local source files", exact: true }).click();
   await (await chooser).setFiles({ name: "imported.v", mimeType: "text/plain", buffer: Buffer.from("// imported") });
   await expect(source).toHaveValue("// imported");
   await page.locator("#files").selectOption("split-counter.v");

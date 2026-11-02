@@ -26,6 +26,7 @@ observations; no comprehensive assertion or simulation loop is changed.
 | Two Pages smoke checks | Same-commit served files, user-edited counter → real frontend/Clang/Wasm → Step=3,6; static same-origin GETs |
 | Workspace layout check | Wide/narrow pane geometry, reachable toolbar, real compilation progress/failure visibility, file selection and board context |
 | Eight generic mode checks | RAM, inputs, both clock edges, Fast→Debug→Fast continuity, reset, UI visibility, actual generic I/O, breakpoints/history, asynchronous cascades and transient-reset fallback, unsigned wide inspection, independent scheduled/reference state equivalence and unsupported-transition rejection |
+| Three verification checks | Real C++/Python stdout → controlled RTL comparison, positive/negative results, clocked SV harness, actual VCD values, retained failure Debug, invalid programs and cancellation |
 | Two output checks | Edited RTL → Canvas pixels and framing/errors; independent PCM/sample timing → real Web Audio; pause/reset/edit lifecycle and bounds |
 | One SNES cartridge smoke | Compile the complete unmodified console via Slang/Clang in the browser; boot `test.sfc` through the production simulator worker; check every tile/palette pixel, exact independently calculated DSP PCM, sample clock, serial B input, HDMA and NMI/IRQ activity; power-reset into a fresh instance and compare every startup CPU bus transaction |
 
@@ -83,8 +84,8 @@ npm run test:demo:built -- --project=chromium --grep 'falling-edge outputs'
 [Full validation](../.github/workflows/validation.yml) runs nightly at **18:17 UTC**
 (03:17 JST), on the default branch, and via `workflow_dispatch` on a selected ref.
 It no longer runs automatically on PRs. **Full regression suite** remains a
-separate status: units, native trusted-local Chromium, and all 88 static tests
-(44 per browser), including **260 cartridge fixtures + 29 CPU/IRQ reset replays
+separate status: units, native trusted-local Chromium, and all 94 static tests
+(47 per browser), including **260 cartridge fixtures + 29 CPU/IRQ reset replays
 per browser**. The original AUX repeat is included in the 260. Every fixture,
 independent oracle, simulation loop and immutable-Wasm reuse survives. Discovery
 checks verify both browser inventories. Native tools and Firefox audio setup stay

@@ -9,7 +9,7 @@ const ui = Object.fromEntries(
     "sim-mode", "fast-backend", "backend-status", "clock-hz", "debug-controls", "signal-filter", "signals", "signal-row", "inspect", "signal-values",
     "condition", "condition-value", "capture", "signal-history", "input-signal", "input-value", "apply-input", "debug-status",
     "example-controls", "history-panel", "file-dialog", "file-form", "file-dialog-title", "save-file", "cancel-file", "file-error",
-    "import-button", "detail-panel", "compile-notice", "generic-io"]
+    "import-folder", "folder-files", "import-button", "detail-panel", "compile-notice", "generic-io"]
     .map((id) => [id, document.getElementById(id)]),
 );
 const browser = document.documentElement.dataset.mode === "browser";
@@ -18,6 +18,7 @@ const projectTools = browser ? await import("./project.js") : null;
 let files = {};
 let activeFile = null;
 let projectEdited = false, toolchainReady = false, fileOperation = "add";
+let verification = null;
 const editorPositions = new Map();
 const audio = new AudioOutput();
 const canvas = ui.video.getContext("2d");
@@ -61,25 +62,27 @@ for (const type of ["keydown", "keyup"]) ui.video.addEventListener(type, (event)
 ui.video.addEventListener("blur", () => { keyboardButtons = 0; });
 
 function controls() {
-  ui.compile.disabled = busy || switching;
-  ui.source.disabled = busy || (browser && !activeFile);
-  ui.project.disabled = busy;
-  ui["example-controls"].disabled = busy;
+  const locked = busy || Boolean(verification?.running);
+  ui.compile.disabled = locked || switching;
+  ui.source.disabled = locked || (browser && !activeFile);
+  ui.project.disabled = locked;
+  ui["example-controls"].disabled = locked;
   ui["rename-file"].disabled = !activeFile;
   ui["remove-file"].disabled = !activeFile;
-  ui.run.disabled = switching || busy || !simulator || advancing || timer !== null || (selected === "snes" && !cartridgeLoaded);
+  ui.run.disabled = switching || locked || !simulator || advancing || timer !== null || (selected === "snes" && !cartridgeLoaded);
   ui.pause.disabled = timer === null;
-  ui.step.disabled = switching || busy || !simulator || advancing || timer !== null || (selected === "snes" && !cartridgeLoaded);
-  ui.reset.disabled = switching || busy || !simulator || advancing;
-  ui["cartridge-controls"].disabled = busy || !simulator || advancing || switching;
-  ui["fast-backend"].disabled = !browser || !simulator || busy || advancing || switching || timer !== null;
-  ui["sim-mode"].disabled = busy || !simulator || advancing || switching || timer !== null;
+  ui.step.disabled = switching || locked || !simulator || advancing || timer !== null || (selected === "snes" && !cartridgeLoaded);
+  ui.reset.disabled = switching || locked || !simulator || advancing;
+  ui["cartridge-controls"].disabled = locked || !simulator || advancing || switching;
+  ui["fast-backend"].disabled = !browser || !simulator || locked || advancing || switching || timer !== null;
+  ui["sim-mode"].disabled = locked || !simulator || advancing || switching || timer !== null;
   ui.run.title = browser ? "Fast: bounded batches as quickly as practical; Debug: paced to the board clock where specified" : "Run targets 10 clock cycles per second";
   ui["debug-controls"].hidden = ui["sim-mode"].value !== "debug";
   ui["history-panel"].hidden = ui["sim-mode"].value !== "debug";
-  ui["debug-controls"].disabled = busy || !simulator || advancing || switching || timer !== null;
-  ui["clock-hz"].disabled = busy || advancing || switching || timer !== null;
-  document.querySelector(".toolbar").dataset.state = !ui.errors.hidden ? "error" : busy || switching ? "busy" : timer !== null ? "running" : "idle";
+  ui["debug-controls"].disabled = locked || !simulator || advancing || switching || timer !== null;
+  ui["clock-hz"].disabled = locked || advancing || switching || timer !== null;
+  verification?.controls();
+  document.querySelector(".toolbar").dataset.state = !ui.errors.hidden ? "error" : locked || switching ? "busy" : timer !== null ? "running" : "idle";
 }
 
 function pause() {
@@ -105,6 +108,7 @@ function clearOutput() {
 
 function discard() {
   pause();
+  verification?.leaveBoundary();
   audio.close();
   if (simulator) {
     try { simulator._sim_destroy(); } catch { /* An aborted module may already be unusable. */ }
@@ -137,6 +141,8 @@ function revealError(error) {
 
 function projectChanged() {
   projectEdited = true;
+  verification?.invalidate();
+  if (activeFile) ui["source-label"].textContent = `Source · ${activeFile} · unsaved`;
   ui.errors.hidden = true;
   discard();
   ui.diagnostics.textContent = "";
@@ -177,7 +183,8 @@ function selectFile(name) {
   const position = editorPositions.get(name);
   ui.source.setSelectionRange(position?.start || 0, position?.end || 0, position?.direction);
   ui.source.scrollTop = position?.scroll || 0;
-  ui["source-label"].textContent = name ? `Verilog source · ${name}` : "Verilog source · no files";
+  ui["source-label"].textContent = name ? `Source · ${name}${projectEdited ? " · unsaved" : ""}` : "Source · no files";
+  verification?.refresh();
   controls();
 }
 
@@ -193,6 +200,7 @@ function projectError(error) {
 }
 
 function checkNewName(name, names = Object.keys(files)) {
+  if (names.length >= 128) throw new Error("Projects support at most 128 source files.");
   projectTools.validateFilename(name);
   if (names.includes(name)) throw new Error(`Source file "${name}" already exists. Choose another filename; existing files are never overwritten.`);
 }
@@ -251,35 +259,43 @@ if (browser) {
     (activeFile ? ui.files : ui["add-file"]).focus();
   });
   ui["import-button"].addEventListener("click", () => ui["import-files"].click());
-  ui["import-files"].addEventListener("change", async () => {
-    const imported = Array.from(ui["import-files"].files);
-    if (!imported.length) return;
+  ui["import-folder"].addEventListener("click", () => ui["folder-files"].click());
+  async function importFiles(event) {
+    const input = event.target;
+    const imported = Array.from(input.files).filter((file) => input === ui["import-files"] || /\.(v|sv|cpp|py)$/.test(file.name));
+    const path = (file) => file.webkitRelativePath || file.name;
+    if (!imported.length) {
+      if (input.files.length) projectError(new Error("No .v, .sv, .cpp or .py source files found in this folder."));
+      input.value = ""; return;
+    }
     busy = true;
     controls();
     try {
       const names = Object.keys(files);
       for (const file of imported) {
-        checkNewName(file.name, names);
-        names.push(file.name);
+        checkNewName(path(file), names);
+        names.push(path(file));
       }
       // Reject oversized imports before reading their contents into memory.
       const currentSize = Object.values(files).reduce((size, source) => size + new TextEncoder().encode(source).length, 0);
       if (currentSize + imported.reduce((size, file) => size + file.size, 0) > projectTools.sourceLimit(ui.frontend.value)) {
         throw new Error(`Import exceeds the ${ui.frontend.value === "slang" ? "2 MiB" : "128 KiB"} total project limit. Remove files or select smaller sources.`);
       }
-      const additions = await Promise.all(imported.map(async (file) => [file.name, await file.text()]));
+      const additions = await Promise.all(imported.map(async (file) => [path(file), await file.text()]));
       const updated = { ...files, ...Object.fromEntries(additions) };
       projectTools.validateSize(updated, ui.frontend.value);
       files = updated;
       projectChanged();
-      refreshFiles(imported[0].name);
+      refreshFiles(path(imported[0]));
     } catch (error) { projectError(error); }
     finally {
-      ui["import-files"].value = "";
+      input.value = "";
       busy = false;
       controls();
     }
-  });
+  }
+  ui["import-files"].addEventListener("change", importFiles);
+  ui["folder-files"].addEventListener("change", importFiles);
   ui["load-example"].addEventListener("click", async () => {
     if (projectEdited && !confirm("Replace all project files with the selected example? Your in-memory edits will be lost.")) return;
     busy = true;
@@ -327,6 +343,7 @@ async function simulate(action, playAudio = false) {
     pendingAdvance = Promise.resolve(result);
     if (result instanceof Promise) await result;
     if (simulator !== active) return;
+    verification?.leaveBoundary();
     ui.count.textContent = active._sim_count();
     showGenericIO(active._sim_output?.());
     const output = active._sim_output?.();
@@ -385,7 +402,7 @@ function showCpuOutput(output) {
   ui["cpu-trace"].textContent = lines.slice(-128).join("\n");
 }
 
-ui.compile.addEventListener("click", async () => {
+async function compile(signal) {
   ui.errors.hidden = true;
   discard();
   busy = true;
@@ -398,7 +415,7 @@ ui.compile.addEventListener("click", async () => {
       const { compileBrowser } = await import("./browser-client.js");
       simulator = await compileBrowser(
         { files, top: ui.top.value, board: selected, frontend: ui.frontend.value },
-        (progress) => { ui.status.textContent = progress; },
+        (progress) => { ui.status.textContent = progress; }, signal,
       );
       toolchainReady = true;
       ui["compile-notice"].hidden = true;
@@ -424,13 +441,16 @@ ui.compile.addEventListener("click", async () => {
     ui.count.textContent = simulator._sim_count();
     if (selected === "cpu816") showCpuOutput(simulator._sim_output());
     ui.status.textContent = "Ready. The compiled circuit is reset.";
+    return true;
   } catch (error) {
     showError(error);
+    return false;
   } finally {
     busy = false;
     controls();
   }
-});
+}
+ui.compile.addEventListener("click", () => compile());
 
 ui.step.addEventListener("click", () => simulate(() => simulator._sim_step()));
 async function loadCartridge(bytes, name) {
@@ -598,15 +618,43 @@ if (browser) {
     } catch (error) { projectError(error); }
   });
   ui["apply-input"].addEventListener("click", async () => {
-    try { await simulator._sim_inputs({ [ui["input-signal"].value]: ui["input-value"].value }); showGenericIO(simulator._sim_output()); await inspectSelected(); }
+    try { verification?.leaveBoundary(); await simulator._sim_inputs({ [ui["input-signal"].value]: ui["input-value"].value }); showGenericIO(simulator._sim_output()); await inspectSelected(); }
     catch (error) { projectError(error); }
   });
 }
 ui.source.addEventListener("input", () => {
   if (browser && activeFile) files[activeFile] = ui.source.value;
+  verification?.sync();
   projectChanged();
 });
 window.addEventListener("pagehide", discard);
+window.addEventListener("beforeunload", (event) => {
+  if (projectEdited) { event.preventDefault(); event.returnValue = ""; }
+});
+if (browser) {
+  const { setupWorkspace } = await import("./workspace.js");
+  verification = setupWorkspace({
+    files: () => files, activeFile: () => activeFile, selectFile,
+    busy: () => busy || switching || advancing || timer !== null,
+    board: () => selected, simulator: () => simulator, controls, pause, compile,
+    error: projectError, showOutput: () => {
+      showGenericIO(simulator._sim_output()); ui.count.textContent = simulator._sim_count();
+      ui.timing.textContent = logicalTime(simulator._sim_output().cycles);
+    },
+    edit: (name, value) => { files[name] = value; if (name === activeFile) ui.source.value = value; projectChanged(); },
+    loadVerification: async () => {
+      if (projectEdited && !confirm("Replace all project files with the adder verification files? Your in-memory edits will be lost.")) return;
+      busy = true; controls();
+      try {
+        const names = ["adder.v", "adder.cpp", "adder.py", "adder_tb.sv"];
+        const entries = await Promise.all(names.map(async (name) => [name, await loadSource(`./examples/verification/${name}`)]));
+        files = Object.fromEntries(entries); activeFile = null; editorPositions.clear();
+        ui.top.value = "adder"; ui.frontend.value = "slang";
+        projectChanged(); selectInterface("generic"); refreshFiles("adder.v"); projectEdited = false;
+      } finally { busy = false; controls(); }
+    },
+  });
+}
 
 async function loadSource(url) {
   const response = await fetch(url);

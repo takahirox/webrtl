@@ -3,7 +3,7 @@ import { boards } from "./output-contracts.js";
 
 // Project source -> Yosys RTLIL -> scheduled + reference kernels -> browser Wasm.
 // The compiler owns virtual filesystems; editor and board behavior live elsewhere.
-import { validateProject } from "./project.js";
+import { validateProject, isHDL, virtualFiles } from "./project.js";
 
 export async function compileProject(project, progress) {
   const started = performance.now();
@@ -11,7 +11,8 @@ export async function compileProject(project, progress) {
   const { files, top, board = "counter", frontend = "verilog" } = project;
   const contract = boards[board];
   if (!contract) throw new Error("Unknown output interface.");
-  const names = Object.keys(files);
+  const hdl = Object.fromEntries(Object.entries(files).filter(([name]) => isHDL(name)));
+  const names = Object.keys(hdl);
   let diagnostics = "";
   let stage = "Loading browser toolchain";
   const decoder = new TextDecoder();
@@ -37,7 +38,7 @@ export async function compileProject(project, progress) {
       "proc", "flatten", ...(frontend === "slang" ? ["opt -noff"] : []), "check -assert",
       `rename ${top} webrtltop`,
       "memory_collect", "write_json design.json", "write_cxxrtl -O6 -g4 design.cc",
-    ].join("; ")], files, options);
+    ].join("; ")], virtualFiles(hdl), options);
     const netlist = JSON.parse(generated["design.json"]).modules.webrtltop;
     const ports = netlist.ports;
     const expected = { clk: ["input", 1], reset: ["input", 1], ...contract.ports };
