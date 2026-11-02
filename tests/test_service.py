@@ -79,7 +79,19 @@ class ServiceTests(unittest.TestCase):
             raise BuildError("counter.v: syntax error")
 
         compile_mock.side_effect = fail
-        status, _, body = self.request()
+        handler_finished = threading.Event()
+        process_request = self.server.process_request_thread
+
+        def finish_request(*args):
+            try:
+                process_request(*args)
+            finally:
+                handler_finished.set()
+
+        with patch.object(self.server, "process_request_thread", finish_request):
+            status, _, body = self.request()
+            # Receiving the response does not imply the handler's finally ran.
+            self.assertTrue(handler_finished.wait(timeout=5), "Build handler did not finish")
         self.assertEqual(status, 422)
         self.assertIn("counter.v: syntax error", json.loads(body)["error"])
         self.assertEqual(list(Path(self.directory.name).iterdir()), [])
