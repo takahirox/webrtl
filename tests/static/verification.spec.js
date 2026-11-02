@@ -209,4 +209,32 @@ test("mixed-language project paths preserve edits and enforce reference executio
   await page.locator("#folder-files").setInputFiles("examples/verification");
   await expect(page.locator("#errors")).toContainText("already exists");
   await expect(page.locator("#files option")).toHaveCount(8);
+
+  // Renaming at capacity preserves edits; only operations that add files are blocked.
+  await page.locator("#import-files").setInputFiles(Array.from({ length: 120 }, (_, i) => ({
+    name: `reference-${i}.py`, mimeType: "text/plain", buffer: Buffer.from(`# reference ${i}`),
+  })));
+  await expect(page.locator("#files option")).toHaveCount(128);
+  const edited = "# retained edit at capacity";
+  await page.locator("#source").fill(edited);
+  await page.locator("#rename-file").click();
+  await page.locator("#filename").fill("ref/renamed.py");
+  await page.locator("#filename").press("Enter");
+  await expect(page.locator("#file-dialog")).toBeHidden();
+  await expect(page.locator("#files")).toHaveValue("ref/renamed.py");
+  await expect(page.locator("#files option[value='reference-0.py']")).toHaveCount(0);
+  await expect(page.locator("#files option")).toHaveCount(128);
+  await expect(page.locator("#source")).toHaveValue(edited);
+  await page.locator("#add-file").click();
+  await page.locator("#filename").fill("overflow.py");
+  await page.locator("#filename").press("Enter");
+  await expect(page.locator("#file-error")).toHaveText("Projects support at most 128 source files.");
+  await page.locator("#cancel-file").click();
+  await page.locator("#import-files").setInputFiles({
+    name: "overflow.py", mimeType: "text/plain", buffer: Buffer.from("# overflow"),
+  });
+  await expect(page.locator("#errors")).toHaveText("Projects support at most 128 source files.");
+  await expect(page.locator("#files option")).toHaveCount(128);
+  await expect(page.locator("#files")).toHaveValue("ref/renamed.py");
+  await expect(page.locator("#source")).toHaveValue(edited);
 });
