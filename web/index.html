@@ -121,6 +121,9 @@
         </div>
         <details class="simulation-settings browser-only">
           <summary>Simulation settings</summary>
+          <label for="fast-backend">Fast backend</label>
+          <select id="fast-backend" disabled><option value="auto">Automatic</option><option value="scheduled">Compiled schedule</option><option value="cxxrtl">CXXRTL reference</option></select>
+          <p id="backend-status" role="status"></p>
           <label for="clock-hz">Declared clock rate (Hz, 0 = unspecified)</label>
           <input id="clock-hz" type="number" min="0" value="10">
         </details>

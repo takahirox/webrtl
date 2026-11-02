@@ -24,23 +24,29 @@ captured values; compiler diagnostics and CPU bus trace share the Details area.
 
 ## Execution configuration
 
-Both modes use the same RTL-derived Yosys CXXRTL (`-O6 -g4`) model compiled with
-the pinned browser Clang at `-O2`. Debug metadata is initialized lazily for Generic
-I/O readout or Debug inspection; CXXRTL computes optimized-out public
-combinational wires only on inspection.
-No extra compiler, server, emulator, input upload or cartridge upload is involved.
-Live build/session identity uses Web Crypto on HTTPS or loopback origins.
-Verilator is not added as a browser backend: this increment uses the established
-entirely in-browser toolchain.
+Fast automatically uses the **compiled scheduled RTL backend** when the elaborated
+circuit passes its compatibility checks. It generates separate straight-line
+next-state kernels for the rising and falling edges, with an acyclic schedule for
+asynchronous loads and direct masked RAM writes. This removes per-edge CXXRTL
+eval/commit convergence loops and memory write queues. Debug retains the pinned
+Yosys CXXRTL (`-O6 -g4`) evaluator. Both kernels are compiled into browser Wasm
+with the pinned Clang at `-O2` and share canonical state storage.
 
-The Wasm **Fast loop** specializes `tick<false>`: CPU/SNES bus trace collection
-is compiled out, and signal lookup, outline evaluation, history and conditions
-are absent. Fast never exports internal signal values per clock. It still clocks
-and settles every transition and preserves video/audio/external I/O handling,
-including bounds checks. Debug uses a separate `tick<true>` loop with bounded
-bus tracing and optional selected-signal sampling/conditions. Keeping cold debug
-metadata in the shared binary costs code size and compilation time; this is the
-initial shared-backend milestone, not separately compiled model migration.
+**Simulation settings → Fast backend** selects Automatic, Compiled schedule or
+CXXRTL reference. The status and compiler diagnostics report the actual backend
+and any compatibility restriction. Unsupported circuits automatically retain
+CXXRTL; forcing an unavailable schedule rejects without changing circuit state.
+Debug always uses CXXRTL. Selection is available while paused and survives Reset.
+See [the architecture, supported cells, state ABI and measurements](fast-backend.md).
+No extra compiler, server, emulator or source/cartridge upload is involved.
+Live build/session identity uses Web Crypto on HTTPS or loopback origins.
+
+Fast collects only the board's real video/audio outputs per clock. Debug metadata
+is initialized lazily for Generic I/O or inspection; optimized-out combinational
+wires are evaluated on inspection. Debug retains bounded bus traces, selected
+history and conditions. State sharing avoids bulk RAM copies or reconstruction
+from the signal catalog. Carrying both execution kernels and debug metadata in
+one binary adds compilation time and Wasm bytes.
 
 A request executes at most 16,384 complete clocks inside Wasm. The UI maintains
 one batch in flight and yields between requests. Fast uses 16,383 clocks on
@@ -103,15 +109,15 @@ and ordinary RTL reset; SNES's existing controller/reset semantics still apply.
 Keyboard/gamepad buttons continue to update at Run batch boundaries. Memory
 contents change through RTL, including its reset logic, rather than host emulation.
 
-## Version 1 live snapshot / handoff contract
+## Version 2 live snapshot / handoff contract
 
-This compatible mode pair uses **explicit shared-live-model state retention**.
+The distinct scheduled and CXXRTL evaluators use **explicit shared-live-model state retention**.
 `pause` / `_sim_pause()` returns a versioned envelope:
 
 ```json
 {
-  "format": "webrtl-live-state", "version": 1, "backend": "cxxrtl",
-  "build": "SHA-256 of the compiled Wasm", "session": "unique live instance",
+  "format": "webrtl-live-state", "version": 2, "backend": "shared-rtl-state-v1", "engine": "scheduled",
+  "build": "SHA-256 of the compiled Wasm", "session": "unique live session",
   "generation": 1, "cycles": 7, "phase": "settled-low", "initialized": true,
   "retention": "shared-live-model", "inputs": {"stimulus": "0x13"},
   "cartridge": null, "media": "pending-playback-cleared",
@@ -128,13 +134,16 @@ also retains cartridge bytes/mapping and external control state. The public
 catalog supplies element identities/widths for inspection; it is deliberately
 not used to reconstruct hidden simulator state.
 
-`mode` / `_sim_mode(mode, snapshot)` validates the envelope against the current
+`mode` / `_sim_mode(mode, snapshot)` and `backend` / `_sim_backend(backend, snapshot)` validate the envelope against the current
 pause before changing mode. Wrong version/backend/build/session/generation,
 modified envelopes, and expired tokens reject with an incompatibility error.
 Advancement, input injection, reset, cartridge changes and recompile invalidate
 a pause capability. A new pause supersedes the previous one. A mode change
 returns a new envelope without advancing a clock. Passing no envelope switches
 only the current live model; it never restores or resets another instance.
+Version 1 envelopes from the previous single-evaluator implementation are rejected.
+The `backend` identifies the storage ABI; `engine` identifies the evaluator at the
+paused boundary. A valid switch can change `engine` while retaining that storage.
 
 No raw Wasm memory dump is exported or treated as portable. **Reload, rewind,
 serialized snapshot restore, distinct build/instance restore, and CXXRTL ↔
@@ -150,6 +159,14 @@ Reset/recompile retain their existing media-clearing lifecycle. A paused image
 can remain visible; waveform history is forward-only and bounded, not rewind.
 
 ## Validation and measurements
+
+The required PR gate now includes `modes-fast.spec.js`: it explicitly requires the
+scheduled engine and compares every discoverable value, RAM row and top-level I/O
+with an independent reference instance at 64 deterministic input/batch/handoff
+boundaries. A generated-clock fixture verifies fallback and state-preserving
+rejection. The SNES PR smoke replays all 148 media intervals through scheduled
+execution, comparing every pixel/PCM delivery and its cycle boundary with CXXRTL,
+including Debug Step/return handoffs and selected registers/RAM words.
 
 `tests/static/modes.spec.js` compiles the non-SNES two-file Generic fixture and
 compares every discoverable value and all RAM rows after uninterrupted and

@@ -1,6 +1,7 @@
+import { generateFastBackend } from "./fast-backend.js";
 import { boards } from "./output-contracts.js";
 
-// Project source -> Yosys CXXRTL -> Clang/LLD -> a new standalone Wasm module.
+// Project source -> Yosys RTLIL -> scheduled + reference kernels -> browser Wasm.
 // The compiler owns virtual filesystems; editor and board behavior live elsewhere.
 import { validateProject } from "./project.js";
 
@@ -33,9 +34,10 @@ export async function compileProject(project, progress) {
       `hierarchy -check -top ${top}`,
       "proc", "flatten", ...(frontend === "slang" ? ["opt_clean"] : []), "check -assert",
       `rename ${top} webrtltop`,
-      "write_json design.json", "write_cxxrtl -O6 -g4 design.cc",
+      "memory_collect", "write_json design.json", "write_cxxrtl -O6 -g4 design.cc",
     ].join("; ")], files, options);
-    const ports = JSON.parse(generated["design.json"]).modules.webrtltop.ports;
+    const netlist = JSON.parse(generated["design.json"]).modules.webrtltop;
+    const ports = netlist.ports;
     const expected = { clk: ["input", 1], reset: ["input", 1], ...contract.ports };
     if ((board !== "generic" && Object.keys(ports).length !== Object.keys(expected).length) ||
       (board === "generic" && Object.values(ports).some((port) => !["input", "output"].includes(port.direction))) ||
@@ -48,6 +50,8 @@ export async function compileProject(project, progress) {
         Object.entries(expected).map(([name, [direction, width, signed]]) =>
           `${direction} ${signed ? "signed" : "unsigned"} ${width}-bit ${name}`).join(", ")}; ${board === "generic" ? "additional input/output vectors are supported; inouts are unsupported" : "no other ports"}.`);
     }
+    const fast = generateFastBackend(netlist, generated["design.cc"], board);
+    diagnostics += `\nFast backend: ${fast.supported ? "scheduled RTL (shared state ABI v1)" : `CXXRTL fallback: ${fast.reason}`}\n`;
     stage = "Compiling and linking CXXRTL with Clang";
     progress(stage);
     const { runClang } = await import("./tools/clang/bundle.js");
@@ -62,15 +66,17 @@ export async function compileProject(project, progress) {
       // Memory-backed CXXRTL models use C++ containers. This standalone Wasm
       // runtime has no C++ exception ABI; failed checks must abort instead.
       "clang++", `-DBOARD_${board.toUpperCase()}`, "-std=c++17", "-O2", "-fno-exceptions", "-I.", "-mexec-model=reactor",
-      ...["sim_step", "sim_reset", "sim_count", "sim_batch", "sim_frame", "sim_frame_ready",
+      ...["sim_fast_available", "sim_select_backend", "sim_step", "sim_reset", "sim_count", "sim_batch", "sim_frame", "sim_frame_ready",
         "sim_audio", "sim_audio_count", "sim_trace", "sim_trace_count",
         ...["count", "name", "width", "depth", "flags", "type", "lsb", "zero", "read", "input", "settle",
           "clear", "select", "break", "batch", "history", "history_count", "hit"].map((name) => `sim_debug_${name}`),
         ...(board === "snes" ? ["sim_buttons", "sim_cart_config", "sim_cart_byte", "sim_video_height"] : [])].map((name) => `-Wl,--export=${name}`),
       "-Wl,--max-memory=67108864", "sim.cc", "-o", "sim.wasm",
-    ], { ...headers, "design.cc": generated["design.cc"], "sim.cc": await wrapper.text(), "debug-runtime.cpp": await debugWrapper.text() }, options);
+    ], { ...headers, "design.cc": generated["design.cc"], "sim.cc": await wrapper.text(), "debug-runtime.cpp": await debugWrapper.text(), "fast-model.cpp": fast.source }, options);
     return { wasm: result["sim.wasm"], diagnostics: diagnostics.replace(/\x1b\[[0-9;]*m/g, ""),
       metrics: { compileMs: performance.now() - started, wasmBytes: result["sim.wasm"].length,
+        fastBackend: { supported: fast.supported, reason: fast.reason, registers: fast.registers, memories: fast.memories },
+        fastSourceBytes: new TextEncoder().encode(fast.source).length,
         cxxrtlBytes: new TextEncoder().encode(generated["design.cc"]).length } };
   } catch (error) {
     throw new Error(`${stage} failed: ${error.message}\n${diagnostics}`.replace(/\x1b\[[0-9;]*m/g, ""));

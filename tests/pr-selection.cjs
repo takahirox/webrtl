@@ -6,6 +6,8 @@ const genericTitles = Object.freeze([
   "loads the SNES project and compiles an edited counter into fresh browser Wasm",
   "workspace keeps editing central, reflows panes and exposes compilation failures",
   "mode controls inspect/stop, pause a pending Fast batch, reset and recompile",
+  "scheduled RTL matches reference registers, RAM and inputs at every handoff boundary",
+  "unsupported scheduled transitions report fallback and retain the paused circuit",
   "generic RTL retains RAM, both clock edges and inputs through Fast/Debug handoff",
   "falling-edge outputs settle before inspection, history, conditions and mode handoff",
   "clock-triggered asynchronous cascades settle across Fast/Debug capture and conditions",

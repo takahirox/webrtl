@@ -35,6 +35,7 @@ test(snesTitle, { annotation: { type: "cartridges", description: "test.sfc" } },
         compiler.onerror = (event) => reject(new Error(event.message));
         compiler.postMessage({ files, top: "snes", frontend: "slang", board: "snes" });
       });
+      if (!compiled.metrics.fastBackend.supported) throw new Error(`SNES unexpectedly fell back: ${compiled.metrics.fastBackend.reason}`);
       console.log("SNES smoke compiled", JSON.stringify(compiled.metrics));
       const started = performance.now();
       const bytes = new Uint8Array(cartridge);
@@ -58,11 +59,43 @@ test(snesTitle, { annotation: { type: "cartridges", description: "test.sfc" } },
         return trace;
       }
       const trace = await prefix();
-      async function observe(batches, buttons) {
+      const deliveries = [];
+      let replayIndex = 0;
+      async function selectedState() {
+        const { signals } = await call({ action: "mode", mode: "debug" });
+        const registers = signals.filter((s) => s.type === 1);
+        const refs = Array.from({ length: Math.min(32, registers.length) }, (_, i) =>
+          ({ id: registers[Math.floor(i * (registers.length - 1) / 31)].id, row: 0 }));
+        for (const memory of signals.filter((s) => s.depth > 1))
+          for (const row of [0, Math.min(1, memory.depth - 1), memory.depth - 1]) refs.push({ id: memory.id, row });
+        return (await call({ action: "inspect", refs })).values;
+      }
+      async function observe(batches, buttons, compare = false) {
         let frame, height, cycles, samples = 0, nmi = 0, irq = 0, hdma = 0;
         const pcm = [];
         for (let i = 0; i < batches; i++) {
-          const output = await call({ action: "batch", batchCycles: 16384, buttons });
+          let output;
+          if (compare && i === 1) {
+            // Pause -> Debug -> Step -> Fast inside a measured media interval.
+            const { snapshot } = await call({ action: "pause" });
+            await call({ action: "mode", mode: "debug", snapshot });
+            const step = await call({ action: "step", buttons });
+            const paused = await call({ action: "pause" });
+            await call({ action: "mode", mode: "fast", snapshot: paused.snapshot });
+            output = await call({ action: "batch", batchCycles: 16383, buttons });
+            output.audio = Int16Array.from([...(step.audio || []), ...(output.audio || [])]);
+            if (!output.frame && step.frame) { output.frame = step.frame; output.height = step.height; }
+          } else output = await call({ action: "batch", batchCycles: 16384, buttons });
+          if (compare) {
+            if (output.backend !== "scheduled") throw new Error("SNES Fast path silently fell back");
+            const expected = deliveries[replayIndex++];
+            for (const key of ["frame", "audio"]) {
+              const actual = output[key] || [], wanted = expected[key] || [];
+              if (actual.length !== wanted.length || actual.some((v, j) => v !== wanted[j]))
+                throw new Error(`SNES ${key} timing/value mismatch at cycle ${output.cycles}`);
+            }
+            if (output.cycles !== expected.cycles || output.height !== expected.height) throw new Error("SNES clock/frame boundary mismatch");
+          } else deliveries.push(output);
           cycles = output.cycles;
           if (output.frame) { frame = output.frame; height = output.height; }
           if (output.audio) { samples += output.audio.length; pcm.push(...output.audio); }
@@ -91,14 +124,23 @@ test(snesTitle, { annotation: { type: "cartridges", description: "test.sfc" } },
       // Fixed caps fail if boot, DMA, DSP or serial input never produces output.
       const idle = await observe(100, 0);
       const pressed = await observe(48, 2048);
+      const referenceState = await selectedState();
       await call({ action: "power-reset" });
       await load();
       const replay = await prefix();
-      return { idle, pressed, trace, replay, metrics: compiled.metrics,
+      await call({ action: "mode", mode: "fast" });
+      const fastIdle = await observe(100, 0, true);
+      const fastPressed = await observe(48, 2048, true);
+      const fastState = await selectedState();
+      if (JSON.stringify(fastState) !== JSON.stringify(referenceState)) throw new Error("SNES selected register/RAM state differs across engine handoff");
+      return { idle, pressed, fastIdle, fastPressed, comparedDeliveries: replayIndex, trace, replay, metrics: compiled.metrics,
         runtimeMs: performance.now() - started, wasm: Array.from(compiled.wasm) };
     } finally { compiler.terminate(); runtime.terminate(); }
   }, Array.from(readFileSync("examples/snes/test.sfc")));
   const { wasm, ...evidence } = result;
+  expect(result.comparedDeliveries).toBe(148);
+  expect(result.fastIdle.mismatches).toBe(0);
+  expect(result.fastPressed.mismatches).toBe(0);
   writeFileSync(info.outputPath("snes.wasm"), Buffer.from(wasm));
   writeFileSync(info.outputPath("snes-smoke.json"), JSON.stringify(evidence));
   console.log("SNES smoke phases", JSON.stringify({ ...result.metrics, runtimeMs: result.runtimeMs }));

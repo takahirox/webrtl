@@ -141,7 +141,7 @@ Rebuild after changing the UI, adapter, or dependencies.
 
 ```text
 Editor project {files, top}
-  → compiler Web Worker: YoWASP Yosys → generated CXXRTL C++
+  → compiler Web Worker: YoWASP Yosys → reference CXXRTL + scheduled Fast C++
                        → YoWASP Clang/LLD → new sim.wasm bytes
   → terminate compiler worker
   → simulator Web Worker: instantiate sim.wasm → reset/step/batch/read outputs
@@ -159,6 +159,12 @@ clock/reset and batches outputs from the generated model. It contains no counter
 pattern, tone or CPU instruction implementation. The runtime worker
 supplies no filesystem/network imports to the circuit and rejects WASI I/O.
 
+The browser Fast mode uses a compiled edge schedule for compatible circuits,
+including the integrated SNES top; Debug retains CXXRTL. Both evaluators share
+register/RAM storage for lossless paused handoffs. Simulation settings can force
+the CXXRTL reference or select Automatic; unsupported designs report an explicit
+fallback. See [Fast backend architecture and measured tradeoffs](docs/fast-backend.md).
+
 The compiler worker is terminated on success, failure, or timeout. Its C++ and
 virtual filesystem disappear; only the Wasm result moves to a fresh runtime worker.
 The runtime is terminated on editing/recompilation or execution errors. Simulation
@@ -172,8 +178,8 @@ Existing OSS was evaluated before choosing this path:
   Verilator build and Emscripten sysroot integration here.
 - [YoWASP](https://yowasp.org/) distributes browser-ready Yosys and Clang/LLD
   packages with a [common virtual-filesystem API](https://github.com/YoWASP/runtime-js).
-  The pinned Yosys CXXRTL backend plus Clang provides the required synthesizable
-  cycle simulation without a custom HDL compiler or native toolchain build.
+  The pinned Yosys elaborator, reference CXXRTL and scheduled Fast kernels plus
+  Clang provide synthesizable cycle simulation without a native toolchain build.
   This is the selected route. It differs from the local Verilator frontend, so its
   supported HDL and diagnostics differ too.
 

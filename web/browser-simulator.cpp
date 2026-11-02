@@ -29,6 +29,39 @@ static void settle() {
     do { model.eval(); } while (model.commit());
 }
 
+static void capture_outputs() {
+    // Capture after the rising edge has settled, before the falling edge.
+#ifdef BOARD_VIDEO
+    if (model.p_video__valid.get<bool>()) {
+        unsigned x = model.p_video__x.get<unsigned>();
+        unsigned y = model.p_video__y.get<unsigned>();
+        if (x >= width || y >= height) __builtin_trap();
+        unsigned rgb = model.p_video__rgb.get<unsigned>();
+        unsigned offset = (y * width + x) * 4;
+        drawing[offset] = rgb >> 16;
+        drawing[offset + 1] = rgb >> 8;
+        drawing[offset + 2] = rgb;
+        drawing[offset + 3] = 255;
+    }
+    if (model.p_video__last.get<bool>()
+#ifndef BOARD_SNES
+        && model.p_video__valid.get<bool>()
+#endif
+    ) {
+        memcpy(frame, drawing, sizeof(frame));
+        memset(drawing, 0, sizeof(drawing));
+        frame_ready = true;
+    }
+#endif
+#ifdef BOARD_AUDIO
+    if (model.p_audio__valid.get<bool>())
+        samples[sample_count++] = static_cast<int16_t>(model.p_audio__sample.get<unsigned>());
+#endif
+}
+
+#include "fast-model.cpp"
+static bool use_scheduled = fast_available;
+
 template<bool debug = false>
 static void tick(bool capture = true) {
     model.p_clk.set(false);
@@ -45,33 +78,7 @@ static void tick(bool capture = true) {
         trace[offset + 3] = model.p_trace__flags.get<unsigned>();
     }
 #endif
-    // Capture after the rising edge has settled, before the falling edge.
-#ifdef BOARD_VIDEO
-    if (capture && model.p_video__valid.get<bool>()) {
-        unsigned x = model.p_video__x.get<unsigned>();
-        unsigned y = model.p_video__y.get<unsigned>();
-        if (x >= width || y >= height) __builtin_trap();
-        unsigned rgb = model.p_video__rgb.get<unsigned>();
-        unsigned offset = (y * width + x) * 4;
-        drawing[offset] = rgb >> 16;
-        drawing[offset + 1] = rgb >> 8;
-        drawing[offset + 2] = rgb;
-        drawing[offset + 3] = 255;
-    }
-    if (capture && model.p_video__last.get<bool>()
-#ifndef BOARD_SNES
-        && model.p_video__valid.get<bool>()
-#endif
-    ) {
-        memcpy(frame, drawing, sizeof(frame));
-        memset(drawing, 0, sizeof(drawing));
-        frame_ready = true;
-    }
-#endif
-#ifdef BOARD_AUDIO
-    if (capture && model.p_audio__valid.get<bool>())
-        samples[sample_count++] = static_cast<int16_t>(model.p_audio__sample.get<unsigned>());
-#endif
+    if (capture) capture_outputs();
     model.p_clk.set(false);
     settle();
 }
@@ -82,9 +89,19 @@ void sim_batch(unsigned cycles) {
     sample_count = 0;
     frame_ready = false;
     trace_count = 0;
-    for (unsigned i = 0; i < cycles; i++) tick();
+    if (use_scheduled) {
+        for (unsigned i = 0; i < cycles; i++) fast_tick();
+        // Refresh reference output aliases and debug outlines at a settled low
+        // boundary. No reference clock edge occurs during this synchronization.
+        settle();
+    } else for (unsigned i = 0; i < cycles; i++) tick();
 }
 
+unsigned sim_fast_available() { return fast_available; }
+void sim_select_backend(unsigned scheduled) {
+    if (scheduled > 1 || (scheduled && !fast_available)) __builtin_trap();
+    use_scheduled = scheduled;
+}
 void sim_step() { sim_batch(1); }
 void sim_reset() {
 #ifdef BOARD_SNES
