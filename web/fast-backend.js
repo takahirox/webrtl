@@ -190,23 +190,20 @@ function generate(module, source, board) {
   // controls even when a particular board does not observe them.
   schedule(true, (signal) => { for (const cell of cells) for (const [port, direction] of Object.entries(cell.port_directions))
     if (direction === 'output' && cell.type !== '$scopeinfo') signal(cell.connections[port]); });
-  // An acyclic asynchronous-load dependency network has a finite static
-  // settling order. Reject feedback and clock-sensitive async controls.
+  // In-place asynchronous stores are safe only for independent loads. Even an
+  // acyclic dependency can hide an intermediate reset pulse seen by CXXRTL's
+  // evaluation/commit rounds. Keep those circuits on the reference evaluator.
   const asyncRegs = registers.filter((r) => r.cell.type !== '$dff');
   const owner = new Map(asyncRegs.flatMap((r) => r.cell.connections.Q.map((b) => [b, r])));
-  const sorted = [], visited = new Set(), visiting = new Set();
-  function visit(reg) {
-    if (visited.has(reg)) return;
-    require(!visiting.has(reg), 'Asynchronous state feedback requires CXXRTL.');
-    visiting.add(reg);
+  for (const reg of asyncRegs) {
     const seen = new Set();
     function dependencies(bits) {
       for (const bit of bits) {
         if (typeof bit !== 'number' || seen.has(bit)) continue;
         seen.add(bit);
         require(!clock.includes(bit), 'Clock-sensitive asynchronous loads require CXXRTL.');
-        if (owner.has(bit)) visit(owner.get(bit));
-        else if (!roots.has(bit)) {
+        require(!owner.has(bit), 'Interdependent asynchronous loads require CXXRTL to preserve intermediate pulses.');
+        if (!roots.has(bit)) {
           const driver = drivers.get(bit);
           require(driver && driver.cell.type !== '$mem_v2', 'Memory-dependent asynchronous loads require CXXRTL.');
           for (const [port, direction] of Object.entries(driver.cell.port_directions))
@@ -217,10 +214,8 @@ function generate(module, source, board) {
     const c = reg.cell.connections;
     dependencies(c.ARST || c.ALOAD);
     if (c.AD) dependencies(c.AD);
-    visiting.delete(reg); visited.add(reg); sorted.push(reg);
   }
-  asyncRegs.forEach(visit);
-  const asyncCode = sorted.map((reg) => {
+  const asyncCode = asyncRegs.map((reg) => {
     const { connections: c, parameters: p } = reg.cell;
     const load = c.ARST ? 'ARST' : 'ALOAD';
     const scheduled = schedule(false, (signal, lines) => {

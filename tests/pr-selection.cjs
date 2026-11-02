@@ -8,6 +8,7 @@ const genericTitles = Object.freeze([
   "mode controls inspect/stop, pause a pending Fast batch, reset and recompile",
   "scheduled RTL matches reference registers, RAM and inputs at every handoff boundary",
   "unsupported scheduled transitions report fallback and retain the paused circuit",
+  "transient asynchronous reset pulses use reference fallback across Fast/Debug handoff",
   "generic RTL retains RAM, both clock edges and inputs through Fast/Debug handoff",
   "falling-edge outputs settle before inspection, history, conditions and mode handoff",
   "clock-triggered asynchronous cascades settle across Fast/Debug capture and conditions",

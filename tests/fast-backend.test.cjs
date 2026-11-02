@@ -34,3 +34,29 @@ test('scheduled compiler rejects asynchronous feedback and clock-dependent loads
     assert.equal(generateFastBackend(module, source, 'generic').supported, false);
   }
 });
+
+test('scheduled compiler rejects dependencies on asynchronous state in controls and load data', async () => {
+  const { generateFastBackend } = await load();
+  const layout = source.replace('p_webrtltop(interior)', 'wire<1> p_r; p_webrtltop(interior)');
+  for (const port of ['ALOAD', 'AD']) {
+    const module = fixture();
+    module.netnames.r = { bits: [5] };
+    const state = module.cells.state;
+    state.type = '$aldff'; state.parameters.ALOAD_POLARITY = '1';
+    state.connections.ALOAD = [3]; state.connections.AD = ['0'];
+    state.port_directions.ALOAD = state.port_directions.AD = 'input';
+    const second = structuredClone(state);
+    second.connections.Q = second.connections.D = [5];
+    module.cells.second = second;
+    // Independent asynchronous loads remain schedulable.
+    assert.equal(generateFastBackend(module, layout, 'generic').supported, true);
+    // Include a combinational cone between the first register and the second.
+    module.cells.invert = { type: '$not', parameters: {},
+      connections: { A: [4], Y: [6] }, port_directions: { A: 'input', Y: 'output' } };
+    second.connections[port] = [6];
+    const result = generateFastBackend(module, layout, 'generic');
+    assert.equal(result.supported, false);
+    assert.match(result.reason, /Interdependent asynchronous loads/);
+    assert.ok(!result.source.includes('fast_rising'));
+  }
+});
