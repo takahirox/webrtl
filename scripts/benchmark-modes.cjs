@@ -2,7 +2,7 @@
 // Build/serve the static site first. Pass the baseline Git revision explicitly.
 const { chromium } = require("@playwright/test");
 const { execFileSync } = require("node:child_process");
-const { mkdirSync, writeFileSync, symlinkSync, existsSync } = require("node:fs");
+const { mkdirSync, readFileSync, writeFileSync, symlinkSync, existsSync } = require("node:fs");
 const path = require("node:path");
 const ref = process.argv[2];
 if (!ref || !/^[a-zA-Z0-9_.\/-]+$/.test(ref)) throw new Error("Usage: node scripts/benchmark-modes.cjs BASELINE_REF [--snes]");
@@ -20,14 +20,15 @@ if (!existsSync(path.join(baseline, "tools"))) symlinkSync("../tools", path.join
     const designs = [
       { name: "counter", board: "counter", top: "counter", urls: ["example.v"], batches: 512 },
       { name: "cpu-bus-ram", board: "counter", top: "bus_test", batches: 512,
-        urls: ["bus-test.v", "bus-master.v", "bus-rom.v", "bus-ram.v", "bus-decoder.v"].map((n) => `examples/cpu-bus/${n}`) },
+        files: Object.fromEntries(["bus-test.v", "bus-master.v", "bus-rom.v", "bus-ram.v", "bus-decoder.v"]
+          .map((name) => [name, readFileSync(`tests/fixtures/cpu-bus/${name}`, "utf8")])) },
       ...(process.argv.includes("--snes") ? [{ name: "snes", board: "snes", top: "snes", frontend: "slang", batches: 32,
         urls: ["examples/snes/snes.v", "examples/snes/snes-core.v"] }] : []),
     ];
     const results = [];
     for (const design of designs) {
       results.push(await page.evaluate(async (design) => {
-        const files = Object.fromEntries(await Promise.all(design.urls.map(async (url) => [url.split("/").at(-1), await (await fetch(url)).text()])));
+        const files = design.files || Object.fromEntries(await Promise.all(design.urls.map(async (url) => [url.split("/").at(-1), await (await fetch(url)).text()])));
         const measurements = [];
         for (const variant of ["baseline", "current"]) {
           const { compileBrowser } = await import(variant === "baseline" ? "./baseline/browser-client.js" : "./browser-client.js");

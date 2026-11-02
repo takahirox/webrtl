@@ -1,4 +1,5 @@
 const { test, expect } = require("@playwright/test");
+const { readFileSync } = require("node:fs");
 
 async function load(page) {
   await page.addInitScript(() => {
@@ -28,6 +29,10 @@ async function load(page) {
   await page.locator("#example").selectOption("debug-ram");
   await page.locator("#load-example").click();
   await expect(page.locator("#top")).toHaveValue("debug_ram");
+  await expect(page.locator("#interface")).toHaveValue("generic");
+  await expect(page.locator("#frontend")).toHaveValue("verilog");
+  await expect(page.locator("#files option")).toHaveText(["debug-ram.v", "debug-store.v"]);
+  await expect(page.locator("#source")).toHaveValue(readFileSync("examples/debug-ram/debug-ram.v", "utf8"));
   await page.locator("#compile").click();
   await expect(page.locator("#compile")).toBeEnabled({ timeout: 120000 });
   await expect(page.locator("#errors")).toBeHidden();

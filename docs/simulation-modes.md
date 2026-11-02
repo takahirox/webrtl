@@ -13,7 +13,7 @@ For a project without a predefined media adapter, choose **Generic**. It require
 scalar unsigned `clk` and active-high `reset` inputs; other ports may be arbitrary
 input/output bit vectors. Inouts and additional independently scheduled clocks
 are unsupported. Clocking, reset and two-state synthesis limitations are the same
-as the existing CXXRTL runtime. Use **Generic RAM pipeline · Fast/Debug** for a
+as the existing CXXRTL runtime. Use **RAM / Debug** for a
 two-file example with a 16-byte writable RAM, an accumulator, a 65-bit register,
 and falling-edge state. In Debug, set `enable` to `0x1` and `stimulus` to `0x13`,
 select `address`, set Equals to 3, Apply, and Run. Execution stops at cycle 3.

@@ -1,6 +1,9 @@
-# 65C816 CPU to PPU backdrop
+# 65C816 CPU to PPU backdrop regression fixture
 
-Load **65C816 CPU → PPU backdrop · 64 × 48**, then **Compile** and **Run**.
+This is a repository-only regression fixture, outside the bundled presets.
+Import its four `.v` files and the nine CPU sources using
+[fixture setup](../tests/fixtures/README.md), set top `cpu816_backdrop` and the
+**Video** output interface, then **Compile** and **Run**.
 The real P65C816 executes an original program, writes PPU registers, and produces
 a red Canvas frame. Select `backdrop-rom.v`, change the color bytes at `$800C`
 and `$8011` from `1F / 00` to `E0 / 03`, and compile/run again: the frame becomes
@@ -10,15 +13,15 @@ new Wasm using the existing static Yosys/CXXRTL/Clang toolchain under `/webrtl/`
 
 ## Sources and redistribution
 
-The nine CPU sources are reused directly from [cpu816](../examples/cpu816/),
+The nine CPU sources are reused directly from [cpu816](../tests/fixtures/cpu816/),
 without copies or further changes. The integration, pinned upstream revision
 `9adbba8622f378253765b7d438b6cbcc4d03fc57`, original authors (srg320 and
 Alan Steremberg), and reproducible Yosys compatibility adaptations remain in
 [the CPU guide](cpu816.md#core-license-and-hdl-adaptations) and
-[upstream notices](../examples/cpu816/UPSTREAM.md).
+[upstream notices](../tests/fixtures/cpu816/UPSTREAM.md).
 
 Four new, original synthesizable sources live in
-[examples/cpu816-backdrop](../examples/cpu816-backdrop/):
+[tests/fixtures/cpu816-backdrop](../tests/fixtures/cpu816-backdrop/):
 
 | File | Role |
 | --- | --- |
@@ -31,8 +34,9 @@ All four new RTL sources, including the ROM program, are freely redistributable
 under **GPL-3.0-or-later**, consistent with the inherited CPU license. Preserve
 the CPU copyright/provenance notices and provide corresponding source under the
 GPL when distributing the combined design or generated simulator. The full
-[license](../examples/cpu816/LICENSE) and all example sources ship in the static
-artifact. No commercial game, firmware, SDK code or external binary ROM is used.
+[license](../tests/fixtures/cpu816/LICENSE) and all fixture sources remain in the
+repository; they are not copied into the static artifact. No commercial game,
+firmware, SDK code or external binary ROM is used.
 
 ## Bus and reset
 
@@ -106,7 +110,7 @@ is RGB `(255,0,0)`; `03E0` is `(0,255,0)`; `65B2` at brightness 7 is `(69,49,96)
 
 ## Original ROM and observed bus writes
 
-The complete ROM byte map is in [backdrop-rom.v](../examples/cpu816-backdrop/backdrop-rom.v).
+The complete ROM byte map is in [backdrop-rom.v](../tests/fixtures/cpu816-backdrop/backdrop-rom.v).
 Unlisted bytes return `DB` (STP). Bytes are hexadecimal; no assembler or ROM
 loader is required.
 
@@ -190,8 +194,8 @@ ROM for red/green, forced blank, brightness zero and a mixed color at partial
 brightness, and verifies Step/Run/Pause/reset/recompile without stale frames.
 Independent device tests use a test-only RTL sequencer; CPU bus observations use
 the production board logic with only its Video ports swapped for the existing
-trace contract. Neither is a substitute CPU or device in the shipped example.
-The full static suite retains all earlier demos.
+trace contract. Neither is a substitute CPU or device in the regression fixture.
+The full static suite retains all earlier circuit regressions.
 
 Measurements on 2026-10-29, macOS 26.6.2 arm64, Playwright 1.64.1 browsers,
 static HTTP loopback under `/webrtl/`, fresh browser contexts (process/system
@@ -221,20 +225,3 @@ existing Verilator 5.052 / Emscripten 6.0.13 incompatibility: undefined
 `pthread_getaffinity_np`, `sched_getcpu` and `pthread_setaffinity_np` at link time.
 That native check did **not** pass. It does not use the browser toolchain tested
 above; no native toolchain or trusted-local implementation is changed here.
-
-## Required post-merge verification — pending deployment
-
-After deployment, run this same automated color-edit/reset smoke test against
-the public site, and record the deployed result separately:
-
-```sh
-WEBRTL_PUBLIC_URL=https://takahirox.github.io/webrtl/ \
-  npx playwright test --config=playwright.static.config.js tests/static/backdrop.spec.js \
-  --grep 'CPU backdrop compiles, renders, edits ROM color and resets'
-```
-
-Build the local artifact first for the test server. The smoke check verifies
-static GET-only requests under `/webrtl/`, new browser-generated Wasm, executed
-CPU color changes, forced blank and reset/repeat through the deployed Canvas.
-Local pre-merge success does not establish deployment success. Publishing and
-live-site verification are not pre-merge approval conditions.

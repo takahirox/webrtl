@@ -68,6 +68,9 @@ async function select(page, board) {
   page.off("dialog", acceptReplacement);
   await expect(page.locator("#source")).toHaveValue(readFileSync(`examples/${board}.v`, "utf8"));
   await expect(page.getByLabel("Output interface", { exact: true })).toHaveValue(board);
+  await expect(page.locator("#top")).toHaveValue(board);
+  await expect(page.locator("#frontend")).toHaveValue("verilog");
+  await expect(page.locator("#files option")).toHaveText([`${board}.v`]);
 }
 
 async function pixels(page) {

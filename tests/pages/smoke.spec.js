@@ -25,6 +25,11 @@ test("serves this checkout's UI, SNES sources and cartridge under /webrtl/", asy
     expect(response.ok(), url).toBe(true);
     expect((await response.body()).equals(readFileSync(source)), url).toBe(true);
   }
+  // Removed presets and repository-only fixtures must not enter the built site.
+  for (const directory of ["split-counter", "cpu-bus", "cpu816", "cpu816-bg1", "cpu816-backdrop"]) {
+    expect((await request.get(`examples/${directory}/`)).status(), directory).toBe(404);
+  }
+  expect((await request.get("tests/fixtures/")).status()).toBe(404);
 });
 
 test("loads the SNES project and compiles an edited counter into fresh browser Wasm", async ({ page, context }) => {
@@ -48,18 +53,43 @@ test("loads the SNES project and compiles an edited counter into fresh browser W
   const source = page.locator("#source");
   await expect(source).toHaveValue(readFileSync("examples/counter.v", "utf8"));
   const example = page.getByLabel("Example", { exact: true });
-  await expect(example.locator('option[value="snes"]')).toHaveText("SNES · experimental base console RTL");
-  await example.selectOption("snes");
-  await page.getByRole("button", { name: "Load example (replaces project)", exact: true }).click();
+  await expect(example.locator("option")).toHaveText(["Counter", "RAM / Debug", "Video", "Audio", "SNES"]);
+  expect(await example.locator("option").evaluateAll((options) => options.map((option) => option.value)))
+    .toEqual(["single", "debug-ram", "video", "audio", "snes"]);
+  await expect(example.locator("optgroup")).toHaveCount(0);
+  for (const [id, top, board, frontend, paths] of [
+    ["single", "counter", "counter", "verilog", ["examples/counter.v"]],
+    ["debug-ram", "debug_ram", "generic", "verilog", ["examples/debug-ram/debug-ram.v", "examples/debug-ram/debug-store.v"]],
+    ["video", "video", "video", "verilog", ["examples/video.v"]],
+    ["audio", "audio", "audio", "verilog", ["examples/audio.v"]],
+    ["snes", "snes", "snes", "slang", ["examples/snes/snes.v", "examples/snes/snes-core.v"]],
+  ]) {
+    await example.selectOption(id);
+    await page.locator("#load-example").click();
+    await expect(page.locator("#top")).toHaveValue(top);
+    await expect(page.locator("#interface")).toHaveValue(board);
+    await expect(page.locator("#frontend")).toHaveValue(frontend);
+    const names = paths.map((path) => path.split("/").at(-1));
+    await expect(page.locator("#files option")).toHaveText(names);
+    for (const [index, path] of paths.entries()) {
+      await page.locator("#files").selectOption(names[index]);
+      await expect(source).toHaveValue(readFileSync(path, "utf8"));
+    }
+    await page.locator("#files").selectOption(names[0]);
+    await expect(page.getByRole("alert")).toBeHidden();
+  }
   await expect(source).toHaveValue(readFileSync("examples/snes/snes.v", "utf8"));
   await expect(page.getByLabel("Source file", { exact: true }).locator("option"))
     .toHaveText(["snes.v", "snes-core.v"]);
   await expect(page.locator("#cartridge-controls")).toBeVisible();
   await expect(page.locator("#frontend")).toHaveValue("slang");
 
-  // Keep full console compilation/cartridge sweeps in the full regression workflow.
+  // Console compilation is covered by the PR SNES smoke; corpus sweeps stay in the full suite.
   await example.selectOption("single");
   await page.getByRole("button", { name: "Load example (replaces project)", exact: true }).click();
+  await expect(page.locator("#top")).toHaveValue("counter");
+  await expect(page.locator("#interface")).toHaveValue("counter");
+  await expect(page.locator("#frontend")).toHaveValue("verilog");
   const counter = readFileSync("examples/counter.v", "utf8");
   await expect(source).toHaveValue(counter);
   await source.fill(counter.replace("count + 8'd1", "count + 8'd3"));

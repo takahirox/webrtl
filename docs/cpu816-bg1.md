@@ -1,18 +1,20 @@
-# CPU-programmed BG1 Mode 0 tiles
+# CPU-programmed BG1 Mode 0 tiles regression fixture
 
 Issue [#20](https://github.com/takahirox/webrtl/issues/20) adds a focused,
-SNES-inspired 8×8, 2bpp BG1 path. Load **65C816 CPU → BG1 tiles · 64 × 48** in
-the static app, Compile, then Run. The 64×48 Canvas shows a four-color repeating
+SNES-inspired 8×8, 2bpp BG1 path, now retained as a repository-only regression
+fixture outside the bundled presets. Import its four `.v` files and the nine CPU
+sources using [fixture setup](../tests/fixtures/README.md), set top `cpu816_bg1`
+and the **Video** output interface, then Compile and Run. The 64×48 Canvas shows a four-color repeating
 checkerboard and a single magenta/cyan striped tile at screen coordinates
 x=8..15, y=0..7. CPU instructions write the pixels' source memories through PPU
 registers; JavaScript only transfers the existing RTL Video output to Canvas.
 
 ## Sources, license and compiler
 
-The selector loads 13 files with top module `cpu816_bg1`, using the existing Video
-interface. The nine unchanged [P65C816 sources](../examples/cpu816/README.md)
+The tests import 13 files with top module `cpu816_bg1`, using the existing Video
+interface. The nine unchanged [P65C816 sources](../tests/fixtures/cpu816/README.md)
 retain their pinned provenance, GPL-3.0-or-later license and existing browser
-compatibility adaptations. The four [BG1 files](../examples/cpu816-bg1/README.md)
+compatibility adaptations. The four [BG1 files](../tests/fixtures/cpu816-bg1/README.md)
 provide the board, original inline ROM, PPU and scanout. The board reuses the
 backdrop example's CPU bus integration: `CE=RDY=1`, interrupts inactive,
 asynchronous ROM reads at bank $00:$8000..$FFFF, data $FF elsewhere, and qualified
@@ -21,8 +23,8 @@ no console mirrors, RAM, stack storage or device reads. Reset-vector CPU bus
 activity includes the core's dummy stack writes; the board discards them.
 
 The new RTL, original program and ROM generator are GPL-3.0-or-later. See the
-[core license](../examples/cpu816/LICENSE) and
-[provenance](../examples/cpu816/UPSTREAM.md); preserve notices and corresponding
+[core license](../tests/fixtures/cpu816/LICENSE) and
+[provenance](../tests/fixtures/cpu816/UPSTREAM.md); preserve notices and corresponding
 source when distributing combined/generated designs. No game ROM is used.
 
 Compilation remains entirely in the browser: pinned Yosys → CXXRTL → Clang/LLD →
@@ -179,7 +181,7 @@ frames. Each tile/map/palette/flip/blank/mode edit recompiles the ROM and repeat
 Canvas/reset checks. Additional device stimuli verify both increment ports,
 1/32/128 strides, address wrap, sparse writes without aliasing, bank qualification,
 inactive writes, base/size selection, CGRAM pair restart/commit/wrap and reset
-precedence. Test-only observation ports/sequencers do not ship in the example.
+precedence. Test-only observation ports/sequencers are added by the tests.
 Prior counter, CPU bus, 65C816, backdrop, video and audio tests remain enabled.
 
 The project is 129,830 UTF-8 source bytes including the reused CPU, below the
@@ -214,20 +216,3 @@ backdrop, video and audio regressions), and **8 Python service tests passed**.
 The ROM generator's `--check`, documentation relative links and Git whitespace
 checks passed. The separate native trusted-local suite was not run; validation
 used the client-side compiler and runtime affected by this change.
-
-## Required post-merge public-site verification — pending deployment
-
-After merge and Pages deployment, run the same automated smoke test against the
-public site and record its actual result separately:
-
-```sh
-WEBRTL_PUBLIC_URL=https://takahirox.github.io/webrtl/ \
-  npx playwright test --config=playwright.static.config.js tests/static/bg1.spec.js \
-  --grep 'CPU BG1 compiles, renders, edits ROM tile/map/palette and resets'
-```
-
-Build the local artifact first for the test server. The public smoke test compiles
-the example, verifies the expected tile frame, edits the ROM tile/map/palette and
-recompiles, resets and repeats, while checking static same-origin GET-only access.
-Local pre-merge validation does not establish publication or deployed results.
-Deployment/public-site validation is required after merge, not a pre-merge gate.

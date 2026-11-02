@@ -1,4 +1,5 @@
 const { test, expect } = require("@playwright/test");
+const { importProject } = require("../import-project.cjs");
 
 async function noPageOverflow(page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -51,8 +52,8 @@ test("workspace keeps editing central, reflows panes and exposes compilation fai
   }
 
   // The flat file switcher retains text and native textarea selection/scroll.
-  await page.locator("#example").selectOption("split");
-  await page.locator("#load-example").click();
+  await importProject(page, ["tests/fixtures/split-counter/split-counter.v",
+    "tests/fixtures/split-counter/counter-next.v"], "split_counter");
   await expect(page.locator("#files option")).toHaveText(["split-counter.v", "counter-next.v"]);
   const edited = (await source.inputValue()) + "\n// in-memory edit";
   await source.fill(edited);

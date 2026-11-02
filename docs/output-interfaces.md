@@ -77,7 +77,7 @@ the latest one. No sync waveform or blanking intervals are emulated.
 computed by the compiled RTL. JavaScript only copies the received RGBA bytes to
 Canvas and scales the image with nearest-neighbor display.
 
-The selectable [65C816 PPU backdrop example](cpu816-backdrop.md) uses this same
+The imported [65C816 PPU backdrop regression fixture](cpu816-backdrop.md) uses this same
 Video contract. A real CPU program writes a minimal PPU register subset, and RTL
 scanout snapshots CGRAM word 0 for each solid frame. The first frame is forced
 blank; the next shows the programmed color. Edit the ROM and recompile to change

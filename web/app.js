@@ -284,36 +284,18 @@ if (browser) {
     controls();
     try {
       const example = ui.example.value;
-      const board = example === "debug-ram" ? "generic" : ["backdrop", "bg1"].includes(example) ? "video" :
-        ["single", "split", "bus"].includes(example) ? "counter" : example;
-      const split = example === "split";
-      const sources = example === "debug-ram" ? ["debug-ram.v", "debug-store.v"].map((name) => [name, `./examples/debug-ram/${name}`]) : example === "snes" ? ["snes.v", "snes-core.v"].map((name) => [name, `./examples/snes/${name}`])
-        : ["backdrop", "bg1"].includes(example)
-        ? [
-          ...(example === "bg1"
-            ? ["cpu816-bg1.v", "bg1-ppu.v", "bg1-rom.v", "bg1-scanout.v"]
-            : ["cpu816-backdrop.v", "backdrop-ppu.v", "backdrop-rom.v", "backdrop-scanout.v"])
-            .map((name) => [name, `./examples/cpu816-${example}/${name}`]),
-          ...["P65C816_pkg.v", "P65C816.v", "mcode.v", "AddrGen.v", "ALU.v",
-            "AddSubBCD.v", "BCDAdder.v", "adder4.v", "bit_adder.v"]
-            .map((name) => [name, `./examples/cpu816/${name}`]),
-        ]
-        : example === "cpu816"
-        ? ["cpu816-test.v", "cpu816-memory.v", "cpu816-rom.v", "P65C816_pkg.v", "P65C816.v", "mcode.v",
-          "AddrGen.v", "ALU.v", "AddSubBCD.v", "BCDAdder.v", "adder4.v", "bit_adder.v"]
-          .map((name) => [name, `./examples/cpu816/${name}`])
-        : example === "bus"
-        ? ["bus-test.v", "bus-master.v", "bus-rom.v", "bus-ram.v", "bus-decoder.v"]
-          .map((name) => [name, `./examples/cpu-bus/${name}`])
-        : split
-        ? [["split-counter.v", "./examples/split-counter/split-counter.v"], ["counter-next.v", "./examples/split-counter/counter-next.v"]]
+      const board = example === "debug-ram" ? "generic" : example === "single" ? "counter" : example;
+      const sources = example === "debug-ram"
+        ? ["debug-ram.v", "debug-store.v"].map((name) => [name, `./examples/debug-ram/${name}`])
+        : example === "snes"
+        ? ["snes.v", "snes-core.v"].map((name) => [name, `./examples/snes/${name}`])
         : [[`${board}.v`, board === "counter" ? "./example.v" : `./examples/${board}.v`]];
       const entries = await Promise.all(sources.map(async ([name, url]) => [name, await loadSource(url)]));
       editorPositions.clear();
       activeFile = null;
       files = Object.fromEntries(entries);
       ui.frontend.value = example === "snes" ? "slang" : "verilog";
-      ui.top.value = example === "debug-ram" ? "debug_ram" : example === "bg1" ? "cpu816_bg1" : example === "backdrop" ? "cpu816_backdrop" : example === "bus" ? "bus_test" : split ? "split_counter" : boards[board].top;
+      ui.top.value = example === "debug-ram" ? "debug_ram" : boards[board].top;
       projectChanged();
       selectInterface(board);
       refreshFiles(entries[0][0]);

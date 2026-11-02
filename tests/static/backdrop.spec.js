@@ -1,6 +1,7 @@
 const { test, expect } = require("@playwright/test");
 const { readFileSync } = require("node:fs");
-const rtl = (name) => readFileSync(`examples/cpu816-backdrop/${name}`, "utf8");
+const { importProject, cpuSources } = require("../import-project.cjs");
+const rtl = (name) => readFileSync(`tests/fixtures/cpu816-backdrop/${name}`, "utf8");
 const row = (trace) => Array.from({ length: trace.length / 4 }, (_, i) => trace.slice(i * 4, i * 4 + 4));
 
 async function load(page) {
@@ -28,8 +29,10 @@ async function load(page) {
     };
   });
   await page.goto(process.env.WEBRTL_PUBLIC_URL || "./");
-  await page.locator("#example").selectOption("backdrop");
-  await page.locator("#load-example").click();
+  await importProject(page, [
+    ...["cpu816-backdrop.v", "backdrop-ppu.v", "backdrop-rom.v", "backdrop-scanout.v"].map((name) => `tests/fixtures/cpu816-backdrop/${name}`),
+    ...cpuSources.map((name) => `tests/fixtures/cpu816/${name}`),
+  ], "cpu816_backdrop", "video");
   await expect(page.locator("#source")).toHaveValue(rtl("cpu816-backdrop.v"));
   await expect(page.locator("#files option")).toHaveCount(13);
   await expect(page.locator("#interface")).toHaveValue("video");

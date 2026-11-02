@@ -59,56 +59,26 @@ The browser compiler starts in **Fast** mode. Pause and select **Debug** to insp
 hierarchical signals and RAM, set a value/edge condition, or collect up to 256
 clocks of selected-signal history. Pause and return to Fast to continue the same
 live circuit. Choose **Generic** for arbitrary input/output vectors around the
-`clk`/`reset` interface, or load **Generic RAM pipeline · Fast/Debug** to try the
+`clk`/`reset` interface, or load **RAM / Debug** to try the
 two-file writable-memory example. See [simulation modes](docs/simulation-modes.md)
 for clock boundaries, input controls, live snapshot compatibility, limitations,
 validation and throughput measurements.
 
-For a small multi-file demonstration, choose **Two-file counter** and click
-**Load example**. Edited projects require confirmation before replacement.
-The top module `split_counter` in
-[split-counter.v](examples/split-counter/split-counter.v) instantiates `counter_next`
-from [counter-next.v](examples/split-counter/counter-next.v). Compile and Step to 1.
-Select `counter-next.v`, change `current + 8'd1` to `current + 8'd3`, compile again,
-and Step to 3 then 6. The output comes from the newly generated WASM circuit, with
-both source files compiled together. Choose **Single-file counter** and load it to
-return to the original example. Loading an example replaces all current sources;
-projects are held only in memory and are lost on reload.
+The **Example** selector contains five presets:
 
-Choose **CPU bus · ROM/RAM self-test (pass = 1, fail = 255)** for a five-file
-CPU-style memory example. Its small RTL bus master reads inline ROM bytes, writes
-XOR-transformed bytes into RAM, and verifies readback. Compile and Step 13 times
-or Run: the existing `count` output displays transaction bytes, then **1 = PASS**
-(**255 = FAIL**). Reset clears RAM and repeats the sequence. See the
-[bus contract, address map and expected trace](docs/cpu-bus.md) for timing,
-source files, fault edits and the required post-merge public-site check.
+| Preset | Design |
+| --- | --- |
+| **Counter** | Single-file 8-bit counter |
+| **RAM / Debug** | Two-file generic RAM pipeline for Fast/Debug inspection |
+| **Video** | 64 × 48 RTL test pattern |
+| **Audio** | RTL mono PCM16 tone |
+| **SNES** | Experimental full-console RTL with cartridge and controller input |
 
-Choose **65C816 CPU · machine-code ROM test** for a real synthesizable P65C816
-CPU running an inline permitted program. Compile, then Run to **PASS** (37 CPU
-clocks), or select Debug and Step to inspect its reset-vector, instruction-fetch and 24-bit
-RAM write/readback bus trace. Reset repeats deterministically. See the
-[65C816 guide](docs/cpu816.md) for core provenance/GPL license, source adaptations,
-ROM bytes, memory/timing contracts, fault edits, measured browser performance,
-automated checks and the pending post-merge Pages check. This is a small RTL
-board example; it contains no JavaScript CPU emulator or SNES console devices.
-
-Choose **65C816 CPU → PPU backdrop · 64 × 48** to connect the real CPU to a
-minimal SNES-inspired PPU. Compile and Run to show a solid red backdrop. Edit
-`backdrop-rom.v` color bytes at `$800C / $8011` from `1F / 00` to `E0 / 03`,
-recompile and Run to turn it green. The CPU performs the actual register writes;
-the existing Video worker/Canvas path draws the RTL pixels. See the
-[backdrop guide](docs/cpu816-backdrop.md) for the three-register subset, original
-GPL ROM, frame timing, automated pixel/bus tests, performance and pending public
-site verification. This example uses the existing source and runtime bounds.
-
-Choose **65C816 CPU → BG1 tiles · 64 × 48** for a CPU-programmed Mode 0 (2bpp)
-example. Compile and Run to see a repeating blue/red/green/white checkerboard
-and one magenta/cyan striped tile. The actual CPU writes RTL-owned VRAM, tilemap
-and CGRAM through memory-mapped PPU registers. Edit the labeled tile/map/palette
-bytes in `bg1-rom.v` and recompile to change the pixels. See the
-[BG1 guide](docs/cpu816-bg1.md) for the sparse memory/register subset, reproducible
-original GPL ROM, expected pixels, frame/reset timing, browser tests, measurements
-and required post-merge public-site check. Existing compiler/runtime limits apply.
+Choose a preset and click **Load example** to replace all current sources.
+Edited projects require confirmation before replacement. Projects are held only
+in memory and are lost on reload. You can still import or create multi-file,
+CPU/bus and other supported RTL designs with any valid top-module name and the
+appropriate output interface; presets are starting points for editing.
 
 Invalid names, duplicate imports/renames, or imports exceeding the size limit are
 rejected without replacing existing files. Import batches are atomic: if any file
@@ -116,7 +86,7 @@ fails validation, none are added. Compilation errors retain all sources and the
 chosen top module so you can fix and retry. Missing modules and Verilog errors
 include the existing Yosys diagnostics.
 
-Choose **SNES · experimental base console RTL** for the complete SNESTang hardware
+Choose **SNES** for the complete SNESTang hardware
 source integrated with RTL memories and a serial controller. Compile with the
 automatically selected Slang frontend, then load a local redistributable LoROM or
 HiROM cartridge, or the original test cartridge. The CPU uploads graphics by DMA
@@ -234,10 +204,10 @@ texts ship in [third-party-notices.txt](web/third-party-notices.txt).
   input **`clk`**, scalar active-high input **`reset`**, and unsigned 8-bit output
   **`count`**, with no extra ports. Interface mismatches report an error before C++
   compilation. Reset follows the edited circuit's RTL; it does not force zero
-  independently of that circuit. The CPU bus example uses this same output for
-  its result register; its ROM/RAM bus stays internal to RTL. The Generic interface
+  independently of that circuit. User CPU/bus designs can use this output for
+  a result register while keeping their ROM/RAM bus internal to RTL. The Generic interface
   accepts additional input/output vectors with Debug inspection and input controls;
-  arbitrary external ROM/RAM loading remains follow-up work. The 65C816 example has
+  arbitrary external ROM/RAM loading remains follow-up work. The 65C816 interface has
   its focused [result/trace contract](docs/cpu816.md#adapter-bounds-and-performance).
   Video and Audio use
   their documented [output contracts](docs/output-interfaces.md) with any valid
@@ -347,7 +317,7 @@ succeeded, and record its source SHA, run URL, deployment URL and elapsed second
 Fetch the public `/webrtl/build-info.json` without a stale browser cache and compare
 `commit` with that run's SHA (or a newer successfully deployed `main` SHA).
 In a fresh browser context confirm the public Example selector exposes
-**SNES · experimental base console RTL** and loads its source project. Separately
+**SNES** and loads its source project. Separately
 record a PR or manual **Full validation** run's ref/SHA, URL, duration and actual
 result. If needed, dispatch that workflow on the merged `main` ref. A failure must
 be investigated and reported; successful local checks do not prove live publication
@@ -359,12 +329,6 @@ Step=1, then change the increment to `8'd3`, compile, and check Step=3 then 6.
 Check Run/Pause/Reset and syntax-error recovery. Confirm requests stay under
 `/webrtl/` and only download static assets. This live deployment check remains
 pending until deployment; local pre-merge tests do not prove publication succeeded.
-
-**Required post-merge verification for #12:** after deployment, open the public
-`/webrtl/` site, load and compile the two-file counter, and confirm Step=1. Change
-`current + 8'd1` to `current + 8'd3` in `counter-next.v`, compile again, and confirm
-Step=3 then 6 and working Run/Pause/Reset. Record the public-site result separately.
-This check is pending deployment; local static-site tests are pre-merge evidence only.
 
 ## Local setup
 
@@ -512,12 +476,14 @@ The static tests assemble the compiler, serve only `.build/pages/` on port 8766,
 and load `/webrtl/` in Chromium and Firefox. They observe real newly generated Wasm
 bytes and differing circuit outputs, 255 → 0 wraparound, Run/Pause/Step/Reset,
 recompilation during Run, source edits, syntax errors, interface errors, missing
-tooling and recovery, the two-file example with a chosen top and edited helper,
+tooling and recovery, an imported two-file project with a chosen top and edited helper,
 file switching/add/rename/remove, atomic multi-file imports, invalid and duplicate
 filenames, total source limits, missing top modules, UI heartbeats during compilation,
 and same-origin static GET requests without a build API. The video/audio suite
 also checks edited RTL pixels and PCM, precise framing/sample timing, real
 Web Audio processing, unlock failure recovery, and output lifecycle/bounds.
+Repository-only [regression fixtures](tests/fixtures/README.md) preserve independent
+multi-file, CPU/bus and PPU coverage without bundling extra presets.
 The CPU bus suite checks the complete ROM-to-RAM transaction trace, deterministic
 reset, edited ROM/RAM failures, address decoding/protection, and compiler recovery.
 The 65C816 suite compiles the existing RTL CPU, checks instruction/vector/bus

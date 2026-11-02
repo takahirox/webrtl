@@ -1,6 +1,6 @@
 # SNES integration attempt — Issue #22
 
-The selectable **SNES · experimental base console RTL** example integrates real
+The selectable **SNES** example integrates real
 CPU, PPU, APU, DMA/HDMA and controller hardware. Its source is compiled into a new
 Wasm circuit in the browser. This is an integration attempt with explicit
 validation limits, not a claim of complete SNES compatibility. The supported feature

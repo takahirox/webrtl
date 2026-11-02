@@ -1,4 +1,5 @@
 const { test, expect } = require("@playwright/test");
+const { importProject } = require("../import-project.cjs");
 const { readFileSync, existsSync } = require("node:fs");
 
 async function observeCompilations(page) {
@@ -172,7 +173,7 @@ test("reports missing tooling, permits retry, and diagnoses an incompatible inte
   await expect(page.locator("#count")).toHaveText("0");
 });
 
-test("runs the two-file example, retains edits across files, and compiles a selected top and edited helper", async ({ page, context }) => {
+test("imports a two-file project, retains edits across files, and compiles a selected top and edited helper", async ({ page, context }) => {
   const requests = [];
   const errors = [];
   context.on("request", (request) => requests.push(request));
@@ -185,10 +186,10 @@ test("runs the two-file example, retains edits across files, and compiles a sele
   const compile = page.getByRole("button", { name: "Compile", exact: true });
   const step = page.getByRole("button", { name: "Step", exact: true });
   const count = page.locator("#count");
-  await page.getByLabel("Example", { exact: true }).selectOption("split");
-  await page.getByRole("button", { name: "Load example (replaces project)", exact: true }).click();
-  const main = readFileSync("examples/split-counter/split-counter.v", "utf8");
-  const helper = readFileSync("examples/split-counter/counter-next.v", "utf8");
+  await importProject(page, ["tests/fixtures/split-counter/split-counter.v",
+    "tests/fixtures/split-counter/counter-next.v"], "split_counter");
+  const main = readFileSync("tests/fixtures/split-counter/split-counter.v", "utf8");
+  const helper = readFileSync("tests/fixtures/split-counter/counter-next.v", "utf8");
   await expect(source).toHaveValue(main);
   await expect(top).toHaveValue("split_counter");
   await expect(files.locator("option")).toHaveText(["split-counter.v", "counter-next.v"]);
@@ -311,9 +312,9 @@ test("imports multiple files atomically, manages files, and recovers from projec
   await expect(files.locator("option")).toHaveText(["counter.v"]);
 
   // Real local files form a hierarchy with a non-default top-module name.
-  const main = readFileSync("examples/split-counter/split-counter.v", "utf8");
-  const helper = readFileSync("examples/split-counter/counter-next.v", "utf8");
-  await input.setInputFiles(["examples/split-counter/split-counter.v", "examples/split-counter/counter-next.v"]);
+  const main = readFileSync("tests/fixtures/split-counter/split-counter.v", "utf8");
+  const helper = readFileSync("tests/fixtures/split-counter/counter-next.v", "utf8");
+  await input.setInputFiles(["tests/fixtures/split-counter/split-counter.v", "tests/fixtures/split-counter/counter-next.v"]);
   await expect(files.locator("option")).toHaveText(["counter.v", "split-counter.v", "counter-next.v"]);
   await expect(source).toHaveValue(main);
   await top.fill("missing_top");
