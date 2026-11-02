@@ -19,9 +19,11 @@ directly. RAM writes use the reference's deterministic port order and masked
 updates without queue allocation. Rising and falling schedules are separate;
 the falling-edge combinational schedule is empty for a circuit without
 falling-edge state.
-An acyclic asynchronous-load graph has its own finite settling order after each
-edge. Asynchronous control/data paths containing combinational feedback, `clk`
-or memory reads reject scheduling rather than guessing delta-cycle behavior.
+Independent asynchronous loads settle after each edge. Asynchronous control/data
+paths depending on any asynchronously loaded register (including acyclic
+cascades), combinational feedback, `clk` or memory reads reject scheduling.
+In-place settling of a cascade can hide intermediate reset pulses observed by
+the reference evaluator's evaluation/commit rounds, so these circuits use CXXRTL.
 
 Only required video/audio cones are evaluated after rising-edge commits, at the
 same point used by the reference adapter. The existing bounds-checked media
@@ -59,7 +61,7 @@ memories, including ROM, SRAM, WRAM, VRAM, ARAM, CPU, PPU, APU and DMA state.
 The two-file RAM accumulator includes 65-bit state and falling-edge registers.
 
 Unsupported cells (including latches), generated/independent clocks, combinational
-feedback, cyclic asynchronous dependencies, clocked/enabled/transparent memory
+feedback, interdependent asynchronous loads, clocked/enabled/transparent memory
 reads, nonzero RAM offsets and wide-continuation memory ports select the reference.
 Bindings are checked against the pinned CXXRTL declarations; an incompatible
 register/memory layout also falls back. This ABI is tied to this compiler build,
@@ -107,7 +109,11 @@ input patterns and variable batch lengths, checks every discoverable value and
 RAM row against an independent CXXRTL instance, and steps Debug between scheduled
 batches. Existing independent RAM/accumulator/clock-edge expectations, conditions,
 unsigned wide inspection and asynchronous cascade regressions remain intact.
-The fallback check rejects a generated-clock transition without resetting.
+The fallback checks reject generated clocks and interdependent asynchronous
+loads without resetting. The transient-reset regression compares Automatic Fast
+against an independent CXXRTL instance, requires `s = 0xaa` after two clocks,
+replays reset, steps Debug, and verifies state/cycle retention in both handoff
+directions and after a rejected forced-schedule transition.
 The SNES PR smoke compiles once, preserves its independent CPU bus, all-pixel,
 DSP arithmetic, controller, IRQ/NMI, HDMA and fresh-power-reset checks, then replays
 148 video/audio intervals through scheduled execution with exact per-delivery
