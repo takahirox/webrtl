@@ -199,8 +199,8 @@ function projectError(error) {
   ui.status.textContent = "Action failed. See diagnostics for details.";
 }
 
-function checkNewName(name, names = Object.keys(files)) {
-  if (names.length >= 128) throw new Error("Projects support at most 128 source files.");
+function checkNewName(name, names = Object.keys(files), adding = true) {
+  if (adding && names.length >= 128) throw new Error("Projects support at most 128 source files.");
   projectTools.validateFilename(name);
   if (names.includes(name)) throw new Error(`Source file "${name}" already exists. Choose another filename; existing files are never overwritten.`);
 }
@@ -231,7 +231,7 @@ if (browser) {
     try {
       const name = ui.filename.value;
       if (fileOperation === "rename" && name === activeFile) { ui["file-dialog"].close(); return; }
-      checkNewName(name);
+      checkNewName(name, Object.keys(files), fileOperation === "add");
       if (fileOperation === "add") files[name] = "";
       else {
         files = Object.fromEntries(Object.entries(files).map(([key, source]) => [key === activeFile ? name : key, source]));
