@@ -86,11 +86,22 @@ test("clocked SV harness, invalid reference and cancellation leave usable contro
   await expect(page.locator("#compile")).toBeEnabled();
   await page.locator("#files").selectOption("adder.v");
   const originalRTL = await page.locator("#source").inputValue();
+  await page.locator(".project-settings summary").click();
+  for (const frontend of ["verilog", "slang"]) {
+    await page.locator("#frontend").selectOption(frontend);
+    await page.locator("#source").fill(originalRTL.replace(
+      "always @(posedge clk)", "always @(posedge clk) begin : delayed #(5)",
+    ).replace("endmodule", "end endmodule"));
+    await verify(page, "synthesizable clocked SV harnesses only");
+    await expect(page.locator("#test-results li")).toHaveCount(0);
+    await expect(page.locator("#export-vcd")).toBeDisabled();
+    await expect(page.locator("#waveform-sample")).toBeDisabled();
+  }
+  await page.locator("#source").fill(originalRTL);
   await page.locator("#files").selectOption("adder.py");
   await page.locator("#source").fill("print('a,y\\n1,1\\n0,0')");
   await page.locator("#reference-model").selectOption("adder.py");
   await page.locator("#files").selectOption("adder.v");
-  await page.locator(".project-settings summary").click();
   for (const frontend of ["verilog", "slang"]) {
     await page.locator("#frontend").selectOption(frontend);
     for (const timing of [

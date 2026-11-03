@@ -58,9 +58,22 @@ export function validateClockedHarness(files) {
       // Net delays can follow strength, signedness and range modifiers. A
       // declaration ends at ';', before any subsequent module parameters.
       if (/\b(wire|tri|tri0|tri1|wand|triand|wor|trior|trireg|uwire|supply0|supply1|interconnect)\b[^;]*$/.test(before)) return true;
-      const previous = before.match(/([a-zA-Z_][a-zA-Z0-9_]*)\s*$/)?.[1];
+      const identifier = before.match(/(\\[^\s]+|[a-zA-Z_][a-zA-Z0-9_$]*)\s*$/);
+      const previous = identifier?.[1];
       // Primitive #(...) arguments are delays, unlike module parameters.
-      return !previous || /^(always|always_ff|always_comb|always_latch|assign|begin|end|else|initial|forever|repeat|and|nand|or|nor|xor|xnor|buf|not|bufif0|bufif1|notif0|notif1|nmos|pmos|cmos|rnmos|rpmos|rcmos|tran|rtran|tranif0|tranif1|rtranif0|rtranif1|pullup|pulldown)$/.test(previous);
+      if (!previous || /^(always|always_ff|always_comb|always_latch|assign|begin|end|else|initial|forever|repeat|and|nand|or|nor|xor|xnor|buf|not|bufif0|bufif1|notif0|notif1|nmos|pmos|cmos|rnmos|rpmos|rcmos|tran|rtran|tranif0|tranif1|rtranif0|rtranif1|pullup|pulldown)$/.test(previous)) return true;
+      if (/\bmodule\s+(?:(?:automatic|static)\s+)?(?:\\[^\s]+|[a-zA-Z_][a-zA-Z0-9_$]*)\s*$/.test(before)) return false;
+      // An instance needs a module type before the parameters and an instance
+      // name/port list after them. A named block label is not a module type,
+      // even when the delayed statement happens to be a task call.
+      if (before.slice(0, identifier.index).trimEnd().endsWith(":")) return true;
+      let end = match.index + match[0].length, depth = 1;
+      while (end < code.length && depth) {
+        const character = code[end++];
+        if (character === "(") depth++;
+        else if (character === ")") depth--;
+      }
+      return depth !== 0 || !/^\s*(?:\\[^\s]+\s+|[a-zA-Z_][a-zA-Z0-9_$]*\s*)(?:\[[^\]]+\]\s*)*\(/.test(code.slice(end));
     });
     if (delayed || /`(?:define|include)|\b(class|program|interface|clocking|property|sequence|assert|assume|cover|fork|join|wait|force|release|initial|final|specify|specparam)\b|\buvm_\w*|`uvm_|\$(?!(?:clog2|signed|unsigned|bits|size|left|right|low|high)\b)\w+|#\s*(?!\()[^\s]|##/.test(code)) {
       throw new Error(`${name}: verification supports synthesizable clocked SV harnesses only. Timing delays, initial/final, system tasks, assertions, classes and UVM require an event-driven simulator. See the verification guide.`);
