@@ -57,6 +57,28 @@ test("verification rejects net declaration delays while preserving module parame
     cell #(1) c(b,y); cell #(.N(1)) d(b,y); endmodule // wire #(5) delayed=a;` });
 });
 
+test("verification distinguishes named procedural blocks from module parameterization", async () => {
+  const { validateClockedHarness } = await project;
+  for (const statement of ["if (reset) sum <= 0; else sum <= a+b;", "update_sum();"]) {
+    for (const label of ["delayed", "dut", "delayed$block", "\\delayed", "\\foo.bar"]) {
+      for (const delay of ["#(5)", "/* timing */ # /* delay */ ((2 + 3))"]) {
+        assert.throws(() => validateClockedHarness({ "dut.sv": `module dut(input clk, reset, a, b, output reg sum);
+          always @(posedge clk) begin : ${label} ${delay} ${statement} end endmodule` }), /clocked SV/);
+      }
+    }
+  }
+  validateClockedHarness({ "dut.sv": `module automatic dut #(parameter N=(2 + 3))();
+    cell #(.N($clog2(N))) c();
+    if (N > 1) begin : generated
+      cell #(N) instances [0:1] ();
+    end
+    endmodule` });
+  validateClockedHarness({ "dut.sv": `module helper #(parameter N=8)(); endmodule
+    module \\dut.helper #(parameter N=8)();
+      helper #(N) \\instance.name ();
+    endmodule` });
+});
+
 test("CSV preserves prototype-like input and output names and compares their expectations", async () => {
   const { parseVectors, compareVectors } = await verification;
   for (const name of ["__proto__", "constructor", "toString"]) {
