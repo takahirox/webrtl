@@ -197,13 +197,77 @@ Public deployment verification has not been performed from this worktree.
 - JavaScript syntax, relative documentation links and staged whitespace checks
   passed. The complete SNES cartridge corpus was not run for this UI increment.
 
-The native browser check could not complete on this host. Port 8765 was already
+The initial native browser check could not complete on this host. Port 8765 was already
 occupied; an isolated run on 18765 reached compilation, where the unmodified
 native builder failed to link `pthread_getaffinity_np`, `pthread_setaffinity_np`
 and `sched_getcpu` with installed Verilator 5.052 / Emscripten 6.0.13. A direct
 `python3 build.py examples/counter.v .build/native-verification-check` reproduced
 the linker failure. `build.py`, `server.py` and `simulator.cpp` are unchanged.
-Native verification on the repository's compatible toolchain remains necessary.
-Publication/public-site smoke remains pending; no push, deployment or Issue
-closure was performed. Keep #44 open while reviewing this clocked increment's
-explicit standards/runtime limits against the complete milestone.
+The compatible-toolchain check below resolves that native validation gap; it does
+not claim that the installed Verilator 5.052 combination works.
+
+### Compatible-toolchain native validation (2026-11-03)
+
+Tested published PR #45 head `4154bdc3d2e761682c02a366cd53a3792ea972ba`.
+The assigned checkpoint `60e23dc61639883f144911a984287503d7abc5b1` had an
+identical file tree, confirmed with `git diff 4154bdc HEAD --exit-code` before
+recording this evidence. Application, native builder and browser test sources
+were unchanged during validation.
+
+- Environment: macOS Darwin 27.2.0 arm64, Python 3.13.13, Node 26.12.1,
+  Playwright 1.64.1, Chromium 156.0.8078.4 and Emscripten 6.0.13-git.
+- Verilator was built from the unmodified upstream
+  [v5.020 source archive](https://codeload.github.com/verilator/verilator/tar.gz/refs/tags/v5.020)
+  (SHA-256 `41ca9abfadf8d2413efbff7f8277379733d0095957fe7769dc38f8fd1bc899a6`)
+  under `.build/native-toolchain/`, without replacing the installed toolchain.
+  CMake 4.3.1 Release, Apple Clang 21.0.0 and upstream Flex 2.6.4 with its matching
+  headers were used. The experimental CMake build reports `rev UNKNOWN.REV`
+  instead of a version string; the archive identifies the tested source version.
+  Initial build attempts with Apple's Flex/header combination failed before a
+  usable toolchain was produced; no application test pass is attributed to them.
+- With the isolated Verilator on `PATH` and `VERILATOR_ROOT` pointing to its
+  installation, `python3 build.py examples/counter.v .build/native-verification-check`
+  successfully produced `sim.mjs` and `sim.wasm`.
+- `npx playwright test --config=.build/native-validation.config.cjs`:
+  **1 passed in 14.2 seconds**, no retries. This ran the existing
+  `tests/browser/counter.spec.js` against the actual trusted-local service and
+  native compiler, not a mock or a static-site substitute.
+
+The temporary config extended `playwright.config.js`, changing only path
+resolution, the isolated port and reporting/output locations. Its test and server
+settings can be reproduced with:
+
+```js
+// .build/native-validation.config.cjs
+const path = require("node:path");
+const config = require("../playwright.config.js");
+module.exports = {
+  ...config,
+  testDir: path.resolve(__dirname, "../tests/browser"),
+  use: { ...config.use, baseURL: "http://127.0.0.1:18765" },
+  webServer: {
+    ...config.webServer,
+    cwd: path.resolve(__dirname, ".."),
+    command: "python3 server.py --trusted-local --port 18765",
+    url: "http://127.0.0.1:18765",
+  },
+};
+```
+
+The first temporary-config launch resolved `server.py` relative to `.build` and
+failed before starting the test; setting the server working directory above fixed
+that setup error. The successful run verified the Wasm magic bytes, initial
+Reset=0, Step=1, wraparound 255→0, Run/Pause stability, Reset while running,
+editing the increment to produce 3 then 6, syntax-error diagnostics and successful
+recompilation/Step=1 after recovery. It observed no browser page errors. Port
+8765 and its existing service were left alone; the isolated service exited after
+the run.
+
+Native validation is no longer an outstanding pre-merge requirement for this
+implementation. The documented clocked SV and standalone reference subsets are
+the supported scope; full UVM/cocotb, arbitrary build systems and multi-file
+reference linking are not claimed. Reassess the PR's stale partial/draft wording
+against the Issue's actual criteria during publication/review rather than treating
+those unsupported extensions as additional requirements. Keep #44 open until
+the milestone review is complete. Pages/public-site verification remains pending
+after merge; this validation performed no push, deployment or Issue closure.
