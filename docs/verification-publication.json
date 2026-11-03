@@ -2,8 +2,10 @@
   "issue": {
     "number": 44,
     "url": "https://github.com/takahirox/webrtl/issues/44",
-    "state": "open",
-    "closure": "Left open for final Issue-closure handoff; required post-merge publication verification passed."
+    "state": "closed",
+    "closure": "Closed as completed after confirming merged PR #45 and the upstream required post-merge publication verification evidence.",
+    "closed_at": "2026-11-03T02:10:05Z",
+    "closure_comment_url": "https://github.com/takahirox/webrtl/issues/44#issuecomment-6593608925"
   },
   "pr": {
     "number": 45,
@@ -94,5 +96,5 @@
     ],
     "timing": "One synthetic 1ns VCD tick represents one sampled full-clock settled-low boundary; no intra-cycle history or backward state restore is claimed."
   },
-  "scope": "Post-merge deployment/public-site evidence only. No implementation changes, republishing, full SNES corpus run or Issue closure were performed by this merge node."
+  "scope": "Deployment/public-site checks were executed by the upstream merge node. The final closure node confirmed the current merged PR and closed Issue #44 with an outcome comment; it did not rerun runtime checks, change implementation, republish or run the full SNES corpus."
 }
