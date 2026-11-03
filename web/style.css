@@ -130,3 +130,70 @@ pre:empty { padding: 0; margin: 0; }
   .project-pane { max-height: 360px; }
   .controls { gap: 5px; }
 }
+
+/* Compact verification workspace, using the existing native controls. */
+:root { color-scheme: dark; color: #dfdfea; background: #111118; font-size: 13px; }
+.workspace { background: #34323f; grid-template-columns: 200px minmax(0, 1fr) minmax(300px, .55fr); }
+.toolbar, .pane { background: #1b1b25; }
+.toolbar { padding: 9px 14px; gap: 8px 12px; }
+.pane { padding: 14px; }
+.project-pane, .detail-pane { background: #171720; }
+h1, output { color: #c4a7ff; }
+h2, #project p, #timing, #run-help { color: #b3afc6; }
+a { color: #c4a7ff; }
+input, select, button, dialog { background: #242330; border-color: #555166; color: #dfdfea; }
+button:enabled:hover { background: #3c3254; border-color: #bb9ae9; }
+button.primary { background: #7251a6; border-color: #a683d3; }
+button.primary:enabled:hover { background: #8862bf; }
+:focus-visible { outline-color: #c4a7ff; }
+.workspace-nav { display: flex; gap: 3px; }
+button[aria-pressed="true"] { border-color: #ba93f4; background: #3c3153; }
+#status { border-color: #ba93f4; }
+#source-label { background: #282435; color: #dfd4f0; padding: 6px 10px; }
+.editor-pane { padding: 10px 0 0; }
+.editor-columns { display: flex; flex: 1; min-height: 0; }
+#source, #reference-source { color: #e1dceb; background: #1b1b25; font: 13px/1.65 ui-monospace, monospace; padding: 14px; border: 0; border-top: 1px solid #34323f; }
+#source { min-width: 0; }
+#reference-editor { display: flex; flex-direction: column; min-width: 0; width: 50%; border-left: 1px solid #555166; }
+#reference-label { padding: 0 12px; overflow-wrap: anywhere; }
+#reference-source { width: 100%; height: 100%; min-height: 250px; resize: none; }
+#source-tabs { display: flex; gap: 3px; overflow: auto; padding: 0 10px 6px; flex-shrink: 0; }
+#source-tabs button { flex-shrink: 0; font: 11px ui-monospace, monospace; padding: 5px 8px; }
+.editor-tools { display: flex; align-items: center; gap: 8px; padding: 0 10px 6px; }
+.editor-tools label { margin: 0; white-space: nowrap; }
+.editor-tools select { width: auto; }
+pre { background: #232230; color: #dfdfea; }
+#files option:checked { background: #3c3153 linear-gradient(#3c3153, #3c3153); color: #efe4ff; }
+#errors { color: #ffb9b9; background: #371f2b; border-color: #ff9aab; }
+#file-error { color: #ffb9b9; }
+.toolbar[data-state="error"] #status { color: #ffb9b9; border-color: #ff9aab; }
+.notice { background: #373024; color: #f3dfb1; }
+.workspace-help, .simulation-settings, #debug-controls { border-color: #34323f; }
+#verification-heading { margin-bottom: 6px; }
+#verification-config { margin-top: 0; }
+#verification-pane .controls { margin-top: 10px; }
+#test-results { max-height: 200px; overflow: auto; padding-left: 22px; font: 12px/1.7 ui-monospace, monospace; }
+#test-results li { white-space: pre-wrap; overflow-wrap: anywhere; }
+[data-result="passed"] { color: #9ee3b2; }
+[data-result="failed"] { color: #ffb9b9; }
+#project-tree ul { list-style: none; padding-left: 12px; }
+#project-tree button { font-size: 11px; }
+#waveform-scroll { overflow: auto; }
+#waveform { max-width: none; }
+#waveform text { fill: #dfdfea; font: 11px ui-monospace, monospace; }
+.detail-pane { max-height: 320px; }
+@media (max-width: 1050px) {
+  .workspace { grid-template-columns: 200px minmax(0, 1fr); }
+  .editor-columns { flex-direction: column; overflow: auto; }
+  #reference-editor { width: 100%; min-height: 260px; border-left: 0; }
+  .editor-columns:has(#reference-editor:not([hidden])) #source { min-height: 260px; }
+}
+@media (max-width: 600px) {
+  .workspace { display: flex; }
+  .toolbar { padding: 9px; gap: 6px; position: sticky; }
+  .pane { padding: 12px; }
+  .editor-pane { padding: 10px 0 0; }
+  .editor-tools { flex-wrap: wrap; }
+  .workspace-nav { flex: 1; }
+  #example-controls { flex-basis: auto; }
+}

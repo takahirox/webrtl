@@ -36,6 +36,11 @@ def build_site():
         shutil.copytree(ROOT / "examples", staged / "examples")
         for package in ("yosys", "clang"):
             shutil.copytree(packages / package / "gen", staged / "tools" / package)
+        python_tools = staged / "tools/pyodide"
+        python_tools.mkdir()
+        for name in ("pyodide.mjs", "pyodide.asm.mjs", "pyodide.asm.wasm",
+                     "python_stdlib.zip", "pyodide-lock.json"):
+            shutil.copyfile(ROOT / "node_modules/pyodide" / name, python_tools / name)
         # Use headers from exactly the same pinned Yosys distribution. Pass a
         # virtual directory tree to Clang; do not extract archive paths to disk.
         headers = {}

@@ -147,6 +147,7 @@ test("compiles edited RTL and runs fresh Wasm under /webrtl/ with only static GE
     expect(new URL(request.url).pathname).toMatch(/^\/webrtl\//);
     expect(request.url).not.toContain("/api/");
   }
+  page.once("dialog", (dialog) => dialog.accept());
   await page.reload();
   await expect(source).toHaveValue(example);
   await expect(compile).toBeEnabled();
@@ -196,7 +197,7 @@ test("imports a two-file project, retains edits across files, and compiles a sel
   await compile.click();
   await expect(top).toBeDisabled();
   await expect(files).toBeDisabled();
-  await expect(page.getByLabel("Import local .v files (adds to project)")).toBeDisabled();
+  await expect(page.getByLabel("Import local source files (adds to project)")).toBeDisabled();
   await expect(step).toBeEnabled({ timeout: 120000 });
   await expect(count).toHaveText("0");
   await step.click();
@@ -265,7 +266,7 @@ test("imports multiple files atomically, manages files, and recovers from projec
   }
   page.on("dialog", (dialog) => dialog.accept());
   const top = page.getByLabel("Top module", { exact: true });
-  const input = page.getByLabel("Import local .v files (adds to project)");
+  const input = page.getByLabel("Import local source files (adds to project)");
   const alert = page.getByRole("alert");
   const compile = page.getByRole("button", { name: "Compile", exact: true });
   const step = page.getByRole("button", { name: "Step", exact: true });
@@ -347,7 +348,7 @@ test("imports multiple files atomically, manages files, and recovers from projec
   for (let i = 0; i < 3; i++) await page.getByRole("button", { name: "Remove file", exact: true }).click();
   await expect(source).toBeDisabled();
   await compile.click();
-  await expect(alert).toContainText("at least one .v source file");
+  await expect(alert).toContainText("at least one .v or .sv source file");
   await nameFile("Add file", "new.v");
   await compile.click();
   await expect(alert).toContainText('"new.v" is empty');

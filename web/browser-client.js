@@ -5,7 +5,7 @@ function workerError(event) {
 
 import { parseCartridge } from "./snes-rom.js";
 
-export async function compileBrowser(project, progress) {
+export async function compileBrowser(project, progress, signal) {
   const compiler = new Worker(new URL("./compiler-worker.js", import.meta.url), { type: "module" });
   let result;
   try {
@@ -14,8 +14,11 @@ export async function compileBrowser(project, progress) {
       // reference CI runner. Keep compilation bounded without discarding it
       // before Clang can finish (see docs/simulation-modes.md).
       const seconds = project.frontend === "slang" ? 600 : 120;
-      const timeout = setTimeout(() => reject(new Error(`Compilation exceeded ${seconds} seconds. Simplify the design or retry.`)), seconds * 1000);
-      const finish = (callback, value) => { clearTimeout(timeout); callback(value); };
+      const timeout = setTimeout(() => finish(reject, new Error(`Compilation exceeded ${seconds} seconds. Simplify the design or retry.`)), seconds * 1000);
+      const abort = () => finish(reject, new DOMException("Compilation cancelled.", "AbortError"));
+      const finish = (callback, value) => { clearTimeout(timeout); signal?.removeEventListener("abort", abort); callback(value); };
+      if (signal?.aborted) { abort(); return; }
+      signal?.addEventListener("abort", abort, { once: true });
       compiler.onerror = (event) => finish(reject, workerError(event));
       compiler.onmessage = ({ data }) => {
         if (data.progress) progress(data.progress);
@@ -27,6 +30,7 @@ export async function compileBrowser(project, progress) {
   } finally {
     compiler.terminate();
   }
+  if (signal?.aborted) throw new DOMException("Compilation cancelled.", "AbortError");
   progress("Loading newly compiled circuit…");
   const worker = new Worker(new URL("./simulator-worker.js", import.meta.url), { type: "module" });
   let nextId = 0;
@@ -66,6 +70,7 @@ export async function compileBrowser(project, progress) {
   });
   try { await call("init", result.wasm); }
   catch (error) { destroy(); throw error; }
+  if (signal?.aborted) { destroy(); throw new DOMException("Compilation cancelled.", "AbortError"); }
   let mountedCartridge;
   const loadCartridge = async (input) => {
     const { bytes } = parseCartridge(input);
