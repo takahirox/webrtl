@@ -1,0 +1,98 @@
+{
+  "issue": {
+    "number": 44,
+    "url": "https://github.com/takahirox/webrtl/issues/44",
+    "state": "open",
+    "closure": "Left open for final Issue-closure handoff; required post-merge publication verification passed."
+  },
+  "pr": {
+    "number": 45,
+    "url": "https://github.com/takahirox/webrtl/pull/45",
+    "head_sha": "c72d53af0b3ebf53c9c8bd4df79d8d8703b1e90c"
+  },
+  "merge": {
+    "method": "merge",
+    "commit": "13c2ad6dd5d715a4e3dbe6ecf993324caa81a476",
+    "merged_at": "2026-11-03T02:06:34Z",
+    "source_issue_open_confirmed_immediately_before_merge": true,
+    "checks": "Same-head Fast PR checks passed; GitHub reported CLEAN and MERGEABLE; upstream review approved with no blocking findings."
+  },
+  "pages": {
+    "url": "https://takahirox.github.io/webrtl/",
+    "workflow_url": "https://github.com/takahirox/webrtl/actions/runs/41564037009",
+    "source_sha": "13c2ad6dd5d715a4e3dbe6ecf993324caa81a476",
+    "conclusion": "success",
+    "build_and_smoke": {
+      "started_at": "2026-11-03T02:06:39Z",
+      "completed_at": "2026-11-03T02:07:16Z",
+      "conclusion": "success"
+    },
+    "deploy": {
+      "started_at": "2026-11-03T02:07:30Z",
+      "completed_at": "2026-11-03T02:07:40Z",
+      "conclusion": "success"
+    },
+    "provenance_before": {
+      "url": "https://takahirox.github.io/webrtl/build-info.json",
+      "http_status": 200,
+      "build_info": {
+        "commit": "13c2ad6dd5d715a4e3dbe6ecf993324caa81a476"
+      },
+      "checked_at": "2026-11-03T02:07:55.449559+00:00"
+    },
+    "provenance_after": {
+      "url": "https://takahirox.github.io/webrtl/build-info.json",
+      "http_status": 200,
+      "build_info": {
+        "commit": "13c2ad6dd5d715a4e3dbe6ecf993324caa81a476"
+      },
+      "checked_at": "2026-11-03T02:08:38.532921+00:00"
+    }
+  },
+  "public_smoke": {
+    "source": "tests/static/verification.spec.js",
+    "test": "C++ and Python references compare real RTL, expose a mismatch and export sampled VCD",
+    "command": "WEBRTL_PUBLIC_URL=https://takahirox.github.io/webrtl/ npx playwright test --config=.build/public-verification.config.cjs --grep 'C\\+\\+ and Python references'",
+    "configuration": {
+      "extends": "playwright.static.config.js",
+      "testDir": "tests/static",
+      "testMatch": "verification.spec.js",
+      "project": "chromium",
+      "baseURL": "https://takahirox.github.io/webrtl/",
+      "webServer": null,
+      "workers": 1,
+      "retries": 0
+    },
+    "stats": {
+      "startTime": "2026-11-03T02:07:55.925Z",
+      "duration": 23904.473,
+      "expected": 1,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "result": "passed",
+    "observations": [
+      "Real browser C++ reference compilation/execution and registered RTL comparison: PASS 16/16.",
+      "Real Pyodide Python reference execution and the same RTL comparison: PASS 16/16.",
+      "Recorded sum at cycle 2 is 0x105 (17 + 244); VCD contains actual samples through cycle 16.",
+      "Edited independent Python expectation fails at sample 1, cycle 1: expected sum 0x100, actual 0x0ff, inputs a=0 and b=255.",
+      "Failure Debug inspects actual sum 0x0ff at paused cycle 1; Step advances to cycle 2 and invalidates the live failure link.",
+      "390-pixel viewport has no horizontal overflow; single-editor selection remains usable.",
+      "Ordinary counter project compiles in the browser; Step displays 1.",
+      "No page errors; observed application requests use same-origin GET only."
+    ]
+  },
+  "trace": {
+    "path": "docs/verification-publication.vcd",
+    "sha256": "64cd69935ecda0fc5eb7d633fda4cb178703c7ef117d32c0dff8a20b4a21fc9c",
+    "samples": 16,
+    "signals": [
+      "a",
+      "b",
+      "sum"
+    ],
+    "timing": "One synthetic 1ns VCD tick represents one sampled full-clock settled-low boundary; no intra-cycle history or backward state restore is claimed."
+  },
+  "scope": "Post-merge deployment/public-site evidence only. No implementation changes, republishing, full SNES corpus run or Issue closure were performed by this merge node."
+}
