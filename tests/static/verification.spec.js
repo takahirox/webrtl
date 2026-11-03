@@ -86,10 +86,19 @@ test("clocked SV harness, invalid reference and cancellation leave usable contro
   await expect(page.locator("#compile")).toBeEnabled();
   await page.locator("#files").selectOption("adder.v");
   const originalRTL = await page.locator("#source").inputValue();
+  await page.locator("#files").selectOption("adder.py");
+  await page.locator("#source").fill("print('a,y\\n1,1\\n0,0')");
+  await page.locator("#reference-model").selectOption("adder.py");
+  await page.locator("#files").selectOption("adder.v");
   await page.locator(".project-settings summary").click();
   for (const frontend of ["verilog", "slang"]) {
     await page.locator("#frontend").selectOption(frontend);
-    for (const timing of ["buf #(5) delayed_buf(y,a);", "assign y=a; specify (a => y)=5; endspecify"]) {
+    for (const timing of [
+      "buf #(5) delayed_buf(y,a);",
+      "wire #(5) delayed=a; assign y=delayed;",
+      "wire (strong1, pull0) signed [0:0] #(5) delayed=a; assign y=delayed;",
+      "assign y=a; specify (a => y)=5; endspecify",
+    ]) {
       await page.locator("#source").fill(`module adder(input clk, reset, a, output y); ${timing} endmodule`);
       await verify(page, "synthesizable clocked SV harnesses only");
       await expect(page.locator("#test-results li")).toHaveCount(0);

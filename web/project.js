@@ -54,7 +54,11 @@ export function validateClockedHarness(files) {
   for (const [name, source] of Object.entries(files).filter(([name]) => isHDL(name))) {
     const code = source.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*|"(?:\\.|[^"\\])*"/g, " ");
     const delayed = [...code.matchAll(/#\s*\(/g)].some((match) => {
-      const previous = code.slice(0, match.index).match(/([a-zA-Z_][a-zA-Z0-9_]*)\s*$/)?.[1];
+      const before = code.slice(0, match.index);
+      // Net delays can follow strength, signedness and range modifiers. A
+      // declaration ends at ';', before any subsequent module parameters.
+      if (/\b(wire|tri|tri0|tri1|wand|triand|wor|trior|trireg|uwire|supply0|supply1|interconnect)\b[^;]*$/.test(before)) return true;
+      const previous = before.match(/([a-zA-Z_][a-zA-Z0-9_]*)\s*$/)?.[1];
       // Primitive #(...) arguments are delays, unlike module parameters.
       return !previous || /^(always|always_ff|always_comb|always_latch|assign|begin|end|else|initial|forever|repeat|and|nand|or|nor|xor|xnor|buf|not|bufif0|bufif1|notif0|notif1|nmos|pmos|cmos|rnmos|rpmos|rcmos|tran|rtran|tranif0|tranif1|rtranif0|rtranif1|pullup|pulldown)$/.test(previous);
     });

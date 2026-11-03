@@ -43,6 +43,20 @@ test("verification rejects primitive delays and specify timing without rejecting
   validateClockedHarness({ "dut.v": 'module dut #(parameter N=8)(); cell #(N) c(); cell #(.N(N)) d(); buf b(y,a); endmodule /* specify (a => y)=5; endspecify */ // buf #(5) b(y,a);' });
 });
 
+test("verification rejects net declaration delays while preserving module parameters after nets", async () => {
+  const { validateClockedHarness } = await project;
+  for (const net of ["wire", "tri", "tri0", "tri1", "wand", "triand", "wor", "trior", "trireg", "uwire", "supply0", "supply1", "interconnect"]) {
+    for (const modifiers of ["", "signed", "[7:0]", "(strong1, pull0) vectored signed [7:0]"]) {
+      for (const delay of ["#(5)", "#(1, 2, 3)", "/* timing */ # /* delay */ (5)"])
+        assert.throws(() => validateClockedHarness({ "dut.v": `module dut(input a, output y); ${net} ${modifiers} ${delay} delayed=a; assign y=delayed; endmodule` }), /clocked SV/);
+    }
+  }
+  validateClockedHarness({ "dut.v": `module cell #(parameter N=8)(input [N-1:0] a, output wire [N-1:0] y);
+    wire [N-1:0] value=a; assign y=value; endmodule
+    module dut(input a, output wire y); wire b=a;
+    cell #(1) c(b,y); cell #(.N(1)) d(b,y); endmodule // wire #(5) delayed=a;` });
+});
+
 test("CSV preserves prototype-like input and output names and compares their expectations", async () => {
   const { parseVectors, compareVectors } = await verification;
   for (const name of ["__proto__", "constructor", "toString"]) {
