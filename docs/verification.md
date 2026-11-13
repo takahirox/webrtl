@@ -161,6 +161,14 @@ remote compilation dependency is introduced.
 
 ## Validation and publication
 
+The current [development lifecycle](development-flow.md#6-perform-required-post-merge-verification)
+supersedes historical instructions below to keep #44 open solely for post-merge
+verification: merge and close after complete implementation and required pre-merge
+acceptance, then perform the public-site checks and track actual defects in linked
+Issues. Missing implementation or genuinely necessary pre-merge milestone review
+still blocks closure. The recorded validation results and pending checks below
+remain unchanged.
+
 `npm run test:pr` includes three focused real-model browser checks in the bounded
 generic lane. Unit checks cover path security, CSV rejection, timing rejection
 and independent VCD values. Browser checks execute both languages, positive and

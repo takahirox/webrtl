@@ -1,8 +1,9 @@
 # Development Flow
 
 This is the development flow for webrtl, including work by AI agents:
-Issue → implementation → PR → review → revision as needed → merge.
-Perform post-merge verification only when the Issue requires it.
+Issue → implementation → PR → review → revision as needed → merge and close the
+original Issue → required post-merge verification. Require that verification only
+when the actual change needs it, as recorded in the Issue.
 
 ## Collaboration language
 
@@ -57,8 +58,8 @@ For templates and documentation, inspect Markdown structure and template syntax,
 verify relative links and heading anchors, and check policy consistency. Run
 `git diff --check` for unstaged whitespace errors and `git diff --cached --check`
 for staged changes; stage new files so the latter check includes them. No runtime
-tests, hardware checks, or deployed-site verification are needed for a
-templates/documentation-only change.
+tests, routine manual approval, hardware checks, heavyweight model downloads, or
+deployed-site verification are needed solely for a templates/documentation change.
 
 ### Test and CI performance principles
 
@@ -134,10 +135,12 @@ task specifies another branch. Explain the problem, resulting behavior, focused
 changes, related Issues, and validation actually performed. Report failures,
 skipped checks, and unperformed checks accurately, including reasons.
 
-Claim to close an Issue only when the PR fully addresses it. Clearly describe any
-intentional partial implementation and leave the Issue open. Record required
-post-merge checks separately as pending until performed; their pending state does
-not make an otherwise complete implementation partial.
+Use the normal `Closes #N` reference when the implementation fully addresses the
+Issue and applicable mandatory pre-merge acceptance is satisfied. Clearly describe
+any intentional partial implementation and its remaining scope; use a non-closing
+Issue link and leave the parent Issue open. Record required post-merge checks
+separately as pending until performed; their pending state does not make an
+otherwise complete implementation partial.
 
 ## 4. Review and revise
 
@@ -158,10 +161,32 @@ sufficient and no blocking review findings or necessary human answers remain
 outstanding. Follow the task's authorization and repository merge permissions;
 guidance alone does not grant permission to merge.
 
+Close the original Issue after successful merge, normally through `Closes #N`.
+Review must not request removing that reference, keeping the Issue open, or
+withholding approval solely because post-merge-only verification is pending.
+ProjectWeave publication adds the closing reference and its merge/close stages
+close the Issue; reversing this in review creates a repeated
+Review → Fix → Publish → Review loop. Actual missing implementation, mandatory
+pre-merge tests, required repository protections/reviews and genuinely necessary
+pre-merge human acceptance remain blockers.
+
 ## 6. Perform required post-merge verification
 
-Only when required, perform the recorded post-merge checks and report actual
-results, including failures and follow-up. Keep them pending until performed.
-Pre-merge validation does not prove deployment or publication succeeded. Checks
-possible only after merge do not prevent pre-merge approval of an otherwise
-complete PR.
+After merge and Issue closure, perform genuinely required checks and record
+accurate evidence in the merged PR, closed Issue, or a linked validation report.
+Include the tested revision, commands or steps, actual results and relevant
+run/deployment links. Report unperformed, pending or environment-blocked checks
+with reasons; keep them pending until performed. Issue closure does not claim
+they passed, and pre-merge validation does not prove deployment or publication
+succeeded. An unavailable test environment alone is not evidence of a product
+defect.
+
+If verification finds an actual defect, first check for an existing equivalent
+Issue. Use that Issue or create a new one with reproduction steps, affected
+revision, expected/actual behavior and links to the original Issue and PR. Do not
+reopen the original Issue solely for post-merge follow-up.
+
+This lifecycle supersedes older instructions to keep an implemented Issue open
+solely for post-merge verification. Preserve historical test outcomes and evidence,
+including pending, blocked, failed and cancelled results; this policy does not
+rewrite them or waive existing verification requirements.

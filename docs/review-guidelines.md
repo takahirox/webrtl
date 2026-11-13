@@ -17,8 +17,11 @@ problem and expected outcome. Ask:
 Verify that every requirement and acceptance criterion the PR claims to resolve
 is implemented and appropriately validated. Check behavior, coherence with
 existing conventions, and documentation affected by the change. Do not approve a
-PR as closing an Issue while required work remains. If the change is intentionally
-partial, ensure the PR says so and the Issue remains open.
+PR as closing an Issue while implementation or mandatory pre-merge acceptance
+remains incomplete. If the change is intentionally partial, ensure the PR states
+the remaining scope, uses a non-closing Issue link and leaves the parent Issue
+open. Pending post-merge-only verification does not make a complete implementation
+partial.
 
 Review applicable interface changes against the [UI/UX principles](../README.md#uiux).
 
@@ -40,7 +43,8 @@ describe checks performed, results, failures, skipped checks, and unperformed
 checks. Follow the [repository validation guidance](development-flow.md#repository-validation)
 and the [application validation commands](../README.md#validation). For documentation-only
 changes, check template/Markdown syntax, links, whitespace, and consistency; do not
-require unrelated runtime suites, new tooling, physical-device tests, or deployment.
+require unrelated runtime suites, new tooling, routine manual approval,
+physical-device tests, heavyweight model downloads, or deployment.
 
 Apply the [test and CI performance principles](development-flow.md#test-and-ci-performance-principles).
 For new or expanded tests, review additional defect coverage, duplication and
@@ -96,6 +100,18 @@ Approve and merge, within the task's authorization and repository permissions, w
 - Any required post-merge verification is recorded separately and pending until
   performed.
 
-Pending checks possible only after merge do not block pre-merge approval. When
-post-merge checks are required, perform them after merge and report actual results,
-failures, and follow-up honestly. Never claim they passed from pre-merge evidence.
+Preserve `Closes #N` for a complete implementation with satisfied mandatory
+pre-merge acceptance. Do not request removing it, keeping the source Issue open,
+or withholding approval solely for pending post-merge-only checks: that causes
+ProjectWeave publication and review to undo each other in repeated
+Review → Fix → Publish → Review rounds. Required protections/reviews and necessary
+pre-merge human acceptance remain blockers.
+
+Follow the [post-merge lifecycle](development-flow.md#6-perform-required-post-merge-verification):
+merge and close the original Issue, then perform genuinely required checks and
+record actual evidence in the merged PR, closed Issue, or linked validation report.
+Keep unperformed or environment-blocked checks pending with reasons; closure does
+not claim they passed. An unavailable environment alone is not a product defect.
+For an actual defect, check for an equivalent Issue before creating a new linked
+Issue with reproduction steps, affected revision, expected/actual behavior and
+original Issue/PR links. Do not reopen the original Issue solely for this follow-up.

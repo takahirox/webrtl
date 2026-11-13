@@ -45,5 +45,11 @@ Do not add them routinely. For example, verification of a merge-triggered
 deployment belongs here and remains pending until performed; pre-merge validation
 does not prove publication succeeded.
 
+After complete implementation and mandatory pre-merge acceptance, merge and close
+this Issue, then perform these checks. Closure does not claim pending checks
+passed. Follow the [post-merge lifecycle](https://github.com/takahirox/webrtl/blob/main/docs/development-flow.md#6-perform-required-post-merge-verification)
+for evidence and actual defects: reuse an equivalent Issue or create a new linked
+Issue rather than reopening this one solely for follow-up.
+
 See the [development guidance](https://github.com/takahirox/webrtl/blob/main/docs/development-flow.md#1-start-with-an-issue)
 and [review guidance](https://github.com/takahirox/webrtl/blob/main/docs/review-guidelines.md#check-pre-merge-acceptance-and-post-merge-verification).
