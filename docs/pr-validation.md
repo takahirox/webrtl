@@ -1,9 +1,10 @@
-# Fast PR and comprehensive validation (#34)
+# Fast PR and comprehensive validation (#34, #48)
 
 Require **Fast PR validation / Fast PR checks** on every PR to `main`, including
 updates. The aggregate runs with `always()` and accepts only successful unit/build
 and both browser lanes. Failure, skip, cancellation and timeout cannot pass it.
-There are no path filters, retries, external compiler services or uploaded RTL.
+There are no path filters, automatic test retries, external compiler services or
+uploaded RTL.
 Build once, transfer that run's SHA-named artifact, verify checkout/build SHA, then
 use static GETs and browser-generated Wasm. Chromium lanes run on independent
 Ubuntu 24.04 runners with one worker each. The generic lane reuses the Pages
@@ -28,7 +29,7 @@ observations; no comprehensive assertion or simulation loop is changed.
 | Eight generic mode checks | RAM, inputs, both clock edges, Fast→Debug→Fast continuity, reset, UI visibility, actual generic I/O, breakpoints/history, asynchronous cascades and transient-reset fallback, unsigned wide inspection, independent scheduled/reference state equivalence and unsupported-transition rejection |
 | Three verification checks | Real C++/Python stdout → controlled RTL comparison, positive/negative results, clocked SV harness, actual VCD values, retained failure Debug, invalid programs and cancellation |
 | Two output checks | Edited RTL → Canvas pixels and framing/errors; independent PCM/sample timing → real Web Audio; pause/reset/edit lifecycle and bounds |
-| One SNES cartridge smoke | Compile the complete unmodified console via Slang/Clang in the browser; boot `test.sfc` through the production simulator worker; check every tile/palette pixel, exact independently calculated DSP PCM, sample clock, serial B input, HDMA and NMI/IRQ activity; power-reset into a fresh instance and compare every startup CPU bus transaction |
+| One SNES cartridge smoke | Compile the complete unmodified console via browser Slang/Clang on a cache miss, or verify identical compilation inputs and binary provenance on a hit; boot `test.sfc` through the production simulator worker; check every tile/palette pixel, exact independently calculated DSP PCM, sample clock, serial B input, HDMA and NMI/IRQ activity; power-reset into a fresh instance and compare every startup CPU bus transaction |
 
 The SNES smoke exercises genuine CPU/PPU/APU/cartridge/DMA/control integration.
 It runs 32,768 startup clocks, 1,638,400 boot/output clocks, 786,432 input
@@ -37,6 +38,29 @@ It additionally replays the 1,638,400 boot/output clocks and 786,432 input
 clocks through the compiled scheduled kernel, compares every media delivery with
 CXXRTL at identical clock boundaries, exercises Fast → Debug Step → Fast, and
 compares selected registers and rows across all discoverable memories.
+The PR SNES cache has an exact key over source/toolchain/build inputs and runner
+platform, with no prefix restore. Before use, the test hashes **every served
+file**, excluding only the independently checked `build-info.json` revision
+label, plus the actual browser version/board/frontend/top. It verifies the
+generating checkout SHA, Wasm digest and validity; mismatch or corruption fails.
+Cache entries are stored under the input fingerprint; changed local inputs select
+a cold entry. Only a fully passing cold smoke publishes a cache. Reference compilation metrics
+and the generating SHA remain attached; current compilation time is labelled
+fresh or reused. A fresh production simulator worker and power-reset instances
+run every observation on both paths. Compiler, runtime, RTL or browser changes
+invalidate reuse; documentation-only revisions can reuse it. Nightly/full SNES
+compilation remains fresh per browser worker and keeps its revision-inclusive
+fingerprint.
+
+The browser client also retains one private immutable compilation per loaded
+page/toolchain. The key contains all HDL names/content/order, top, board and
+frontend. Full project validation still runs on every request. Changing only a
+C++/Python reference during verification avoids recompiling the DUT, but creates
+a new simulator worker with copied Wasm bytes and fresh state. HDL/configuration changes compile
+again; explicit Compile always compiles freshly. Cancelled/failed compilations
+never populate this cache. All generic
+and verification assertions run unchanged; no tests or combinations are removed.
+
 It does not repeat the comprehensive UI/LoROM/HiROM baselines or run the four
 previously selected corpus cartridges on each PR; those remain in the full suite.
 It does **not** establish compatibility across all 260
@@ -117,25 +141,61 @@ never reclassify them as success or discard their assertions.
 
 Preparation has a two-minute limit, browser jobs nine minutes, Playwright 510
 seconds per lane (including server startup), and the aggregate one minute.
-The aggregate queries this run/attempt's Actions timestamps. For its running job,
-it anchors the runner-local duration since the first setup step to the Actions
-job start, avoiding subtraction across clocks (the first Ubuntu run had a
-one-hour offset). It fails at a **590s creation-to-check estimate**, reserving
-ten seconds for initial aggregate setup, timestamp precision and cleanup.
-Initial queue, dependency waits, job start/end clocks and completed runner work
-are separate. The definitive creation-to-result duration must use the completed
-aggregate's Actions `completed_at` minus the run's `created_at`; rerunning the
-budget script on completed job JSON uses exactly those timestamps.
-An overrun is a failure to investigate,
-not grounds to raise timeouts or accept cancelled work. Superseded PR revisions
-cancel their entire group; nightly/manual runs and Pages deployment ordering use
-independent groups.
+These resource bounds remain enforced: test/build failure, timeout, cancellation,
+skipped/missing/duplicate lanes and invalid run/job/source provenance fail the
+aggregate, regardless of timing. The checkout/build SHA comparison remains a
+required browser step. The summary distinguishes the PR source SHA from the
+merge checkout SHA used to build and test the artifact.
 
-Before closing #34, record a successful Ubuntu PR run for the **final revision**:
-source/merge SHA and tree identity, URL, creation → aggregate completion **<600s**,
-queue/dependency-ready waits separately, total runner work, both lane results and
-fixture inventory. Local timings and YAML checks cannot satisfy this criterion.
-See [the performance record](regression-performance.md#fast-pr-policy-34).
+The **<600s feedback goal is a performance target, not a test-pass gate**.
+The work/dependency critical path is preparation plus the longer dependent
+browser path plus aggregation, including dispatch and excluding runner allocation.
+An over-target successful execution emits a warning and remains successful; investigate its phase measurements rather
+than raising timeouts. Queue-only delay does not require a maintainer's arbitrary
+new evidence or approval. Normal automated re-execution and failed-job reruns
+work without branch-protection changes. This timing policy applies to #46 / PR
+#47 as well; it does not change their review or publication lifecycle.
+
+The aggregate fetches the **attempt-specific** run and paginated jobs endpoints,
+verifies run ID/attempt/source SHA and requires each component's actual success
+as well as the workflow dependency results. Timing starts at that attempt's
+`run_started_at`, never the original run's `created_at`. Failed-job reruns can
+carry successful same-SHA dependencies from an earlier attempt; their completed
+intervals precede the new start and are labelled reused. Their execution and
+waiting time are excluded from the new attempt, even when the API relabels their
+`run_attempt` (observed in run 43529597889). Failed dependencies never become
+reused successes.
+
+The summary reports attempt wall time, initial dispatch/allocation wait, first-runner to
+result feedback (including downstream waits), execution critical path, summed
+current-attempt runner time, both browser durations and each job's outcome.
+Dependency-ready to job creation is dispatch latency; from the later of job
+creation/dependency readiness to runner start is allocation queue. The complete
+ready-to-start wait is also reported, so unavailable creation timestamps do not
+hide waits. Concurrent waits are not additive. Step durations separate setup,
+browser installation, artifact download and test execution, using each runner's
+own clock. PR profile attachments further separate compiler/frontend/backend
+phases, reference work and test duration; SNES evidence records simulation time.
+Toolchain imports are measured separately; Yosys/Clang invocation durations
+include their lazy toolchain download/instantiation cost.
+
+Service job timestamps supply completed intervals. For a running aggregate,
+only its runner-local interval since its first step is anchored to the service
+job start; runner wall time is never subtracted from a service timestamp.
+The live estimate excludes subsequent cleanup and possible latency before that
+first step. Missing or inconsistent clocks are reported as unavailable, never
+negative or fabricated elapsed values; timing telemetry does not override actual
+component outcomes. Fetch/parse/provenance errors remain failures.
+
+Superseded PR revisions cancel their entire group; nightly/manual runs and Pages
+use independent groups. Before closing #34/#48, record the **final revision's**
+actual Ubuntu PR run, source/merge SHA and tree identity, URL, attempt number,
+completed attempt wall time, queue/dependency-ready waits, critical path, runner
+work, phase measurements and both lane outcomes/fixture inventory. Report queue
+or environment slowdown transparently. A successful over-target run remains a
+test pass with a performance investigation, rather than a human-only recovery
+gate. Local timings and YAML checks cannot supply hosted acceptance. See the
+[performance record](regression-performance.md#fast-pr-policy-34).
 
 Maintainers may optionally require **Fast PR checks** in `main` branch
 protection/rulesets, without unconditional `Full regression suite` or old PR

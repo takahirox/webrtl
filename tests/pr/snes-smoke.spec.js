@@ -1,17 +1,22 @@
-const { test, expect } = require("@playwright/test");
-const { readFileSync, writeFileSync } = require("node:fs");
+const { test, expect } = require("../pr-profile.cjs");
+const { readFileSync, writeFileSync, appendFileSync } = require("node:fs");
 const { snesTitle } = require("../pr-selection.cjs");
+const { execFileSync } = require("node:child_process");
+const { cacheIdentity, loadCircuit, saveCircuit } = require("../pr-circuit-cache.cjs");
 
 // A separate bounded observation, not a shortened comprehensive fixture loop.
 // Compile the unmodified console through the production browser compiler and
 // drive its real cartridge, CPU, PPU, APU and controller via the production worker.
-test(snesTitle, { annotation: { type: "cartridges", description: "test.sfc" } }, async ({ page }, info) => {
+test(snesTitle, { annotation: { type: "cartridges", description: "test.sfc" } }, async ({ page, browser }, info) => {
   test.setTimeout(500_000);
+  const identity = cacheIdentity(browser.version());
+  const directory = `.build/pr-snes-cache/${identity}`;
+  const cached = loadCircuit(directory, identity);
   await page.goto("./");
   page.on("console", (message) => {
     if (/^(SNES smoke|Loading browser|Compiling)/.test(message.text())) console.log(message.text());
   });
-  const result = await page.evaluate(async (cartridge) => {
+  const result = await page.evaluate(async ({ cartridge, cached }) => {
     const compiler = new Worker("./compiler-worker.js", { type: "module" });
     const runtime = new Worker("./simulator-worker.js", { type: "module" });
     let id = 0;
@@ -26,7 +31,8 @@ test(snesTitle, { annotation: { type: "cartridges", description: "test.sfc" } },
         if (!response.ok) throw new Error(`Missing SNES source: ${name}`);
         return [name, await response.text()];
       })));
-      const compiled = await new Promise((resolve, reject) => {
+      const compileStarted = performance.now();
+      const compiled = cached ? { ...cached, wasm: new Uint8Array(cached.wasm) } : await new Promise((resolve, reject) => {
         compiler.onmessage = ({ data }) => {
           if (data.error) reject(new Error(data.error));
           if (data.progress && !data.progress.includes("%")) console.log(data.progress);
@@ -35,8 +41,10 @@ test(snesTitle, { annotation: { type: "cartridges", description: "test.sfc" } },
         compiler.onerror = (event) => reject(new Error(event.message));
         compiler.postMessage({ files, top: "snes", frontend: "slang", board: "snes" });
       });
+      const compileMs = performance.now() - compileStarted;
       if (!compiled.metrics.fastBackend.supported) throw new Error(`SNES unexpectedly fell back: ${compiled.metrics.fastBackend.reason}`);
-      console.log("SNES smoke compiled", JSON.stringify(compiled.metrics));
+      console.log("SNES smoke compilation", JSON.stringify({ compilation: cached ? "reused" : "fresh",
+        compileMs, originalMetrics: compiled.metrics }));
       const started = performance.now();
       const bytes = new Uint8Array(cartridge);
       async function load() {
@@ -134,16 +142,18 @@ test(snesTitle, { annotation: { type: "cartridges", description: "test.sfc" } },
       const fastState = await selectedState();
       if (JSON.stringify(fastState) !== JSON.stringify(referenceState)) throw new Error("SNES selected register/RAM state differs across engine handoff");
       return { idle, pressed, fastIdle, fastPressed, comparedDeliveries: replayIndex, trace, replay, metrics: compiled.metrics,
+        compileMs, compilation: cached ? "reused" : "fresh",
         runtimeMs: performance.now() - started, wasm: Array.from(compiled.wasm) };
     } finally { compiler.terminate(); runtime.terminate(); }
-  }, Array.from(readFileSync("examples/snes/test.sfc")));
+  }, { cartridge: Array.from(readFileSync("examples/snes/test.sfc")), cached });
   const { wasm, ...evidence } = result;
   expect(result.comparedDeliveries).toBe(148);
   expect(result.fastIdle.mismatches).toBe(0);
   expect(result.fastPressed.mismatches).toBe(0);
   writeFileSync(info.outputPath("snes.wasm"), Buffer.from(wasm));
-  writeFileSync(info.outputPath("snes-smoke.json"), JSON.stringify(evidence));
-  console.log("SNES smoke phases", JSON.stringify({ ...result.metrics, runtimeMs: result.runtimeMs }));
+  writeFileSync(info.outputPath("snes-smoke.json"), JSON.stringify({ ...evidence, identity, cachedSourceSha: cached?.sourceSha }));
+  console.log("SNES smoke phases", JSON.stringify({ originalMetrics: result.metrics, compilation: result.compilation,
+    compileMs: result.compileMs, runtimeMs: result.runtimeMs }));
   expect(WebAssembly.validate(Buffer.from(wasm))).toBe(true);
   expect(result.trace.length).toBeGreaterThan(100);
   expect(result.replay, "fresh-instance CPU bus startup replays exactly").toEqual(result.trace);
@@ -166,4 +176,11 @@ test(snesTitle, { annotation: { type: "cartridges", description: "test.sfc" } },
     expect(expected.some((_, phase) => observation.pcm.every((v, i) => v === expected[(phase + i) % 16])),
       `${name}: exact independent DSP PCM`).toBe(true);
   }
+  if (!cached) saveCircuit(directory, identity, result,
+    execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim());
+  console.log("SNES compilation provenance", JSON.stringify({ identity, compilation: result.compilation,
+    sourceSha: cached?.sourceSha || process.env.GITHUB_SHA || execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
+    compileMs: result.compileMs, runtimeMs: result.runtimeMs }));
+  if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+    `SNES compilation: ${result.compilation}, ${(result.compileMs / 1000).toFixed(3)}s; simulation ${(result.runtimeMs / 1000).toFixed(3)}s; identity ${identity}; generated at ${cached?.sourceSha || process.env.GITHUB_SHA || "local checkout"}. Original compiler phases: ${JSON.stringify(result.metrics.phases)}.\n`);
 });

@@ -1,4 +1,4 @@
-const { test, expect } = require("@playwright/test");
+const { test, expect } = require("../pr-profile.cjs");
 
 async function compile(page, source) {
   await page.goto("./");

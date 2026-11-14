@@ -13,6 +13,12 @@ export async function compileProject(project, progress) {
   if (!contract) throw new Error("Unknown output interface.");
   const hdl = Object.fromEntries(Object.entries(files).filter(([name]) => isHDL(name)));
   const names = Object.keys(hdl);
+  const phases = {};
+  let phaseStarted = started;
+  const phase = (name) => {
+    phases[name] = performance.now() - phaseStarted;
+    phaseStarted = performance.now();
+  };
   let diagnostics = "";
   let stage = "Loading browser toolchain";
   const decoder = new TextDecoder();
@@ -26,6 +32,7 @@ export async function compileProject(project, progress) {
   try {
     progress(stage);
     const { runYosys } = await import("./tools/yosys/bundle.js");
+    phase("toolchainImportMs");
     stage = "Compiling Verilog with Yosys";
     progress(stage);
     const generated = await runYosys(["-Q", "-T", "-p", [
@@ -39,6 +46,7 @@ export async function compileProject(project, progress) {
       `rename ${top} webrtltop`,
       "memory_collect", "write_json design.json", "write_cxxrtl -O6 -g4 design.cc",
     ].join("; ")], virtualFiles(hdl), options);
+    phase("yosysMs");
     const netlist = JSON.parse(generated["design.json"]).modules.webrtltop;
     const ports = netlist.ports;
     const expected = { clk: ["input", 1], reset: ["input", 1], ...contract.ports };
@@ -55,6 +63,7 @@ export async function compileProject(project, progress) {
     }
     const fast = generateFastBackend(netlist, generated["design.cc"], board);
     diagnostics += `\nFast backend: ${fast.supported ? "scheduled RTL (shared state ABI v1)" : `CXXRTL fallback: ${fast.reason}`}\n`;
+    phase("fastBackendMs");
     stage = "Compiling and linking CXXRTL with Clang";
     progress(stage);
     const { runClang } = await import("./tools/clang/bundle.js");
@@ -71,6 +80,7 @@ export async function compileProject(project, progress) {
     if (!wrapper.ok) throw new Error("Could not load the simulator adapter. Reload and retry.");
     const debugWrapper = await fetch(new URL("./debug-runtime.cpp", import.meta.url));
     if (!debugWrapper.ok) throw new Error("Could not load debugger adapter.");
+    phase("clangSetupMs");
     const result = await runClang([
       // Memory-backed CXXRTL models use C++ containers. This standalone Wasm
       // runtime has no C++ exception ABI; failed checks must abort instead.
@@ -82,8 +92,9 @@ export async function compileProject(project, progress) {
         ...(board === "snes" ? ["sim_buttons", "sim_cart_config", "sim_cart_byte", "sim_video_height"] : [])].map((name) => `-Wl,--export=${name}`),
       "-Wl,--max-memory=67108864", "sim.cc", "-o", "sim.wasm",
     ], { ...headers, "design.cc": generated["design.cc"], "sim.cc": await wrapper.text(), "debug-runtime.cpp": await debugWrapper.text(), "fast-model.cpp": fast.source }, options);
+    phase("clangMs");
     return { wasm: result["sim.wasm"], diagnostics: diagnostics.replace(/\x1b\[[0-9;]*m/g, ""),
-      metrics: { compileMs: performance.now() - started, wasmBytes: result["sim.wasm"].length,
+      metrics: { phases, compileMs: performance.now() - started, wasmBytes: result["sim.wasm"].length,
         fastBackend: { supported: fast.supported, reason: fast.reason, registers: fast.registers, memories: fast.memories },
         fastSourceBytes: new TextEncoder().encode(fast.source).length,
         cxxrtlBytes: new TextEncoder().encode(generated["design.cc"]).length } };
