@@ -1,4 +1,4 @@
-const { test, expect } = require("@playwright/test");
+const { test, expect } = require("../pr-profile.cjs");
 const { execFileSync } = require("node:child_process");
 const { readFileSync, readdirSync } = require("node:fs");
 

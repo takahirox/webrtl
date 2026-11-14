@@ -1,4 +1,4 @@
-const { test, expect } = require("@playwright/test");
+const { test, expect } = require("../pr-profile.cjs");
 const { importProject } = require("../import-project.cjs");
 
 async function noPageOverflow(page) {
