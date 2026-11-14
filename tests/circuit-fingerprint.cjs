@@ -4,13 +4,14 @@ const { join } = require("node:path");
 
 // Hash the actual served build, including RTL, adapters, headers and every
 // pinned compiler binary. No persistent cache or timestamps are trusted.
-function circuitFingerprint(directory, identity) {
+function fingerprint(directory, identity, skipBuildInfo) {
   const hash = createHash("sha256").update(JSON.stringify(identity));
   const buffer = Buffer.alloc(1024 * 1024);
   function visit(relative) {
     for (const entry of readdirSync(join(directory, relative), { withFileTypes: true })
       .sort((a, b) => a.name.localeCompare(b.name))) {
       const path = join(relative, entry.name);
+      if (skipBuildInfo && path === "build-info.json") continue;
       if (entry.isDirectory()) visit(path);
       else {
         if (!entry.isFile()) throw new Error(`Unexpected build entry: ${path}`);
@@ -28,4 +29,9 @@ function circuitFingerprint(directory, identity) {
   return hash.digest("hex");
 }
 
-module.exports = { circuitFingerprint };
+// Full-suite reuse still includes revision provenance. The PR disk cache can
+// span documentation-only commits: hash every served byte except the revision
+// label, then verify the current build SHA separately before using it.
+const circuitFingerprint = (directory, identity) => fingerprint(directory, identity, false);
+const compilationFingerprint = (directory, identity) => fingerprint(directory, identity, true);
+module.exports = { circuitFingerprint, compilationFingerprint };

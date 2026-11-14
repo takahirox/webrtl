@@ -1,6 +1,6 @@
 // The same conservative selection runs on EVERY PR, including broad changes.
 // Never derive this selection from a caller's WEBRTL_SNES_FIXTURES expression.
-const snesTitle = "SNES PR smoke compiles the complete console and checks cartridge pixels, DSP, input and reset";
+const snesTitle = "SNES PR smoke validates complete-console compilation and checks cartridge pixels, DSP, input and reset";
 const genericTitles = Object.freeze([
   "mixed-language project paths preserve edits and enforce reference execution bounds",
   "C++ and Python references compare real RTL, expose a mismatch and export sampled VCD",

@@ -56,8 +56,23 @@ jobs:
       - name: Verify this run's build provenance
         run: |
           python3 -c 'import json,os,subprocess; sha=os.environ["GITHUB_SHA"]; assert subprocess.check_output(["git","rev-parse","HEAD"],text=True).strip() == sha; assert json.load(open(".build/pages/webrtl/build-info.json"))["commit"] == sha'
+      - name: Restore immutable SNES compilation
+        if: matrix.suite == 'snes'
+        id: snes-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .build/pr-snes-cache
+          # No prefix fallback. Runtime validation hashes every served byte
+          # (except the independently checked revision label) and actual browser.
+          key: pr-snes-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('web/**', 'examples/**', 'package-lock.json', 'build_site.py', 'tests/pr-circuit-cache.cjs', 'tests/circuit-fingerprint.cjs') }}
       - name: Run bounded real browser compilation and simulation
         run: npm run test:pr:built -- --project=pr-${{ matrix.suite }}
+      - name: Save passing SNES compilation
+        if: matrix.suite == 'snes' && steps.snes-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .build/pr-snes-cache
+          key: ${{ steps.snes-cache.outputs.cache-primary-key }}
       - name: Upload PR results and failure evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -86,10 +101,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p .build
-          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" > .build/pr-run.json
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT" > .build/pr-run.json
           gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT/jobs?per_page=100" > .build/pr-jobs.json
-      - name: Require all components and enforce creation-to-result budget
+      - name: Require all components and report attempt timing
         env:
+          SOURCE_SHA: ${{ github.event.pull_request.head.sha }}
           PREPARE: ${{ needs.prepare.result }}
           BROWSER: ${{ needs.browser.result }}
         run: node scripts/check-pr-budget.cjs

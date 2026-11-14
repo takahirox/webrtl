@@ -102,7 +102,7 @@ export function setupWorkspace(app) {
     try {
       status("Preparing verification…");
       validateClockedHarness(app.files());
-      if (!app.simulator() && !await app.compile(signal)) throw new Error("DUT compilation failed. See diagnostics.");
+      if (!app.simulator() && !await app.compile(signal, true)) throw new Error("DUT compilation failed. See diagnostics.");
       if (signal.aborted) throw new DOMException("Verification cancelled.", "AbortError");
       const simulator = app.simulator();
       const initialIO = simulator._sim_output().io;

@@ -4,34 +4,47 @@ function workerError(event) {
 }
 
 import { parseCartridge } from "./snes-rom.js";
+import { compilationKey } from "./project.js";
 
-export async function compileBrowser(project, progress, signal) {
-  const compiler = new Worker(new URL("./compiler-worker.js", import.meta.url), { type: "module" });
-  let result;
-  try {
-    result = await new Promise((resolve, reject) => {
-      // The shared debug-capable SNES model exceeds five minutes on the
-      // reference CI runner. Keep compilation bounded without discarding it
-      // before Clang can finish (see docs/simulation-modes.md).
-      const seconds = project.frontend === "slang" ? 600 : 120;
-      const timeout = setTimeout(() => finish(reject, new Error(`Compilation exceeded ${seconds} seconds. Simplify the design or retry.`)), seconds * 1000);
-      const abort = () => finish(reject, new DOMException("Compilation cancelled.", "AbortError"));
-      const finish = (callback, value) => { clearTimeout(timeout); signal?.removeEventListener("abort", abort); callback(value); };
-      if (signal?.aborted) { abort(); return; }
-      signal?.addEventListener("abort", abort, { once: true });
-      compiler.onerror = (event) => finish(reject, workerError(event));
-      compiler.onmessage = ({ data }) => {
-        if (data.progress) progress(data.progress);
-        else if (data.error) finish(reject, new Error(data.error));
-        else finish(resolve, data);
-      };
-      compiler.postMessage(project);
-    });
-  } finally {
-    compiler.terminate();
+// One immutable compilation per loaded page/toolchain, never a live circuit.
+// Always create a new simulator worker and copy bytes before transferring them.
+let lastCompilation;
+
+export async function compileBrowser(project, progress, signal, reuse = false) {
+  const key = compilationKey(project);
+  let compiled;
+  if (reuse && lastCompilation?.key === key) {
+    progress("Reusing unchanged circuit compilation…");
+    compiled = lastCompilation.result;
+  } else {
+    const compiler = new Worker(new URL("./compiler-worker.js", import.meta.url), { type: "module" });
+    try {
+      compiled = await new Promise((resolve, reject) => {
+        // The shared debug-capable SNES model exceeds five minutes on the
+        // reference CI runner. Keep compilation bounded without discarding it
+        // before Clang can finish (see docs/simulation-modes.md).
+        const seconds = project.frontend === "slang" ? 600 : 120;
+        const timeout = setTimeout(() => finish(reject, new Error(`Compilation exceeded ${seconds} seconds. Simplify the design or retry.`)), seconds * 1000);
+        const abort = () => finish(reject, new DOMException("Compilation cancelled.", "AbortError"));
+        const finish = (callback, value) => { clearTimeout(timeout); signal?.removeEventListener("abort", abort); callback(value); };
+        if (signal?.aborted) { abort(); return; }
+        signal?.addEventListener("abort", abort, { once: true });
+        compiler.onerror = (event) => finish(reject, workerError(event));
+        compiler.onmessage = ({ data }) => {
+          if (data.progress) progress(data.progress);
+          else if (data.error) finish(reject, new Error(data.error));
+          else finish(resolve, data);
+        };
+        compiler.postMessage(project);
+      });
+    } finally {
+      compiler.terminate();
+    }
   }
   if (signal?.aborted) throw new DOMException("Compilation cancelled.", "AbortError");
-  progress("Loading newly compiled circuit…");
+  lastCompilation = { key, result: compiled };
+  const result = structuredClone(compiled);
+  progress("Loading circuit…");
   const worker = new Worker(new URL("./simulator-worker.js", import.meta.url), { type: "module" });
   let nextId = 0;
   let count = 0;
