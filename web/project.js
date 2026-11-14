@@ -35,6 +35,14 @@ export function validateProject({ files, top, frontend = "verilog" }) {
   validateSize(files, frontend);
 }
 
+// Only HDL enters the compiler. Reference edits still undergo full project
+// validation, but cannot change the circuit. Keep source order as compiled.
+export function compilationKey(project) {
+  validateProject(project);
+  const { top, board = "counter", frontend = "verilog", files } = project;
+  return JSON.stringify([top, board, frontend, Object.entries(files).filter(([name]) => isHDL(name))]);
+}
+
 // YoWASP uses directory objects, never host filesystem paths.
 export function virtualFiles(files) {
   const root = Object.create(null);

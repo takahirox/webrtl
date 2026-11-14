@@ -5,7 +5,7 @@
 The [fast/full policy](pr-validation.md) supersedes the historical requirement
 below to run comprehensive validation on every PR. The optimized full corpus and
 #30 measurements remain intact; full CI now runs nightly/manual. The PR gate runs
-eight generic/Pages checks and one dedicated single-cartridge SNES smoke in
+sixteen generic/Pages/verification checks and one dedicated single-cartridge SNES smoke in
 independent Chromium jobs, sharing one static build. The smoke compiles the
 complete console and checks independent pixels/PCM, serial input, HDMA/interrupt
 activity and CPU startup reset replay. Comprehensive fixture loops and the
@@ -13,19 +13,20 @@ LoROM/reset/HiROM UI baselines remain in the full suite.
 The dedicated PR config prevents the full corpus from entering the fast lane.
 
 Budget: preparation 2 minutes, each browser job 9 minutes, each Playwright lane
-510 seconds, aggregate 1 minute; the aggregate additionally fails at 590 seconds
-on its creation-to-check estimate, including queue, to reserve aggregate
-setup/cleanup before the 600-second acceptance ceiling. Timing summaries retain
-initial queue and job timestamps separately from completed runner work. Full
-budgets below are unchanged.
+510 seconds, aggregate 1 minute. #48 supersedes the former 590-second
+creation-to-check failure guard: **<600 seconds is the work/dependency feedback
+performance goal**, with runner allocation and end-to-end attempt wall time
+reported separately. Timing overruns warn; actual component failure, timeout,
+cancellation, missing/skipped lanes or invalid provenance still fail. Full
+budgets below are unchanged. See the [timing policy](pr-validation.md#budgets-provenance-and-acceptance).
 
-**Ubuntu final-revision PR acceptance: pending.** This GitWeave execution may
-commit locally but must not push or create a PR. No successful hosted timing is
-claimed from local validation. Before #34 closes, record the final tested SHA/tree,
-run URL, creation/aggregate-completion timestamps, queue/dependency waits, total
-runner work and accurate pass/fail/fixture counts. Requiring the fast status in
-branch protection is an optional maintainer recommendation, not an acceptance
-condition; see the policy.
+**Ubuntu final-revision PR acceptance for #34/#48: pending.** This GitWeave node
+may commit locally but must not push or create a PR. No successful hosted timing
+is claimed from local validation. An authorized downstream PR run must record
+final source/merge SHA/tree, URL, attempt-specific wall time, allocation/dependency
+waits, execution/dispatch critical path, runner work, phase timings and outcomes.
+Branch protection configuration and human-only approval are not prerequisites.
+The measurements below preserve failed historical runs as failed evidence.
 
 The issue's latest full reference is
 [41257353210](https://github.com/takahirox/webrtl/actions/runs/41257353210):
@@ -33,6 +34,78 @@ The issue's latest full reference is
 [Pages publication 41267991542](https://github.com/takahirox/webrtl/actions/runs/41267991542)
 took about 64 seconds. Those are historical comprehensive/publication evidence,
 not fast-PR acceptance.
+
+### Queue-aware timing and compilation reuse (#48)
+
+[Machine-readable measurements](pr-ci-measurements.json) retain source/job URLs,
+SHAs, service/step intervals, local test outcomes, phase totals and source hashes.
+The hosted baseline is PR #47,
+[run 43529597889](https://github.com/takahirox/webrtl/actions/runs/43529597889),
+source `ec6deab792d232e0a747b7a4a7c49ee5db6608ba`, merge checkout
+`fb2d3c2681429da202c5a119a7888e9634749157`.
+Generic/SNES jobs took **432s / 417s**; browser install took **23s / 35s**,
+artifact download **6s / 2s**, and browser test execution **389s / 364s**.
+SNES compilation consumed **302.94s** (about 102.39s frontend/backend and
+200.57s Clang/setup), followed by **53.55s simulation**. The actual browser work,
+rather than installation alone, dominated both lanes.
+
+Attempt 2's run start is `00:01:18Z`; its API returns successful component
+intervals from before that start, relabelled with `run_attempt=2` and new job
+creation timestamps. They are carried dependencies, not 7-minute work in the
+rerun. The new summary identifies this and counts only current-attempt work.
+The original run's initial wait was about 343s; dependency-ready waits were
+41s generic, 30s SNES and 50s aggregate across the underlying execution.
+Those waits must not be added together across parallel branches. The old
+aggregate's failure remains recorded; it is not rewritten as a successful run.
+
+Comparable local Chromium 156 / Playwright 1.64.1 measurements use one worker
+on the same Darwin arm64 Mac16,5 (16 physical cores, 64 GiB), Node 26.12.1 and
+pinned toolchain. These are separate sequential lane invocations, not hosted CI
+feedback measurements. The recorded dirty-worktree source hashes identify the
+implementation measured; the base commit alone does not identify those edits.
+The JSON distinguishes comparison hashes from final hashes after default-board
+normalization was hardened; further cold/reused and focused checks cover that
+final boundary fix.
+
+| Local observation | Before | After cold | After reuse |
+| --- | ---: | ---: | ---: |
+| Generic lane, all 16 checks | 119.49s | 92.33s | same page-local verification reuse applies on every run |
+| Generic fresh RTL compilations | 36 | 25 | — |
+| Generic completed compilation total | 79.65s | 54.84s | — |
+| Generic Yosys / Clang invocation totals | 7.12s / 72.15s | 4.79s / 49.76s | — |
+| Generic completed reference work | 11.44s | 10.91s | — |
+| SNES lane, full smoke assertions | 89.64s | 91.91s | 27.63s |
+| SNES current compilation | 63.23s | 65.99s | 0.0005s browser byte reconstruction; cache validation is in test overhead |
+| SNES simulation | 23.34s | 23.76s | 23.86s |
+
+Generic wall time fell **22.7%** by removing duplicate DUT compilation during
+reference edits, while explicit Compile and changed HDL still compile freshly.
+The new runtime-worker instrumentation measured **0.85s** of generic worker
+round trips; that category was unavailable in the older baseline. Test wall
+time also includes UI/assertion work, intentional timeout/cancellation checks,
+server/browser startup and delivery overhead. Worker intervals may overlap and
+are not a substitute for wall time.
+
+SNES reuse reduces lane time **69.9%** relative to the new cold path. Cold
+compilation is not faster; unchanged complete-console binaries are reused only
+when every compilation input and actual browser identity matches. Cache entries
+live under their input fingerprint, so normal local source changes select a cold
+entry; corruption or foreign provenance inside the selected entry fails.
+GitHub cache visibility rules still apply: an initial PR can be cold, while
+updates/reruns of that PR can reuse its successful cache. No cross-PR cache hit
+or hosted critical-path improvement is claimed here. Each path runs unchanged
+pixels/PCM, serial input, interrupts/HDMA, reset replay and scheduled/reference
+comparisons with fresh runtime instances. A tested `-O1` experiment increased
+compilation to 227.30s and was interrupted during simulation; it was rejected,
+and production remains `-O2`.
+
+All **10 Python + 24 Node** checks, **16 generic**, cold and reused **SNES smoke**,
+and **4 additional Chromium counter** regressions passed. The full discovery
+checks still retain 94 static tests, both browsers and all cartridge inventories.
+Actionlint 1.7.12 passed all three workflows. No complete nightly/Firefox run was
+performed for this scoped change. The final hosted PR workflow run is still
+**pending**, as required by the current policy; local results do not close that
+acceptance gap and introduce no human-only approval step.
 
 ### Review fixes and failed hosted evidence
 
@@ -42,9 +115,9 @@ out at 440s during baseline reset, before reaching its four selected cartridges.
 The dedicated smoke now avoids the comprehensive harness's repeated
 UI/baseline/fixture simulations;
 it compiles the same full console and observes one boot cartridge instead.
-Browser jobs now allow nine minutes (Playwright 510s; SNES test 500s) to give
-slow compilation headroom within the unchanged <600s overall acceptance and
-590s aggregate guard. The improvement comes from removing repeated simulations;
+At that revision, browser jobs allowed nine minutes (Playwright 510s; SNES test
+500s), within the then-enforced <600s creation-to-result acceptance and 590s
+aggregate guard. #48 replaces that elapsed-time gate as described above. The improvement comes from removing repeated simulations;
 no timeout-only success is claimed.
 The [selection policy](pr-validation.md) records its exact limits and the extra
 CPU/PPU/DMA/APU/cartridge evidence required for affected changes.

@@ -402,7 +402,7 @@ function showCpuOutput(output) {
   ui["cpu-trace"].textContent = lines.slice(-128).join("\n");
 }
 
-async function compile(signal) {
+async function compile(signal, reuse = false) {
   ui.errors.hidden = true;
   discard();
   busy = true;
@@ -415,7 +415,7 @@ async function compile(signal) {
       const { compileBrowser } = await import("./browser-client.js");
       simulator = await compileBrowser(
         { files, top: ui.top.value, board: selected, frontend: ui.frontend.value },
-        (progress) => { ui.status.textContent = progress; }, signal,
+        (progress) => { ui.status.textContent = progress; }, signal, reuse,
       );
       toolchainReady = true;
       ui["compile-notice"].hidden = true;

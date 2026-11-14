@@ -72,15 +72,24 @@ compiler/runtime/debugger/SNES changes, inspect additional focused/manual eviden
 justify behavior it does not observe. Require complete manual validation when
 focused evidence cannot justify the change; do not require the multi-hour status
 unconditionally on every PR. Check nightly failures and their investigation links;
-a fast pass does not clear them. Do not close #34 until the final revision has an
-actual Ubuntu PR run under 600 seconds creation-to-aggregate completion, with
-queue and runner work reported separately.
+a fast pass does not clear them. Before closing #34/#48, inspect an actual Ubuntu
+PR run of the final revision, with attempt-specific queue, dependency waits,
+execution and outcomes reported
+under the [current timing policy](pr-validation.md#budgets-provenance-and-acceptance).
+The <600s execution feedback goal is diagnostic; queue or timing overrun alone
+does not invalidate successful tests or require human-only recovery.
 
 ## Resolve findings and necessary questions
 
 - **Agent-fixable findings:** request concrete fixes, identifying the affected
   file or behavior, the unmet requirement or risk, and the expected result.
   Review the updated PR again against the Issue and relevant checks.
+- **CI or infrastructure wait:** inspect and monitor automated checks for the
+  current PR head. Use bounded authorized recovery for transient failures and
+  follow the current attempt-aware timing policy. Pending checks, queue delays
+  and machine-retrievable evidence do not require a human-confirmation response.
+  Reassess when checks finish. Report actual test failures or permission blockers
+  accurately; do not waive required checks or repeatedly publish unchanged work.
 - **Necessary human input:** record the specific question, why a human answer is
   necessary, and the expected confirmation or decision. Enter the workflow's wait
   path and wait for the answer; do not repeatedly request code fixes for that

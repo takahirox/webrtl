@@ -154,6 +154,14 @@ is necessary, and the expected result. Use the workflow's wait path and wait for
 the answer rather than repeatedly requesting code fixes. Distinguish this state
 from agent-fixable findings.
 
+Pending CI and recoverable infrastructure failures are machine-observable
+validation states, not human confirmation. Monitor the current PR head's checks
+and use bounded automated recovery when authorized. Reassess after CI completes;
+do not ask a maintainer to supply results that the agent can retrieve itself.
+If automated recovery is unavailable because of an actual permission restriction,
+report that restriction and the operation needed instead of requesting generic
+human approval. Follow the current [timing and rerun policy](pr-validation.md#budgets-provenance-and-acceptance).
+
 ## 5. Merge
 
 Approve and merge when the implementation and mandatory pre-merge checks are
